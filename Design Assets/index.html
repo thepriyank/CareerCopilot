@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Career Copilot — Design System & Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="src/tokens.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; }
+  body { font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="src/components.jsx"></script>
+<script type="text/babel" src="src/system.jsx"></script>
+<script type="text/babel" src="src/desktop-a.jsx"></script>
+<script type="text/babel" src="src/desktop-b.jsx"></script>
+<script type="text/babel" src="src/mobile.jsx"></script>
+<script type="text/babel" src="src/extras.jsx"></script>
+
+<script type="text/babel">
+const { useEffect, useState } = React;
+
+function App() {
+  // Wait one frame to make sure all the deferred babel scripts have run
+  // and registered their components on window before we try to mount them.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      if (window.DesignSystemArtboard && window.LandingDesktop && window.TailoringDesktop && window.LandingMobile && window.DashboardDesktop && window.StatesArtboard) setReady(true);
+      else setTimeout(check, 60);
+    };
+    check();
+  }, []);
+  if (!ready) {
+    return (
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#847d75", fontFamily: "JetBrains Mono, monospace", fontSize: 12, letterSpacing: 0.1 }}>
+        loading components…
+      </div>
+    );
+  }
+
+  const {
+    DesignCanvas, DCSection, DCArtboard,
+    DesignSystemArtboard,
+    LandingDesktop, UploadDesktop, OnboardingChatDesktop, MasterResumeDesktop, JobBoardDesktop,
+    TailoringDesktop, ApprovalsDesktop, SkillRoadmapDesktop, LinkedInReviewDesktop,
+    LandingMobile, UploadMobile, OnboardingMobile, MasterResumeMobile, JobBoardMobile,
+    TailoringMobile, ApprovalsMobile, RoadmapMobile, LinkedInMobile,
+    DashboardDesktop, DashboardMobile, SettingsDesktop, SettingsMobile, StatesArtboard,
+  } = window;
+
+  return (
+    <DesignCanvas>
+      {/* ── Section 0: System overview ── */}
+      <DCSection id="system" title="AI Career Copilot — design system"
+                 subtitle="Foundations, components, and the rationale for every visual choice.">
+        <DCArtboard id="ds" label="01 · Foundations" width={1280} height={2200}>
+          <DesignSystemArtboard/>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ── Section 1: Desktop screens ── */}
+      <DCSection id="desktop" title="Desktop · 1440 × 900"
+                 subtitle="Eleven flows. Sidebar + topbar + content. Every AI surface is annotated with provenance, diff, or rationale.">
+        <DCArtboard id="d0" label="00 · Dashboard"           width={1440} height={900}><DashboardDesktop/></DCArtboard>
+        <DCArtboard id="d1" label="01 · Landing"             width={1440} height={900}><LandingDesktop/></DCArtboard>
+        <DCArtboard id="d2" label="02 · Upload + parsing"    width={1440} height={900}><UploadDesktop/></DCArtboard>
+        <DCArtboard id="d3" label="03 · Onboarding chat"     width={1440} height={900}><OnboardingChatDesktop/></DCArtboard>
+        <DCArtboard id="d4" label="04 · Master resume"       width={1440} height={900}><MasterResumeDesktop/></DCArtboard>
+        <DCArtboard id="d5" label="05 · Job match board"     width={1440} height={900}><JobBoardDesktop/></DCArtboard>
+        <DCArtboard id="d6" label="06 · Job + tailoring"     width={1440} height={900}><TailoringDesktop/></DCArtboard>
+        <DCArtboard id="d7" label="07 · Approvals"           width={1440} height={900}><ApprovalsDesktop/></DCArtboard>
+        <DCArtboard id="d8" label="08 · Skill roadmap"       width={1440} height={900}><SkillRoadmapDesktop/></DCArtboard>
+        <DCArtboard id="d9" label="09 · LinkedIn review"     width={1440} height={900}><LinkedInReviewDesktop/></DCArtboard>
+        <DCArtboard id="d10" label="10 · Settings · API keys" width={1440} height={900}><SettingsDesktop/></DCArtboard>
+      </DCSection>
+
+      {/* ── Section 2: Mobile screens ── */}
+      <DCSection id="mobile" title="Mobile · 390 × 844"
+                 subtitle="Single-column. Sticky bottom bars for primary actions. Same provenance language as desktop.">
+        <DCArtboard id="m0" label="00 · Dashboard"           width={390} height={844}><DashboardMobile/></DCArtboard>
+        <DCArtboard id="m1" label="01 · Landing"             width={390} height={844}><LandingMobile/></DCArtboard>
+        <DCArtboard id="m2" label="02 · Upload + parsing"    width={390} height={844}><UploadMobile/></DCArtboard>
+        <DCArtboard id="m3" label="03 · Onboarding chat"     width={390} height={844}><OnboardingMobile/></DCArtboard>
+        <DCArtboard id="m4" label="04 · Master resume"       width={390} height={844}><MasterResumeMobile/></DCArtboard>
+        <DCArtboard id="m5" label="05 · Job board"           width={390} height={844}><JobBoardMobile/></DCArtboard>
+        <DCArtboard id="m6" label="06 · Tailoring"           width={390} height={844}><TailoringMobile/></DCArtboard>
+        <DCArtboard id="m7" label="07 · Approvals"           width={390} height={844}><ApprovalsMobile/></DCArtboard>
+        <DCArtboard id="m8" label="08 · Skill roadmap"       width={390} height={844}><RoadmapMobile/></DCArtboard>
+        <DCArtboard id="m9" label="09 · LinkedIn review"     width={390} height={844}><LinkedInMobile/></DCArtboard>
+        <DCArtboard id="m10" label="10 · Settings · API keys" width={390} height={844}><SettingsMobile/></DCArtboard>
+      </DCSection>
+
+      {/* ── Section 3: States gallery ── */}
+      <DCSection id="states" title="States · empty + loading + error"
+                 subtitle="The 80% of screens that aren't the happy path. Reusable kit so each screen doesn't invent its own.">
+        <DCArtboard id="st" label="04 · States kit" width={1280} height={2200}><StatesArtboard/></DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
