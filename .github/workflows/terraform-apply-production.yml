@@ -1,0 +1,50 @@
+name: Terraform Apply · production
+
+# Unlike terraform-apply-staging.yml, this is gated by the "production"
+# GitHub Environment's required-reviewer protection rule — the job pauses
+# for manual approval before it runs at all. See
+# docs/cicd_terraform_plan.md's phased plan.
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - 'infra/terraform/environments/production/**'
+      - 'infra/terraform/modules/**'
+      - '.github/workflows/terraform-apply-production.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-apply-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.15.8'
+
+      # Same deployer SA/WIF trust as staging (repo-wide, not
+      # branch-scoped) — see infra/terraform/bootstrap/main.tf's comment.
+      # Tightening this to a production-only, branch-scoped credential is
+      # a reasonable future hardening step, not done here.
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/764795049074/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider
+          service_account: jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com
+
+      - run: terraform init -input=false
+
+      - run: terraform apply -input=false -auto-approve -var-file=image_tags.tfvars

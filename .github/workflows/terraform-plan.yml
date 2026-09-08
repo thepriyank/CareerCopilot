@@ -19,8 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Add "production" here once infra/terraform/environments/production/ exists.
-        environment: [staging]
+        environment: [staging, production]
     defaults:
       run:
         working-directory: infra/terraform/environments/${{ matrix.environment }}

@@ -24,6 +24,7 @@ section at the bottom gives the commands that ask GCP/Neon directly.
 | Region (chosen to sit next to Neon's Singapore branch) | `asia-southeast1` |
 | Neon project | `polished-unit-87797764` (org `org-wild-field-89493590`) |
 | GitHub repo (WIF trust is bound to exactly this) | `thepriyank/CareerCopilot` |
+| Branches | `main` = staging, `production` = production, `master` = old default, being phased out — see "Branch strategy" below |
 | Artifact Registry | `asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate` (one repo, `backend`/`frontend` image names) |
 | Terraform state bucket | `jobmagnet-6a1ab-tfstate` (bootstrap: local state; environments: this bucket, prefix `env/<name>`) |
 
@@ -75,18 +76,59 @@ State: **remote**, `gs://jobmagnet-6a1ab-tfstate/env/staging`.
 - Always build for staging/production with `docker buildx build --platform linux/amd64 ... --push` (see updated `README.md` Step 2), never plain `docker build` on an arm64 host.
 - **Always use a fresh, unique tag per deploy** (a timestamp is enough) — never redeploy under a tag string Terraform has already seen, even after fixing/re-pushing the image behind it. Terraform/Cloud Run's `image` field is compared as a string, not resolved-and-compared by digest, so a "fixed" image under an already-applied tag is silently invisible to the next plan.
 
-## `production` environment
+## Branch strategy (revised 2026-09-08 — supersedes the original plan doc's assumption)
 
-**Not created yet.** Copy `environments/staging/` per `docs/cicd_terraform_plan.md` Phase F when ready — same modules, its own `terraform.tfvars`, its own Neon branch (the existing `production` branch, already the Neon default), its own secrets (never share staging's).
+The plan doc's Phase A–F narrative was written assuming a single default
+branch (`master`). The user changed this mid-implementation:
+
+| Branch | Role |
+|---|---|
+| `main` | **Staging.** `ci-*.yml`, `terraform-apply-staging.yml`, `deploy-*.yml` all trigger on push here. |
+| `production` | **Production.** `terraform-apply-production.yml`, `deploy-*-production.yml` trigger on push here — each gated by the `production` GitHub Environment's required-reviewer rule (configured via `gh api`, reviewer: `thepriyank`), so the job pauses for manual approval before running at all, on top of its own branch-restricted deployment policy. |
+| `master` | The actual GitHub default branch (confirmed via `gh repo view`), being phased out by the user. `terraform-plan.yml` still triggers on any PR regardless of target branch, so it isn't branch-name-dependent. |
+
+**Same deployer SA / WIF trust for both `main` and `production`** — the
+WIF provider's `attribute_condition` is repo-scoped
+(`thepriyank/CareerCopilot`), not branch-scoped. Production's real
+protection is the required-reviewer gate, not a separate credential.
+Tightening WIF trust to be branch-scoped per environment is a reasonable
+future hardening step (see `bootstrap/main.tf`'s comment), not done here.
+
+## `production` environment (`infra/terraform/environments/production/`) — created 2026-09-08
+
+Mirrors `staging/` exactly in shape (same modules) — only the values
+differ. **Not yet applied** — created and validated (`terraform validate`
+passes) but no `terraform apply` has been run against it yet, unlike
+staging. Still on the bootstrap placeholder image in `image_tags.tfvars`.
+
+| Resource | Value |
+|---|---|
+| Backend Cloud Run service (not yet applied) | `jobmagnate-backend-production` |
+| Frontend Cloud Run service (not yet applied) | `jobmagnate-frontend-production` |
+| Backend runtime SA (not yet created) | `jobmagnate-be-production@jobmagnet-6a1ab.iam.gserviceaccount.com` |
+| Frontend runtime SA (not yet created) | `jobmagnate-fe-production@jobmagnet-6a1ab.iam.gserviceaccount.com` |
+| Neon branch | the existing **`production`** branch (`br-lucky-term-b3v6w6c4`) — already the Neon project default, not a new branch like staging's |
+| Secrets (not yet created) | same catalog as staging, entirely separate Secret Manager secrets/versions — `jobmagnate-production-*`, never shared with staging's `jobmagnate-staging-*` |
+
+**Creating the `production` branch will likely immediately queue pending
+(awaiting-approval) runs** of `terraform-apply-production.yml` and both
+`deploy-*-production.yml` — a new branch's initial push is treated as a
+diff against nothing, so every path this branch already contains (from
+being cut off `main`) looks "changed." This is expected and safe: the
+required-reviewer gate means nothing actually runs until approved, and
+even an approved `deploy-*-production.yml` run would fail at its
+`npm test`/`tsc --noEmit` step for the same reason `ci-backend.yml` /
+`ci-frontend.yml` currently fail on `main` — see the next section.
 
 ## Known limitations / deferred work
 
 (Full detail in `docs/cicd_terraform_plan.md` — this is just the pointer list)
 
-- **Migrations + discovery cron still run in-process on every boot** (`backend/src/index.ts`) — Phase E (dedicated Cloud Run Job + Cloud Scheduler + advisory lock) hasn't landed. Staging's `max_instances=1` is a partial mitigation, not the real fix.
-- **No custom domain mapped** — both services use their auto-generated `*.run.app` URL. `jobmagnate.com` mapping is straightforward to add to `modules/cloud-run-service` when there's a domain to verify.
-- **No GitHub Actions workflows exist yet** — every apply so far has been run manually from a developer machine with real `gcloud` ADC. The WIF trust bootstrap already set up is what those workflows will use once built (Phases B–D).
-- **`GROQ_API_KEY` has no real value** — add it back to `enabled_secrets` in `environments/staging/variables.tf` once one exists.
+- **The committed source on `main`/`master` predates the real, working app entirely** (discovered 2026-09-08 via PR #1's first-ever CI run — see `ci-backend.yml`/`ci-frontend.yml`'s failures there). Nothing from this project's real feature work (the TypeORM migration, F1–F8 features, auth, GCS, tests — everything) has ever been committed; git history stops at an initial "partial implementation" snapshot that still imports `@prisma/client` (no longer even a dependency) and has real TypeScript errors. `terraform-plan.yml` and `terraform-apply-*` are unaffected (they don't touch application source), but **every `ci-*.yml` and `deploy-*.yml` run will keep failing at the typecheck/test step until the real source is committed** — this is expected, not a bug in the workflows, and is a large separate piece of work the user is handling on their own timeline, not folded into the CI/CD setup itself.
+- **Migrations + discovery cron still run in-process on every boot** (`backend/src/index.ts`) — Phase E (dedicated Cloud Run Job + Cloud Scheduler + advisory lock) hasn't landed. Both environments' `max_instances=1` on the backend is a partial mitigation, not the real fix.
+- **No custom domain mapped** — every service uses its auto-generated `*.run.app` URL. `jobmagnate.com` mapping is straightforward to add to `modules/cloud-run-service` when there's a domain to verify.
+- **`GROQ_API_KEY` has no real value** — add it back to `enabled_secrets` in both environments' `variables.tf` once one exists.
+- **`production` environment exists in Terraform but has never been applied** — see the section above.
 
 ## How to verify current real state (don't trust this file blindly)
 

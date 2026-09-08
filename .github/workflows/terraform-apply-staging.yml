@@ -1,13 +1,14 @@
 name: Terraform Apply · staging
 
 # Auto-applies infra-only changes (Cloud Run scaling, secrets, IAM, new
-# modules, ...) to staging on every push to master. No manual gate — see
+# modules, ...) to staging on every push to main (main = the staging
+# branch; production has its own branch/workflow). No manual gate — see
 # docs/cicd_terraform_plan.md's phased plan (production gets a required
 # reviewer gate later; staging deliberately doesn't).
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'infra/terraform/environments/staging/**'
       - 'infra/terraform/modules/**'
