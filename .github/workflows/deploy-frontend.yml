@@ -1,0 +1,132 @@
+name: Deploy · Frontend (staging)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+
+permissions:
+  contents: write # commits the updated image_tags.tfvars back
+  id-token: write
+
+concurrency:
+  group: deploy-frontend-staging
+  cancel-in-progress: false
+
+env:
+  IMAGE_REPO: asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend
+  SERVICE: jobmagnate-frontend-staging
+  REGION: asia-southeast1
+  PROJECT_ID: jobmagnet-6a1ab
+
+jobs:
+  deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    environment: staging
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Defense-in-depth, same reasoning as deploy-backend.yml.
+      - run: npm ci
+      - run: npx next lint
+      - run: npx jest --passWithNoTests
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/764795049074/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider
+          service_account: jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.15.8'
+
+      - name: Capture currently-serving revision (for rollback)
+        id: current_revision
+        run: |
+          REV=$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT_ID" \
+            --format='value(status.traffic[0].revisionName)' 2>/dev/null || echo "")
+          echo "revision=$REV" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve backend URL (build-time NEXT_PUBLIC_API_URL)
+        id: backend_url
+        working-directory: infra/terraform/environments/staging
+        run: |
+          terraform init -input=false
+          echo "url=$(terraform output -raw backend_url)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        # NEXT_PUBLIC_* values are compiled into the JS bundle at build
+        # time — see frontend/Dockerfile's header comment. Sourced from
+        # GitHub Actions repository variables (vars.*), not secrets: these
+        # are meant to be public (Firebase web config, the API hostname).
+        run: |
+          TAG="${{ github.sha }}"
+          docker build --platform linux/amd64 \
+            --build-arg NEXT_PUBLIC_API_URL="${{ steps.backend_url.outputs.url }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}" \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}" \
+            -t "$IMAGE_REPO:$TAG" \
+            -t "$IMAGE_REPO:latest" \
+            --push .
+          echo "IMAGE_REF=$IMAGE_REPO:$TAG" >> "$GITHUB_ENV"
+
+      - name: Update image_tags.tfvars
+        run: |
+          sed -i "s|^frontend_image\s*=.*|frontend_image = \"$IMAGE_REF\"|" \
+            ../infra/terraform/environments/staging/image_tags.tfvars
+
+      - name: Terraform apply
+        working-directory: infra/terraform/environments/staging
+        run: terraform apply -input=false -auto-approve -var-file=image_tags.tfvars
+
+      - name: Health check
+        id: health
+        working-directory: infra/terraform/environments/staging
+        run: |
+          URL=$(terraform output -raw frontend_url)
+          for i in $(seq 1 10); do
+            if curl -sf "$URL/login" > /dev/null; then
+              exit 0
+            fi
+            sleep 6
+          done
+          exit 1
+        continue-on-error: true
+
+      - name: Roll back traffic on health-check failure
+        if: steps.health.outcome == 'failure' && steps.current_revision.outputs.revision != ''
+        run: |
+          gcloud run services update-traffic "$SERVICE" --region "$REGION" --project "$PROJECT_ID" \
+            --to-revisions="${{ steps.current_revision.outputs.revision }}=100"
+
+      - name: Commit updated image_tags.tfvars
+        if: steps.health.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/terraform/environments/staging/image_tags.tfvars
+          git diff --staged --quiet || git commit -m "chore(staging): deploy frontend $IMAGE_REF"
+          git push
+        working-directory: .
+
+      - name: Fail job if health check failed
+        if: steps.health.outcome == 'failure'
+        run: exit 1

@@ -1,0 +1,15 @@
+node_modules
+dist
+tests
+*.test.ts
+.env
+.env.*
+secrets/
+uploads/
+coverage
+playwright-report
+test-results
+.git
+*.md
+Dockerfile
+.dockerignore

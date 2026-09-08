@@ -1,0 +1,44 @@
+name: CI · Backend
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-backend.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-backend.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # --ignore-scripts skips the postinstall's `playwright install
+      # chromium --with-deps` — nothing in tests/unit/** launches a real
+      # browser (renderPdf.test.ts only exercises the pure text-transform
+      # helpers, not the chromium-driving renderHtmlToPdf), and the
+      # dedicated e2e suite (tests/e2e/**, *.spec.ts, not picked up by
+      # Jest's **/*.test.ts matcher) isn't part of this job at all.
+      - run: npm ci --ignore-scripts
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        # tests/setupEnv.ts force-clears REDIS_URL/GCS_BUCKET_NAME and every
+        # data-access path is mocked (see tests/unit/testUtils/fakeRepo.ts)
+        # — no real Postgres/Redis needed for this suite.
+        run: npm test

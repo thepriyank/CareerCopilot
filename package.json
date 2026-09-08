@@ -1,0 +1,24 @@
+{
+  "name": "jobmagnate",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jobmagnate — repo-root tooling (Neon CLI, Terraform/CI helpers). The app itself lives in backend/ and frontend/.",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "neon": "neon"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thepriyank/CareerCopilot.git"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "neon": "^4.14.3"
+  },
+  "dependencies": {
+    "@neon/config": "^1.3.1",
+    "@neon/env": "^1.2.2"
+  }
+}

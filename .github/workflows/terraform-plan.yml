@@ -1,0 +1,87 @@
+name: Terraform Plan
+
+# Read-only — posts the plan as a PR comment for human review. Never
+# applies anything. See infra/terraform/README.md and INFRASTRUCTURE.md.
+
+on:
+  pull_request:
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/terraform-plan.yml'
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation
+  pull-requests: write # to post the plan as a PR comment
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Add "production" here once infra/terraform/environments/production/ exists.
+        environment: [staging]
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/${{ matrix.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.15.8'
+
+      # WIF — no long-lived key in GitHub Secrets. Pool/provider/SA values
+      # are not secret (see infra/terraform/INFRASTRUCTURE.md); trust is
+      # scoped to this exact repo by the provider's attribute_condition.
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/764795049074/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider
+          service_account: jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com
+
+      - run: terraform init -input=false
+
+      - run: terraform fmt -check -recursive ../../
+
+      - id: plan
+        # image_tags.tfvars holds the currently-deployed image refs (see its
+        # own header comment) — always pass it, even for infra-only PRs,
+        # so the plan doesn't propose reverting to the bootstrap placeholder.
+        run: |
+          set +e
+          terraform plan -input=false -no-color -var-file=image_tags.tfvars > /tmp/plan-output.txt 2>&1
+          PLAN_EXIT=$?
+          {
+            echo "plan<<PLAN_EOF"
+            cat /tmp/plan-output.txt
+            echo "PLAN_EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit $PLAN_EXIT
+        continue-on-error: true
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const raw = `${{ steps.plan.outputs.plan }}`;
+            // Known cosmetic noise (see modules/cloud-run-service/main.tf's
+            // comment) — flagged in the comment body, not filtered out, so
+            // the plan output stays exactly what `terraform plan` produced.
+            const body = [
+              `#### Terraform Plan — \`${{ matrix.environment }}\` (${{ steps.plan.outcome }})`,
+              '',
+              'Read-only. A `scaling.manual_instance_count` diff on Cloud Run services is known-cosmetic noise (see `modules/cloud-run-service/main.tf`) — everything else is a real proposed change.',
+              '',
+              '```',
+              raw.slice(0, 60000),
+              '```',
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Fail job if plan errored
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

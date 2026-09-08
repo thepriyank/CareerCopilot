@@ -1,0 +1,50 @@
+name: Terraform Apply · staging
+
+# Auto-applies infra-only changes (Cloud Run scaling, secrets, IAM, new
+# modules, ...) to staging on every push to master. No manual gate — see
+# docs/cicd_terraform_plan.md's phased plan (production gets a required
+# reviewer gate later; staging deliberately doesn't).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'infra/terraform/environments/staging/**'
+      - 'infra/terraform/modules/**'
+      - '.github/workflows/terraform-apply-staging.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-apply-staging
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    # deploy-backend.yml / deploy-frontend.yml commit their own image_tags.tfvars
+    # update back to master, which matches this workflow's own path filter —
+    # skip that self-triggered run rather than doing a harmless-but-wasteful
+    # no-op apply on every single app deploy.
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    environment: staging
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.15.8'
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/764795049074/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider
+          service_account: jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com
+
+      - run: terraform init -input=false
+
+      - run: terraform apply -input=false -auto-approve -var-file=image_tags.tfvars

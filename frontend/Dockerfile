@@ -1,0 +1,50 @@
+# Jobmagnate frontend — Cloud Run image (2026-09-08, infra/terraform buildout).
+#
+# NEXT_PUBLIC_* values are compiled into the client JS bundle at BUILD time
+# (Next.js static-replaces `process.env.NEXT_PUBLIC_*` during `next build`)
+# — they are not runtime config. That means they must be passed as Docker
+# build args, not Cloud Run env vars; setting them on the deployed service
+# would have no effect. None of these five are secrets (Firebase web config
+# is meant to be public; the API URL is just a hostname) — see
+# docs/cicd_terraform_plan.md §5.
+FROM node:20-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM deps AS build
+WORKDIR /app
+COPY . .
+# This app has no public/ dir yet (no static assets checked in) — ensure it
+# exists so the runtime stage's COPY below doesn't fail on a missing source.
+RUN mkdir -p public
+
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_FIREBASE_API_KEY
+ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
+ARG NEXT_PUBLIC_FIREBASE_APP_ID
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+    NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY} \
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN} \
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID} \
+    NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID}
+
+RUN npm run build
+
+# `output: 'standalone'` (next.config.mjs) traces only the production
+# dependencies actually used and copies them into .next/standalone —
+# runnable with a plain `node server.js`, no node_modules/npm needed in the
+# final image, no `next start`.
+FROM node:20-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/public ./public
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+
+# Cloud Run injects PORT itself (default 8080); the standalone server.js
+# already honors process.env.PORT.
+EXPOSE 8080
+
+CMD ["node", "server.js"]

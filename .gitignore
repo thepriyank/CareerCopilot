@@ -1,0 +1,35 @@
+# Root-level secrets — backend/.env and frontend/.env* have their own
+# .gitignore entries, but this repo-root .env (shared free-tier LLM keys) had
+# no root .gitignore protecting it at all.
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# Root-level tooling (Neon CLI, etc.) — see package.json
+node_modules/
+.mcp.json
+.neon
+
+# A stray nested git worktree turned up here (2026-09-08) — its own .git
+# plus a full duplicate checkout. Never let that get swept into a commit.
+.claude/worktrees/
+
+# Terraform (infra/terraform/**) — local state/cache/vars, never committed.
+# The lock file (.terraform.lock.hcl) is intentionally NOT ignored — it's
+# meant to be committed for reproducible provider versions.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Populated tfvars can carry real (if non-secret) per-dev overrides; the
+# committed *.tfvars in each environment dir are the real, reviewed config.
+*.auto.tfvars
+*.auto.tfvars.json
