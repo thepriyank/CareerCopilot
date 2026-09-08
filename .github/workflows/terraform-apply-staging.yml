@@ -19,13 +19,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: terraform-apply-staging
+  group: terraform-staging
   cancel-in-progress: false
 
 jobs:
   apply:
     # deploy-backend.yml / deploy-frontend.yml commit their own image_tags.tfvars
-    # update back to master, which matches this workflow's own path filter —
+    # update back to main, which matches this workflow's own path filter —
     # skip that self-triggered run rather than doing a harmless-but-wasteful
     # no-op apply on every single app deploy.
     if: github.actor != 'github-actions[bot]'

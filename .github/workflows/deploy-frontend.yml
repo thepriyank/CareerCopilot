@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: deploy-frontend-staging
+  group: terraform-staging
   cancel-in-progress: false
 
 env:
