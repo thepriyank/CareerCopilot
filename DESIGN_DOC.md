@@ -1,4 +1,4 @@
-# AI Career Copilot – Design Document
+# Jobmagnate – Design Document
 
 This document guides UX/UI design, especially when using Claude Design.
 

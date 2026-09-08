@@ -1,8 +1,8 @@
-# AI Career Copilot – Business Requirements Document (BRD)
+# Jobmagnate – Business Requirements Document (BRD)
 
 ## 1. Product name
 
-AI Career Copilot
+Jobmagnate
 
 ## 2. Business vision
 
@@ -40,6 +40,7 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
 
 ## 6. Target audience
 
+- **Primary market: India.** The product, job-sourcing strategy, and market calibration (compensation ranges, notice-period norms, portal selection) are built India-first. International remote roles are in scope specifically where they are realistically open to India-based applicants.
 - Freshers and entry-level candidates.
 - Mid-level professionals switching roles.
 - Tech, product, design, analytics, and operations roles.
@@ -53,7 +54,7 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
 - Resume upload and parsing (PDF, DOCX).
 - User career onboarding interview/chat.
 - Master resume enhancement into ATS-friendly format.
-- Job search and matching (from external sources or pasted JDs).
+- Job search and matching, sourced only through channels that don't require storing a user's third-party credentials or violate a platform's terms of service: public per-company ATS APIs (curated toward India-hiring companies), remote job boards explicitly open to India-based candidates, licensed job-data aggregators (e.g. TheirStack-style providers), and user-pasted JDs. Naukri, Indeed, LinkedIn, and Wellfound/AngelList have no public self-serve job-search API as of this writing (Indeed's Publisher program closed to new applicants in 2023; Naukri and Wellfound have never offered one) — for these, pasting a JD manually remains the supported path until/unless a legitimate partner API becomes available.
 - Per-job tailored resume generation.
 - Per-job cover letter generation.
 - Candidate review and approval flow for all AI output.
@@ -107,3 +108,9 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
 - Phase 1: Resume ingestion, onboarding, master resume, job matching, per-job tailoring, approval.
 - Phase 2: Skill-gap analysis, course suggestions, LinkedIn review, analytics.
 - Phase 3: Premium network features, auto-apply with safeguards, on-device LLM experiments.
+  - "Auto-apply with safeguards" is deliberately not specified further than that phrase anywhere else in this document. Before any implementation work starts on it, it must clear all of the following, and this list is the gate, not a suggestion:
+    - **OAuth-only.** No product code ever stores a user's raw password or session cookie for a third-party site. If a platform doesn't offer an official OAuth/partner API, it is not a candidate for auto-apply, full stop — scraping an authenticated session using a user's own credentials is still automated access under most platforms' terms, regardless of consent.
+    - **Per-application human confirmation stays mandatory**, exactly as it already is everywhere else in this document (§8, §9, §10) — "safeguards" means a human clicks submit on every single application, not a batch approval.
+    - **A written per-platform legal/ToS review**, done before integration work starts, not after.
+    - **A security audit** of whatever credential/token storage the OAuth flow requires.
+    - LinkedIn is out of consideration entirely per this document's existing constraints (§9, §10) unless those are separately revisited.

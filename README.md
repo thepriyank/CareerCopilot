@@ -1,6 +1,6 @@
-# AI Career Copilot
+# Jobmagnate
 
-AI Career Copilot is an AI-powered, candidate-first platform that helps job seekers:
+Jobmagnate is an AI-powered, candidate-first platform that helps job seekers:
 
 - Upload and parse resumes.
 - Clarify their career goals and preferences.

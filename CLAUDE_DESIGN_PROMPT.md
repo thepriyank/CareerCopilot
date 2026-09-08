@@ -1,10 +1,10 @@
-# Claude Design Prompt – AI Career Copilot
+# Claude Design Prompt – Jobmagnate
 
-You are Claude Design. Your task is to design a web + mobile product called **AI Career Copilot**, using `DESIGN_DOC.md` as the primary reference for UX and visuals.
+You are Claude Design. Your task is to design a web + mobile product called **Jobmagnate**, using `DESIGN_DOC.md` as the primary reference for UX and visuals.
 
 ## Context
 
-AI Career Copilot is a candidate-first AI platform that:
+Jobmagnate is a candidate-first AI platform that:
 - Ingests resumes.
 - Interviews users about their career goals.
 - Enhances a master resume.

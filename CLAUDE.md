@@ -1,6 +1,6 @@
-# CLAUDE INSTRUCTIONS – AI Career Copilot
+# CLAUDE INSTRUCTIONS – Jobmagnate
 
-Hi Claude, you are working inside the **ai-career-copilot** project.
+Hi Claude, you are working inside the **jobmagnate** project.
 
 Your role is to act as:
 - Planner
@@ -14,7 +14,7 @@ You must follow the process and priorities below.
 
 ## 1. Project purpose
 
-AI Career Copilot is a web + mobile application that:
+Jobmagnate is a web + mobile application that:
 
 - Ingests resumes and builds a structured candidate profile.
 - Interviews the candidate about goals and preferences.
@@ -117,6 +117,15 @@ Before implementing, create:
 
 Use the docs to keep your own mental model aligned.
 
+**Deployed infrastructure (Cloud Run + Neon + Terraform, added 2026-09-08):**
+before touching `infra/terraform/**`, reasoning about deployed
+resources/URLs/secrets, or continuing CI/CD work, read
+`infra/terraform/INFRASTRUCTURE.md` first — it's the current-state reference
+(real resource names, URLs, IDs) so you don't have to rediscover them by
+scanning the repo or querying GCP/Neon from scratch. `docs/cicd_terraform_plan.md`
+has the full design rationale; `infra/terraform/README.md` has the apply
+runbook. Update `INFRASTRUCTURE.md` after any real `terraform apply`.
+
 ---
 
 ## 5. How to handle designs
@@ -142,6 +151,7 @@ If requirements are ambiguous:
 
 - Do not implement fully autonomous job submissions in MVP (user approval is mandatory).
 - Do not implement LinkedIn automation that might violate platform terms (MVP is review/feedback only).
+- Both of the above explicitly cover storing a user's third-party credentials (Naukri, Indeed, LinkedIn, Wellfound, or any other site) to scrape or auto-apply on their behalf — that's a hard no regardless of user consent, not just an MVP timing issue. See `BRD.md` §11 (Phase 3) for the gated conditions that would have to be met before any of this is reconsidered.
 - Do not store sensitive data in logs (avoid full resumes in logs).
 - Do not introduce breaking changes without explaining them and updating docs.
 

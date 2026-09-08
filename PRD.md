@@ -1,8 +1,8 @@
-# AI Career Copilot – Product Requirements Document (PRD)
+# Jobmagnate – Product Requirements Document (PRD)
 
 ## 1. Product overview
 
-AI Career Copilot is a web and mobile platform that ingests a candidate’s resume, learns about their career goals through guided chat, generates an improved master resume, matches relevant jobs, produces job-specific resumes and cover letters, and presents everything for human review and approval before export or application.
+Jobmagnate is a web and mobile platform that ingests a candidate’s resume, learns about their career goals through guided chat, generates an improved master resume, matches relevant jobs, produces job-specific resumes and cover letters, and presents everything for human review and approval before export or application.
 
 AI is positioned as an assistive layer, not a fully autonomous actor. The system must be transparent, traceable, and respectful of user control.
 

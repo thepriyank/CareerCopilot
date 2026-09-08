@@ -1,4 +1,4 @@
-# AI Career Copilot – Feature Prompts for Claude
+# Jobmagnate – Feature Prompts for Claude
 
 This file defines each major feature with a concise spec plus a ready-to-use prompt that Claude can expand into a phase-wise development plan, tickets, and technical details.
 

@@ -1,0 +1,29 @@
+version: "3.8"
+
+# Referenced by ARCHITECTURE.md but not committed until now (2026-09-07
+# architecture hardening). Local dev only — matches backend/.env's
+# DATABASE_URL / REDIS_URL defaults exactly, so `docker compose up -d`
+# followed by `npm run dev` in backend/ just works with no further config.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_career_copilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

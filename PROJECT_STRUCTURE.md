@@ -1,9 +1,9 @@
-# AI Career Copilot – Project Structure
+# Jobmagnate – Project Structure
 
 ## Top-Level Layout
 
 ```
-ai-career-copilot/
+jobmagnate/
 ├── backend/          # Express + TypeScript API server
 ├── frontend/         # Next.js 14 web application
 ├── docs/             # Feature plans and decision records
