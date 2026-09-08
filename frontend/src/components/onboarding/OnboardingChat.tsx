@@ -44,7 +44,7 @@ const QUICK_REPLIES: Partial<Record<OnboardingState, QuickReply[]>> = {
 }
 
 const WELCOME_MESSAGE =
-  "Welcome to AI Career Copilot! I'm going to ask you a few quick questions to build your career profile. Let's start: what job titles or roles are you targeting? (e.g., \"Senior Product Manager\", \"Data Scientist\", \"Full-Stack Engineer\")"
+  "Welcome to Jobmagnate! I'm going to ask you a few quick questions to build your career profile. Let's start: what job titles or roles are you targeting? (e.g., \"Senior Product Manager\", \"Data Scientist\", \"Full-Stack Engineer\")"
 
 interface OnboardingChatProps {
   initialState?: OnboardingState
@@ -139,7 +139,7 @@ export default function OnboardingChat({
             >
               {msg.role === 'bot' && (
                 <span className="text-xs font-semibold text-primary-600 block mb-1">
-                  Career Copilot
+                  Jobmagnate
                 </span>
               )}
               {msg.text}

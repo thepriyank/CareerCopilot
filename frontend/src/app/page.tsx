@@ -20,9 +20,9 @@ export default function LandingPage() {
         padding: '0 48px', borderBottom: '1px solid var(--line)',
         background: 'var(--paper)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-display)', fontSize: 22, flex: 1 }}>
-          <i style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--ink-900)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontStyle: 'normal' }}>C</i>
-          Copilot
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, flex: 1 }}>
+          <i style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--accent)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontStyle: 'normal' }}>J</i>
+          Jobmagnate
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Link href="/login" className="btn btn-ghost btn-sm">Sign in</Link>
@@ -33,7 +33,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section style={{ padding: '96px 48px 80px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ maxWidth: 760 }}>
-          <div className="eyebrow" style={{ marginBottom: 16 }}>AI Career Copilot</div>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>Jobmagnate</div>
           <h1 className="display" style={{ fontSize: 72, lineHeight: 1, marginBottom: 24 }}>
             The career copilot<br />that <em style={{ fontStyle: 'italic' }}>shows its work.</em>
           </h1>
@@ -61,7 +61,7 @@ export default function LandingPage() {
               <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>{n}</div>
               <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 8 }}>{h}</div>
               <div style={{ fontSize: 13, color: 'var(--text-soft)', lineHeight: 1.5 }}>{desc}</div>
-              <div style={{ height: 2, background: i === 0 ? 'var(--ink-900)' : 'var(--line)', marginTop: 16 }} />
+              <div style={{ height: 2, background: i === 0 ? 'var(--accent)' : 'var(--line)', marginTop: 16 }} />
             </div>
           ))}
         </div>
@@ -114,7 +114,7 @@ export default function LandingPage() {
         <h2 className="display" style={{ fontSize: 52, color: 'var(--text-onink)', marginBottom: 20 }}>
           Your next role starts here.
         </h2>
-        <Link href="/register" className="btn btn-lg" style={{ background: 'var(--ochre-900)', color: '#fff' }}>
+        <Link href="/register" className="btn btn-lg" style={{ background: 'var(--accent)', color: '#fff' }}>
           <Icon.Upload size={18} /> Upload your resume
         </Link>
       </section>

@@ -1,15 +1,16 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon } from '@/components/ui/Icon'
 import { Avatar } from '@/components/ui/Avatar'
+import { auth as authApi } from '@/lib/api'
 
 const MAIN_NAV = [
   { href: '/dashboard',  label: 'Dashboard',  Icon: Icon.Home },
   { href: '/resume',     label: 'Resume',      Icon: Icon.Doc },
   { href: '/jobs',       label: 'Jobs',        Icon: Icon.Briefcase },
-  { href: '/tailoring',  label: 'Tailoring',   Icon: Icon.Sparkle },
   { href: '/approvals',  label: 'Approvals',   Icon: Icon.CheckCircle },
 ]
 
@@ -24,6 +25,20 @@ interface SidebarProps {
 
 export function Sidebar({ active }: SidebarProps) {
   const pathname = usePathname()
+  const [userName, setUserName] = useState<string | null>(null)
+  const [plan, setPlan] = useState<string>('Free plan')
+
+  useEffect(() => {
+    authApi
+      .me()
+      .then(({ user }) => {
+        setUserName(user.name || user.email)
+        setPlan(user.plan === 'PREMIUM' ? 'Premium plan' : 'Free plan')
+      })
+      .catch(() => {
+        // Not authenticated (or request failed) — leave the placeholder blank.
+      })
+  }, [])
 
   const isActive = (href: string) =>
     active
@@ -33,8 +48,8 @@ export function Sidebar({ active }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="logo">
-        <i>C</i>
-        <span>Copilot</span>
+        <i>J</i>
+        <span>Jobmagnate</span>
       </div>
 
       {MAIN_NAV.map(({ href, label, Icon: NavIcon }) => (
@@ -68,10 +83,10 @@ export function Sidebar({ active }: SidebarProps) {
         padding: '10px 8px',
         borderTop: '1px solid var(--line-2)',
       }}>
-        <Avatar name="Maya K" tone="ink" />
+        <Avatar name={userName || '?'} tone="ink" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>Maya Kapoor</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Free plan</div>
+          <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '…'}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{plan}</div>
         </div>
         <Link href="/settings">
           <Icon.Settings size={14} />

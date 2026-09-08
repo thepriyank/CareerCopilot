@@ -6,6 +6,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { profile as profileApi } from '@/lib/api'
+import ProfileCompletion from '@/components/onboarding/ProfileCompletion'
 
 type OnboardingState =
   | 'WELCOME' | 'TARGET_ROLES' | 'INDUSTRIES' | 'LOCATIONS'
@@ -28,17 +29,59 @@ const PROFILE_FIELDS: Record<string, string> = {
   'Salary': '',
 }
 
+// Mirrors backend ONBOARDING_QUESTIONS (profile.routes.ts) — used only to
+// show the right greeting when resuming mid-flow after a refresh.
+const RESUME_QUESTIONS: Partial<Record<OnboardingState, string>> = {
+  WELCOME: "Hi! I've parsed your resume. Let's talk about what you're looking for. What kind of role are you targeting next?",
+  TARGET_ROLES: 'Great! Which industries are you interested in? You can list multiple (e.g., "Fintech, Healthcare, SaaS").',
+  INDUSTRIES: 'Which cities or regions are you open to? You can say "Remote only" if that applies.',
+  LOCATIONS: 'Do you prefer Remote, Hybrid, or On-site work? Or are you open to all options?',
+  REMOTE_PREFERENCE: "What's your expected salary range? Include currency if outside USD. Type \"skip\" if you'd prefer not to share.",
+  SALARY: 'How urgently are you looking? Options: Actively looking and applying, Open to opportunities but not urgently, or Not looking right now.',
+  URGENCY: 'What is your notice period at your current role (if any)?',
+  NOTICE_PERIOD: 'Do you have any visa or work-authorisation constraints?',
+  VISA_STATUS: 'Do you have any visa or work-authorisation constraints?',
+}
+
 export default function OnboardingPage() {
   const router = useRouter()
   const bottomRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<Message[]>([
-    { from: 'ai', text: "Hi Maya! I've parsed your resume. Let's talk about what you're looking for. What kind of role are you targeting next?" },
+    { from: 'ai', text: "Hi! I've parsed your resume. Let's talk about what you're looking for. What kind of role are you targeting next?" },
   ])
   const [input, setInput] = useState('')
-  const [currentState, setCurrentState] = useState<OnboardingState>('TARGET_ROLES')
+  const [currentState, setCurrentState] = useState<OnboardingState>('WELCOME')
   const [loading, setLoading] = useState(false)
+  const [hydrating, setHydrating] = useState(true)
   const [completionPct, setCompletionPct] = useState(10)
   const [profilePreview, setProfilePreview] = useState(PROFILE_FIELDS)
+  const [isComplete, setIsComplete] = useState(false)
+
+  // Resume from the real persisted state on mount/refresh instead of
+  // restarting the chat from a hardcoded step — the server is authoritative.
+  useEffect(() => {
+    profileApi
+      .get()
+      .then((res) => {
+        const profile = res.profile
+        if (profile) {
+          if (profile.onboardingState === 'DONE') {
+            setIsComplete(true)
+          } else {
+            setCurrentState(profile.onboardingState)
+            setCompletionPct(Math.max(10, profile.completionScore))
+            const question = RESUME_QUESTIONS[profile.onboardingState]
+            if (profile.onboardingState !== 'WELCOME' && question) {
+              setMessages([{ from: 'ai', text: `Welcome back — let's pick up where we left off. ${question}` }])
+            }
+          }
+        }
+      })
+      .catch(() => {
+        // No profile yet, or the fetch failed — start fresh from WELCOME.
+      })
+      .finally(() => setHydrating(false))
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -57,16 +100,24 @@ export default function OnboardingPage() {
         { from: 'ai', text: res.message },
       ])
       if (res.state) setCurrentState(res.state)
-      if (res.profileUpdates) setProfilePreview(prev => ({ ...prev, ...res.profileUpdates }))
+      if (res.profileUpdates) setProfilePreview(prev => ({ ...prev, ...(res.profileUpdates as Record<string, string>) }))
       setCompletionPct(Math.min(90, completionPct + 12))
       if (res.isComplete || res.state === 'DONE') {
-        setTimeout(() => router.push('/resume'), 1200)
+        setTimeout(() => setIsComplete(true), 1200)
       }
     } catch {
       setMessages(prev => [...prev, { from: 'ai', text: "Sorry, I hit an error. Could you try again?" }])
     } finally {
       setLoading(false)
     }
+  }
+
+  if (hydrating) {
+    return <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-muted)' }}>Loading your progress&hellip;</div>
+  }
+
+  if (isComplete) {
+    return <ProfileCompletion />
   }
 
   return (
@@ -78,7 +129,7 @@ export default function OnboardingPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{completionPct}% complete</div>
             <div style={{ width: 80, height: 4, background: 'var(--paper-3)', borderRadius: 999 }}>
-              <div style={{ width: completionPct + '%', height: '100%', background: 'var(--ink-900)', borderRadius: 999, transition: 'width .4s' }} />
+              <div style={{ width: completionPct + '%', height: '100%', background: 'var(--accent)', borderRadius: 999, transition: 'width .4s' }} />
             </div>
           </div>
         }
@@ -90,7 +141,7 @@ export default function OnboardingPage() {
           <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             {messages.map((msg, i) => (
               msg.from === 'user' ? (
-                <div key={i} style={{ alignSelf: 'flex-end', maxWidth: '80%', background: 'var(--ink-900)', color: 'var(--text-onink)', padding: '10px 14px', borderRadius: '14px 14px 4px 14px', fontSize: 13.5, lineHeight: 1.5 }}>
+                <div key={i} style={{ alignSelf: 'flex-end', maxWidth: '80%', background: 'var(--accent)', color: '#fff', padding: '10px 14px', borderRadius: '14px 14px 4px 14px', fontSize: 13.5, lineHeight: 1.5 }}>
                   {msg.text}
                 </div>
               ) : (

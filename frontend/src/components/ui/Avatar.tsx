@@ -1,10 +1,10 @@
 type AvatarTone = 'ink' | 'sage' | 'ochre' | 'paper'
 
 const TONES: Record<AvatarTone, [string, string]> = {
-  ink:   ['var(--ink-100)',   'var(--ink-900)'],
-  sage:  ['var(--sage-100)',  'var(--sage-900)'],
-  ochre: ['var(--ochre-100)', 'var(--ochre-900)'],
-  paper: ['var(--paper-3)',   'var(--text-soft)'],
+  ink:   ['var(--accent-subtle)', 'var(--accent-text)'],
+  sage:  ['var(--sage-100)',      'var(--sage-900)'],
+  ochre: ['var(--ochre-100)',     'var(--ochre-900)'],
+  paper: ['var(--paper-3)',       'var(--text-soft)'],
 }
 
 interface AvatarProps {

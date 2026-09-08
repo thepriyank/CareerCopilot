@@ -9,30 +9,32 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Design system from DESIGN_DOC.md
+        // Tech-SaaS system — teal accent, cool-grey neutrals (see app/globals.css)
         primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1', // indigo-500
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          50: '#f0fdfa',
+          100: '#ccfbf1',
+          200: '#99f6e4',
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6', // teal-500 ≈ --accent
+          600: '#0d9488',
+          700: '#0f766e',
+          800: '#115e59',
+          900: '#134e4a',
         },
         secondary: {
-          500: '#14b8a6', // teal-500
-          600: '#0d9488',
+          200: '#e2e8f0',
+          500: '#64748b', // slate — neutral secondary
+          600: '#475569',
         },
         accent: {
-          500: '#f59e0b', // amber-500
+          500: '#f59e0b', // amber — skill-gap / warning
           600: '#d97706',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        mono: ['Geist Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
       },
     },
   },

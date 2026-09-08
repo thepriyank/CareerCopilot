@@ -13,7 +13,7 @@ export function Topbar({ title, eyebrow, right }: TopbarProps) {
         {eyebrow && (
           <div className="eyebrow" style={{ marginBottom: 2 }}>{eyebrow}</div>
         )}
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: '-0.02em' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-0.018em' }}>
           {title}
         </div>
       </div>

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { auth as authApi } from '@/lib/api'
 import { setToken } from '@/lib/auth'
+import { isGoogleSignInAvailable } from '@/lib/firebase'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -40,9 +42,9 @@ export default function RegisterPage() {
     <div className="app-root" style={{ minHeight: '100vh', background: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-display)', fontSize: 26, textDecoration: 'none', color: 'var(--text)' }}>
-            <i style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--ink-900)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontStyle: 'normal' }}>C</i>
-            Copilot
+          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, textDecoration: 'none', color: 'var(--text)' }}>
+            <i style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--accent)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontStyle: 'normal' }}>J</i>
+            Jobmagnate
           </Link>
           <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginTop: 8 }}>Create your free account</div>
         </div>
@@ -71,13 +73,24 @@ export default function RegisterPage() {
             </button>
           </form>
 
+          {isGoogleSignInAvailable() && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--line-strong)' }} />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>or</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--line-strong)' }} />
+              </div>
+              <GoogleSignInButton onError={setError} />
+            </>
+          )}
+
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 14, lineHeight: 1.5 }}>
             PDF · DOCX · 10 MB max. Your data never trains models.
           </div>
 
           <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', marginTop: 16 }}>
             Already have an account?{' '}
-            <Link href="/login" style={{ color: 'var(--ink-900)', fontWeight: 500 }}>Sign in</Link>
+            <Link href="/login" style={{ color: 'var(--accent-text)', fontWeight: 500 }}>Sign in</Link>
           </div>
         </div>
       </div>

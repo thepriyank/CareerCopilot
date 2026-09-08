@@ -9,9 +9,9 @@ export function ScoreRing({ value = 84, size = 56, label = 'match' }: ScoreRingP
   const c = 2 * Math.PI * r
   const off = c - (value / 100) * c
   const tone =
-    value >= 80 ? 'var(--sage-700)' :
-    value >= 60 ? 'var(--ink-700)' :
-    'var(--ochre-700)'
+    value >= 75 ? 'var(--accent)' :
+    value >= 45 ? 'var(--warning)' :
+    'var(--text-faint)'
 
   return (
     <div style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}>
@@ -31,8 +31,8 @@ export function ScoreRing({ value = 84, size = 56, label = 'match' }: ScoreRingP
         position: 'absolute', inset: 0,
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--font-display)',
-        fontSize: size * 0.36, lineHeight: 1,
+        fontFamily: 'var(--font-mono)', fontWeight: 500,
+        fontSize: size * 0.34, lineHeight: 1,
       }}>
         {value}
         <span style={{

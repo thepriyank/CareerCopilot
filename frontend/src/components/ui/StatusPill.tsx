@@ -1,10 +1,11 @@
-export type PillStatus = 'draft' | 'reviewed' | 'approved' | 'ai'
+export type PillStatus = 'draft' | 'reviewed' | 'approved' | 'ai' | 'rejected'
 
 const LABELS: Record<PillStatus, string> = {
   draft: 'Draft',
   reviewed: 'Reviewed',
   approved: 'Approved',
   ai: 'AI-generated',
+  rejected: 'Rejected',
 }
 
 interface StatusPillProps {

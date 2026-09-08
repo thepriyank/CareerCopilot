@@ -1,6 +1,6 @@
-# AI Career Copilot – Frontend
+# Jobmagnate – Frontend
 
-Next.js 14 web application for AI Career Copilot.
+Next.js 14 web application for Jobmagnate.
 
 ## Requirements
 

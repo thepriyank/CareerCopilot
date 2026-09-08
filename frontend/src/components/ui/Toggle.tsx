@@ -9,7 +9,7 @@ export function Toggle({ on = false, onChange }: ToggleProps) {
       onClick={() => onChange?.(!on)}
       style={{
         width: 34, height: 20, borderRadius: 999,
-        background: on ? 'var(--ink-900)' : 'var(--paper-3)',
+        background: on ? 'var(--accent)' : 'var(--paper-3)',
         display: 'flex', alignItems: 'center',
         justifyContent: on ? 'flex-end' : 'flex-start',
         padding: 2,
