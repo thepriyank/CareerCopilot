@@ -1,0 +1,10 @@
+{
+  "_disclaimer": "UNVERIFIED starter list. Company ATS choices change over time and were not confirmed against a live API before this file was written — every entry here is a best-effort guess, not a confirmed fact. Run `npm run verify:seeds` (backend/src/scripts/verifySeeds.ts) before relying on any entry: it hits each resolved API URL and reports which ones actually resolve. Discovery (Step 9) skips any entry whose provider fails to resolve or fetch, so a stale entry here degrades gracefully rather than breaking anything — but don't treat this list as ground truth until it's been run.",
+  "companies": [
+    { "name": "Postman", "provider": "greenhouse", "careersUrl": "https://job-boards.greenhouse.io/postman" },
+    { "name": "Razorpay", "provider": "greenhouse", "careersUrl": "https://job-boards.greenhouse.io/razorpay" },
+    { "name": "Freshworks", "provider": "greenhouse", "careersUrl": "https://job-boards.greenhouse.io/freshworks" },
+    { "name": "Chargebee", "provider": "greenhouse", "careersUrl": "https://job-boards.greenhouse.io/chargebee" },
+    { "name": "Innovaccer", "provider": "lever", "careersUrl": "https://jobs.lever.co/innovaccer" }
+  ]
+}

@@ -1,27 +1,24 @@
-import fs from 'fs'
-import path from 'path'
 import { detectSections } from './sectionDetector'
 import { extractEntities, computeConfidenceScores } from './entityExtractor'
 import { ParsedResumeData } from '../../types'
 import { logger } from '../../utils/logger'
 
 // Dynamic imports to handle packages that may not have proper TS types
-async function extractPdfText(filePath: string): Promise<string> {
+async function extractPdfText(buffer: Buffer): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const pdfParse = require('pdf-parse') as (
     buffer: Buffer
   ) => Promise<{ text: string; numpages: number }>
-  const buffer = fs.readFileSync(filePath)
   const result = await pdfParse(buffer)
   return result.text
 }
 
-async function extractDocxText(filePath: string): Promise<string> {
+async function extractDocxText(buffer: Buffer): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mammoth = require('mammoth') as {
-    extractRawText: (opts: { path: string }) => Promise<{ value: string }>
+    extractRawText: (opts: { buffer: Buffer }) => Promise<{ value: string }>
   }
-  const result = await mammoth.extractRawText({ path: filePath })
+  const result = await mammoth.extractRawText({ buffer })
   return result.value
 }
 
@@ -33,15 +30,16 @@ export interface ParseOptions {
 }
 
 export async function parseResume(
-  filePath: string,
+  fileBuffer: Buffer,
   fileType: SupportedFileType,
   options: ParseOptions = {}
 ): Promise<ParsedResumeData> {
-  logger.debug(`Parsing resume fileType=${fileType} path=${path.basename(filePath)}`)
+  logger.debug(`Parsing resume fileType=${fileType} sizeBytes=${fileBuffer.length}`)
 
   let rawText: string
   try {
-    rawText = fileType === 'PDF' ? await extractPdfText(filePath) : await extractDocxText(filePath)
+    rawText =
+      fileType === 'PDF' ? await extractPdfText(fileBuffer) : await extractDocxText(fileBuffer)
   } catch (err) {
     logger.error('Text extraction failed', { err: (err as Error).message, fileType })
     throw new Error(`Failed to extract text from ${fileType} file: ${(err as Error).message}`)

@@ -1,0 +1,15 @@
+{
+  "_comment": "System-wide search terms the discovery cron uses against title-based aggregators (JSearch/Adzuna/Jooble/TheirStack). Discovery is no longer per-candidate (2026-09-06) — this is the interim stand-in for the admin mode described in the F4 plan doc, which will let an admin edit this list from a UI instead of a committed file. Keep it curated, not exhaustive — every title here gets queried on every cron tick.",
+  "titles": [
+    "Software Engineer",
+    "Backend Engineer",
+    "Full Stack Engineer",
+    "Frontend Engineer",
+    "Engineering Manager",
+    "Staff Engineer",
+    "DevOps Engineer",
+    "Data Engineer",
+    "Product Manager",
+    "QA Engineer"
+  ]
+}

@@ -1,26 +1,15 @@
 import multer, { FileFilterCallback } from 'multer'
-import path from 'path'
-import fs from 'fs'
-import { v4 as uuidv4 } from 'uuid'
 import { Request } from 'express'
 import { config } from '../config'
 
-// Ensure upload directory exists
-const uploadDir = path.resolve(process.cwd(), config.upload.uploadDir)
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true })
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase()
-    cb(null, `${uuidv4()}${ext}`)
-  },
-})
+// Files are held in memory only — the route handler encrypts them before
+// they ever touch disk (see services/storage/fileStorage.ts), and the
+// plaintext buffer is used directly for parsing. Nothing plaintext is written.
+const storage = multer.memoryStorage()
 
 function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCallback): void {
-  if (config.upload.allowedMimeTypes.includes(file.mimetype)) {
+  const allowedMimeTypes = config.upload.allowedMimeTypes as unknown as string[]
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true)
   } else {
     cb(new Error('INVALID_FILE_TYPE'))

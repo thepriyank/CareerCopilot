@@ -1,9 +1,12 @@
 import { Router, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { prisma } from '../config'
+import { AppDataSource } from '../config/dataSource'
+import { CandidateProfile } from '../entities/CandidateProfile'
+import { RemotePreference, SearchUrgency } from '../entities/enums'
 import { requireAuth } from '../middleware/auth'
 import { createError } from '../middleware/errorHandler'
 import { generateJson } from '../services/ai/anthropicClient'
+import { parseSalaryRange } from '../services/matching/matchScore'
 import { AuthRequest, OnboardingState, OnboardingTurn } from '../types'
 import { logger } from '../utils/logger'
 
@@ -14,7 +17,7 @@ router.use(requireAuth)
 
 const ONBOARDING_QUESTIONS: Record<OnboardingState, string> = {
   WELCOME:
-    "Welcome to AI Career Copilot! I'm going to ask you a few quick questions to build your career profile. Let's start: what job titles or roles are you targeting? (e.g., \"Senior Product Manager\", \"Data Scientist\", \"Full-Stack Engineer\")",
+    "Welcome to Jobmagnate! I'm going to ask you a few quick questions to build your career profile. Let's start: what job titles or roles are you targeting? (e.g., \"Senior Product Manager\", \"Data Scientist\", \"Full-Stack Engineer\")",
   TARGET_ROLES:
     'Great! Which industries are you interested in? You can list multiple (e.g., "Fintech, Healthcare, SaaS").',
   INDUSTRIES:
@@ -84,18 +87,27 @@ interface NluResult {
   visaStatus?: string
 }
 
+// Keyed by `currentState` — the state we're IN while processing an answer,
+// which is the state whose ONBOARDING_QUESTIONS text was actually just shown
+// (e.g. ONBOARDING_QUESTIONS.TARGET_ROLES is the industries question, so the
+// schema used when currentState === TARGET_ROLES must be the industries
+// schema, not a target-roles one). Each entry here extracts the topic asked
+// by ONBOARDING_QUESTIONS[same key] — schemas are intentionally one topic
+// "ahead" of what the state's own name suggests, matching that pairing.
+// VISA_STATUS has no entry: its own displayed question is blank (the last
+// real question — visa status — is asked while currentState is NOTICE_PERIOD).
 const STATE_SCHEMAS: Partial<Record<OnboardingState, string>> = {
-  TARGET_ROLES: '{"targetRoles": ["array of job title strings"]}',
-  INDUSTRIES: '{"industries": ["array of industry strings"]}',
-  LOCATIONS: '{"locations": ["array of location strings, empty if remote only"]}',
-  REMOTE_PREFERENCE:
+  WELCOME: '{"targetRoles": ["array of job title strings"]}',
+  TARGET_ROLES: '{"industries": ["array of industry strings"]}',
+  INDUSTRIES: '{"locations": ["array of location strings, empty if remote only"]}',
+  LOCATIONS:
     '{"remotePreference": "one of: REMOTE, HYBRID, ONSITE, OPEN"}',
-  SALARY:
+  REMOTE_PREFERENCE:
     '{"salaryMin": integer, "salaryMax": integer, "salaryCurrency": "3-letter code e.g. USD"}',
-  URGENCY:
+  SALARY:
     '{"urgency": "one of: ACTIVELY_LOOKING, OPEN_TO_OPPORTUNITIES, NOT_LOOKING"}',
-  NOTICE_PERIOD: '{"noticePeriod": "string describing notice period or null"}',
-  VISA_STATUS: '{"visaStatus": "string describing visa/work auth status or null"}',
+  URGENCY: '{"noticePeriod": "string describing notice period or null"}',
+  NOTICE_PERIOD: '{"visaStatus": "string describing visa/work auth status or null"}',
 }
 
 async function extractProfileUpdate(
@@ -118,24 +130,24 @@ async function extractProfileUpdate(
   }
 }
 
-function normaliseRemotePreference(value?: string): 'REMOTE' | 'HYBRID' | 'ONSITE' | 'OPEN' {
-  if (!value) return 'OPEN'
+function normaliseRemotePreference(value?: string): RemotePreference {
+  if (!value) return RemotePreference.OPEN
   const v = value.toUpperCase()
-  if (v === 'REMOTE') return 'REMOTE'
-  if (v === 'HYBRID') return 'HYBRID'
-  if (v === 'ONSITE' || v === 'ON-SITE' || v === 'ON_SITE') return 'ONSITE'
-  return 'OPEN'
+  if (v === 'REMOTE') return RemotePreference.REMOTE
+  if (v === 'HYBRID') return RemotePreference.HYBRID
+  if (v === 'ONSITE' || v === 'ON-SITE' || v === 'ON_SITE') return RemotePreference.ONSITE
+  return RemotePreference.OPEN
 }
 
 function normaliseUrgency(
   value?: string
-): 'ACTIVELY_LOOKING' | 'OPEN_TO_OPPORTUNITIES' | 'NOT_LOOKING' {
-  if (!value) return 'ACTIVELY_LOOKING'
+): SearchUrgency {
+  if (!value) return SearchUrgency.ACTIVELY_LOOKING
   const v = value.toUpperCase().replace(/[\s-]/g, '_')
-  if (v === 'ACTIVELY_LOOKING') return 'ACTIVELY_LOOKING'
-  if (v === 'OPEN_TO_OPPORTUNITIES') return 'OPEN_TO_OPPORTUNITIES'
-  if (v === 'NOT_LOOKING') return 'NOT_LOOKING'
-  return 'ACTIVELY_LOOKING'
+  if (v === 'ACTIVELY_LOOKING') return SearchUrgency.ACTIVELY_LOOKING
+  if (v === 'OPEN_TO_OPPORTUNITIES') return SearchUrgency.OPEN_TO_OPPORTUNITIES
+  if (v === 'NOT_LOOKING') return SearchUrgency.NOT_LOOKING
+  return SearchUrgency.ACTIVELY_LOOKING
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -143,38 +155,53 @@ function normaliseUrgency(
 // GET /api/profile
 router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const profile = await prisma.candidateProfile.findUnique({
-      where: { userId: req.userId! },
-    })
+    const profileRepo = AppDataSource.getRepository(CandidateProfile)
+    const profile = await profileRepo.findOneBy({ userId: req.userId! })
     res.json({ profile })
   } catch (err) {
     next(err)
   }
 })
 
+// The frontend's onboarding review screen (ProfileCompletion.tsx) fetches the
+// profile via GET, lets the user edit a few fields, then POSTs the *whole*
+// object back — so every field the entity allows to be null (salaryMin/Max,
+// noticePeriod, visaStatus, summary) must accept null here too, not just
+// undefined, or that round-trip 400s on every profile that hasn't set them yet.
 const upsertProfileSchema = z.object({
   targetRoles: z.array(z.string()).optional(),
   industries: z.array(z.string()).optional(),
   locations: z.array(z.string()).optional(),
   remotePreference: z.enum(['REMOTE', 'HYBRID', 'ONSITE', 'OPEN']).optional(),
-  salaryMin: z.number().int().positive().optional(),
-  salaryMax: z.number().int().positive().optional(),
+  salaryMin: z.number().int().positive().nullable().optional(),
+  salaryMax: z.number().int().positive().nullable().optional(),
   salaryCurrency: z.string().length(3).optional(),
   urgency: z.enum(['ACTIVELY_LOOKING', 'OPEN_TO_OPPORTUNITIES', 'NOT_LOOKING']).optional(),
-  noticePeriod: z.string().optional(),
-  visaStatus: z.string().optional(),
-  summary: z.string().optional(),
+  noticePeriod: z.string().nullable().optional(),
+  visaStatus: z.string().nullable().optional(),
+  summary: z.string().nullable().optional(),
 })
 
 // POST /api/profile
 router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const data = upsertProfileSchema.parse(req.body)
-    const profile = await prisma.candidateProfile.upsert({
-      where: { userId: req.userId! },
-      create: { userId: req.userId!, ...data },
-      update: data,
-    })
+    const profileRepo = AppDataSource.getRepository(CandidateProfile)
+    
+    let profile = await profileRepo.findOneBy({ userId: req.userId! })
+    const updateData: Partial<CandidateProfile> = {
+      ...data,
+      remotePreference: data.remotePreference as RemotePreference | undefined,
+      urgency: data.urgency as SearchUrgency | undefined,
+    }
+    if (profile) {
+      Object.assign(profile, updateData)
+      profile = await profileRepo.save(profile)
+    } else {
+      profile = profileRepo.create({ userId: req.userId!, ...updateData })
+      profile = await profileRepo.save(profile)
+    }
+    
     res.json({ profile })
   } catch (err) {
     next(err)
@@ -205,12 +232,15 @@ router.post('/onboarding', async (req: AuthRequest, res: Response, next: NextFun
     const { message, state: clientState } = onboardingSchema.parse(req.body)
     const userId = req.userId!
 
-    // Resolve current state from DB or client
-    let profile = await prisma.candidateProfile.findUnique({ where: { userId } })
+    const profileRepo = AppDataSource.getRepository(CandidateProfile)
+    let profile = await profileRepo.findOneBy({ userId })
 
+    // The persisted state is authoritative once a profile row exists — a
+    // client-supplied state (e.g. stale after a page refresh) must never be
+    // able to rewind or corrupt onboarding progress already saved server-side.
     const currentState: OnboardingState =
-      (clientState as OnboardingState | undefined) ??
       (profile?.onboardingState as OnboardingState | undefined) ??
+      (clientState as OnboardingState | undefined) ??
       'WELCOME'
 
     if (currentState === 'DONE') {
@@ -229,14 +259,26 @@ router.post('/onboarding', async (req: AuthRequest, res: Response, next: NextFun
     const extracted = await extractProfileUpdate(currentState, message, userId)
 
     // Build profile update data
-    const updateData: Record<string, unknown> = {}
+    const updateData: Partial<CandidateProfile> = {}
     if (extracted.targetRoles?.length) updateData.targetRoles = extracted.targetRoles
     if (extracted.industries?.length) updateData.industries = extracted.industries
     if (extracted.locations?.length) updateData.locations = extracted.locations
     if (extracted.remotePreference)
       updateData.remotePreference = normaliseRemotePreference(extracted.remotePreference)
-    if (extracted.salaryMin) updateData.salaryMin = extracted.salaryMin
-    if (extracted.salaryMax) updateData.salaryMax = extracted.salaryMax
+    // The salary question is answered while currentState === REMOTE_PREFERENCE
+    // (see STATE_SCHEMAS above). LLMs are unreliable at converting Indian
+    // shorthand ("40-55 LPA", "18L") to plain numbers — the regex-based
+    // parseSalaryRange already used for job postings handles k/L/lakh/lac
+    // suffixes deterministically, so prefer it over the model's raw digits
+    // whenever it finds a match in the candidate's own answer text.
+    const parsedSalary = currentState === 'REMOTE_PREFERENCE' ? parseSalaryRange(message) : null
+    if (parsedSalary) {
+      updateData.salaryMin = parsedSalary.min
+      updateData.salaryMax = parsedSalary.max
+    } else {
+      if (extracted.salaryMin) updateData.salaryMin = extracted.salaryMin
+      if (extracted.salaryMax) updateData.salaryMax = extracted.salaryMax
+    }
     if (extracted.salaryCurrency) updateData.salaryCurrency = extracted.salaryCurrency
     if (extracted.urgency) updateData.urgency = normaliseUrgency(extracted.urgency)
     if (extracted.noticePeriod) updateData.noticePeriod = extracted.noticePeriod
@@ -248,21 +290,27 @@ router.post('/onboarding', async (req: AuthRequest, res: Response, next: NextFun
     updateData.onboardingState = nextState
     updateData.completionScore = completionScore
 
-    profile = await prisma.candidateProfile.upsert({
-      where: { userId },
-      create: { userId, onboardingState: nextState, completionScore, ...updateData },
-      update: updateData,
-    })
+    if (profile) {
+      Object.assign(profile, updateData)
+      profile = await profileRepo.save(profile)
+    } else {
+      profile = profileRepo.create({ userId, ...updateData })
+      profile = await profileRepo.save(profile)
+    }
 
-    const isComplete = nextState === 'DONE'
+    // VISA_STATUS has no question of its own (the last real question — visa
+    // status — is asked while still in NOTICE_PERIOD); treat an empty next
+    // question the same as DONE so the chat never shows a blank bot message.
+    const nextQuestionText = ONBOARDING_QUESTIONS[nextState]
+    const isComplete = nextState === 'DONE' || !nextQuestionText
     const nextQuestion = isComplete
       ? "All done! Your profile is set up. Ready to upload your resume and start matching jobs?"
-      : ONBOARDING_QUESTIONS[nextState]
+      : nextQuestionText
 
     const result: OnboardingTurn = {
       message: nextQuestion ?? '',
       state: nextState,
-      profileUpdates: extracted,
+      profileUpdates: { ...extracted, remotePreference: extracted.remotePreference as RemotePreference | undefined, urgency: extracted.urgency as SearchUrgency | undefined },
       isComplete,
       completionScore,
     }

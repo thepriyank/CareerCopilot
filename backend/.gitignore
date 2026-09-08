@@ -2,6 +2,13 @@ node_modules/
 dist/
 .env
 uploads/
+# GCP service-account keys and any other local-only credential files —
+# never committed. GCS_KEY_FILE points here (see .env).
+secrets/
 *.log
 coverage/
 .prisma/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

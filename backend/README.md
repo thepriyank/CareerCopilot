@@ -1,6 +1,6 @@
-# AI Career Copilot – Backend
+# Jobmagnate – Backend
 
-Express + TypeScript REST API powering the AI Career Copilot.
+Express + TypeScript REST API powering Jobmagnate.
 
 ## Requirements
 
