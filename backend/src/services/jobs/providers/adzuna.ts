@@ -20,7 +20,13 @@ import { stripHtml } from './text'
 const ADZUNA_HOST = 'api.adzuna.com'
 const RESULTS_PER_PAGE = 50
 const DEFAULT_MAX_DAYS_OLD = 21
-const MAX_TITLE_QUERIES = 5
+// Adzuna's free tier is ~250 calls/DAY (not/month, unlike JSearch) — one
+// call per title (plus one remote-scoped call below) comfortably covers
+// every title in target-job-titles.json every single run with no need to
+// ration or rotate. 2026-09-09: raised from a static 5 (which, unlike
+// JSearch's tighter monthly cap, had no quota justification at all —
+// simply left 8 of 13 target categories unsearched for no reason).
+const MAX_TITLE_QUERIES = 20
 
 /** ISO-3166 alpha-2 (lowercased) → currency, for the countries Adzuna serves that we care about. */
 const COUNTRY_CURRENCY: Record<string, string> = {

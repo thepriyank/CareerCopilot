@@ -35,6 +35,7 @@
 
 import { NormalizedJob, Provider, ProviderContext, ProviderEntry } from './types'
 import { usableCredentials, handleJobApiFailure } from './jobCredentialChain'
+import { rotateTitles } from './titleRotation'
 import { logger } from '../../../utils/logger'
 
 const RAPIDAPI_HOST = 'jsearch.p.rapidapi.com'
@@ -46,7 +47,13 @@ const RAPIDAPI_HOST = 'jsearch.p.rapidapi.com'
 const RAPIDAPI_SEARCH_URL = `https://${RAPIDAPI_HOST}/search-v2`
 const OPENWEBNINJA_SEARCH_URL = 'https://api.openwebninja.com/jsearch/search-v2'
 const DEFAULT_EMPLOYMENT_TYPES = 'FULLTIME'
-const MAX_TITLE_QUERIES = 3
+// 6/day * 30 = 180 calls/month, under the ~200/month free-tier quota (see
+// this file's header) with margin for the occasional retry. Discovery now
+// runs once daily (see discoveryCron.ts), so this is also the per-run cap.
+// Previously a static 3, querying the same first 3 titles forever — see
+// titleRotation.ts's header for why that starved 10 of 13 target
+// categories of any JSearch coverage at all. Rotated below instead.
+const MAX_TITLE_QUERIES = 6
 
 export interface AggregatorQuery {
   countryCodes?: string[]
@@ -168,7 +175,8 @@ const jsearch: Provider = {
 
     const query: AggregatorQuery = (entry as { query?: AggregatorQuery }).query ?? {}
     const country = (query.countryCodes?.[0] ?? 'in').toLowerCase()
-    const titles = (query.titles ?? []).map((t) => t.trim()).filter(Boolean).slice(0, MAX_TITLE_QUERIES)
+    const allTitles = (query.titles ?? []).map((t) => t.trim()).filter(Boolean)
+    const titles = rotateTitles(allTitles, MAX_TITLE_QUERIES)
     const searchTerms = titles.length > 0 ? titles : ['engineering manager']
 
     const out: NormalizedJob[] = []
