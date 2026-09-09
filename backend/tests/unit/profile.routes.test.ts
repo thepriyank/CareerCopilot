@@ -42,22 +42,23 @@ beforeEach(() => {
 
 describe('POST /api/profile/onboarding', () => {
   it('trusts the persisted onboardingState over a stale client-supplied state', async () => {
-    // Server already has the user at VISA_STATUS (90%); a stale client
-    // (e.g. after a page refresh that reset local state) sends TARGET_ROLES.
+    // Server already has the user at AVOID_TECH (the last real state before
+    // DONE, 95%); a stale client (e.g. after a page refresh that reset
+    // local state) sends TARGET_ROLES.
     profileRepo.rows.push({
       id: 'p1',
       userId: USER_ID,
-      onboardingState: 'VISA_STATUS',
-      completionScore: 90,
+      onboardingState: 'AVOID_TECH',
+      completionScore: 95,
     } as never)
 
     const res = await request(buildApp())
       .post('/api/profile/onboarding')
       .set('Authorization', `Bearer ${token}`)
-      .send({ message: 'No constraints', state: 'TARGET_ROLES' })
+      .send({ message: 'None', state: 'TARGET_ROLES' })
 
     expect(res.status).toBe(200)
-    // Should advance from the real persisted state (VISA_STATUS -> DONE),
+    // Should advance from the real persisted state (AVOID_TECH -> DONE),
     // not regress based on the client's stale TARGET_ROLES.
     expect(res.body.state).toBe('DONE')
     expect(res.body.completionScore).toBe(100)
@@ -71,5 +72,32 @@ describe('POST /api/profile/onboarding', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.state).toBe('TARGET_ROLES')
+  })
+
+  it('extracts avoidTechnologies from the VISA_STATUS answer and advances to AVOID_TECH', async () => {
+    const { generateJson } = require('../../src/services/ai/anthropicClient')
+    ;(generateJson as jest.Mock).mockResolvedValueOnce({ avoidTechnologies: ['Java', 'PHP'] })
+
+    profileRepo.rows.push({
+      id: 'p1',
+      userId: USER_ID,
+      onboardingState: 'VISA_STATUS',
+      completionScore: 95,
+      avoidTechnologies: [],
+    } as never)
+
+    const res = await request(buildApp())
+      .post('/api/profile/onboarding')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ message: 'I would rather avoid Java and PHP', state: 'VISA_STATUS' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.state).toBe('AVOID_TECH')
+    expect(res.body.completionScore).toBe(100)
+    expect(res.body.profileUpdates.avoidTechnologies).toEqual(['Java', 'PHP'])
+    expect((profileRepo.rows[0] as unknown as { avoidTechnologies: string[] }).avoidTechnologies).toEqual([
+      'Java',
+      'PHP',
+    ])
   })
 })

@@ -30,6 +30,15 @@ export class CandidateProfile {
   @Column({ type: 'text', array: true, default: '{}' })
   locations!: string[]
 
+  // 2026-09-09: technologies/frameworks/tools the candidate explicitly does
+  // NOT want to work with — from older experience they're moving away from,
+  // or just a preference. Used as a hard exclusion in surfaceJobs.ts: a
+  // listing whose REQUIRED skills (not nice-to-have) include one of these
+  // never gets surfaced to this candidate at all, rather than merely
+  // scoring it lower. Same text[] pattern as targetRoles/industries/locations.
+  @Column({ type: 'text', array: true, default: '{}' })
+  avoidTechnologies!: string[]
+
   @Column({ type: 'enum', enum: RemotePreference, default: RemotePreference.OPEN })
   remotePreference!: RemotePreference
 

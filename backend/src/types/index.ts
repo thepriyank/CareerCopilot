@@ -113,6 +113,7 @@ export type OnboardingState =
   | 'URGENCY'
   | 'NOTICE_PERIOD'
   | 'VISA_STATUS'
+  | 'AVOID_TECH'
   | 'DONE'
 
 export interface OnboardingTurn {
@@ -129,6 +130,7 @@ export interface OnboardingTurn {
     urgency: SearchUrgency
     noticePeriod: string
     visaStatus: string
+    avoidTechnologies: string[]
   }>
   isComplete: boolean
   completionScore: number

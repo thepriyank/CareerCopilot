@@ -32,7 +32,9 @@ const ONBOARDING_QUESTIONS: Record<OnboardingState, string> = {
     'What is your notice period at your current role (if any)? E.g., "2 weeks", "1 month", "Immediately available", or "N/A".',
   NOTICE_PERIOD:
     'Do you have any visa or work-authorisation constraints? E.g., "US citizen", "UK work visa", "Require sponsorship", or "No constraints".',
-  VISA_STATUS: '',
+  VISA_STATUS:
+    "Last one: are there any technologies, frameworks, or tools you'd rather not work with — from older experience you're moving away from, or just a preference? List them, or say \"none\".",
+  AVOID_TECH: '',
   DONE: '',
 }
 
@@ -45,7 +47,8 @@ const STATE_TRANSITIONS: Record<OnboardingState, OnboardingState> = {
   SALARY: 'URGENCY',
   URGENCY: 'NOTICE_PERIOD',
   NOTICE_PERIOD: 'VISA_STATUS',
-  VISA_STATUS: 'DONE',
+  VISA_STATUS: 'AVOID_TECH',
+  AVOID_TECH: 'DONE',
   DONE: 'DONE',
 }
 
@@ -56,8 +59,9 @@ const COMPLETION_SCORES: Partial<Record<OnboardingState, number>> = {
   REMOTE_PREFERENCE: 45,
   SALARY: 60,
   URGENCY: 75,
-  NOTICE_PERIOD: 90,
-  VISA_STATUS: 100,
+  NOTICE_PERIOD: 85,
+  VISA_STATUS: 95,
+  AVOID_TECH: 100,
   DONE: 100,
 }
 
@@ -85,6 +89,7 @@ interface NluResult {
   urgency?: string
   noticePeriod?: string
   visaStatus?: string
+  avoidTechnologies?: string[]
 }
 
 // Keyed by `currentState` — the state we're IN while processing an answer,
@@ -94,8 +99,9 @@ interface NluResult {
 // schema, not a target-roles one). Each entry here extracts the topic asked
 // by ONBOARDING_QUESTIONS[same key] — schemas are intentionally one topic
 // "ahead" of what the state's own name suggests, matching that pairing.
-// VISA_STATUS has no entry: its own displayed question is blank (the last
-// real question — visa status — is asked while currentState is NOTICE_PERIOD).
+// AVOID_TECH has no entry: its own displayed question is blank (the last
+// real question — technologies to avoid — is asked while currentState is
+// VISA_STATUS).
 const STATE_SCHEMAS: Partial<Record<OnboardingState, string>> = {
   WELCOME: '{"targetRoles": ["array of job title strings"]}',
   TARGET_ROLES: '{"industries": ["array of industry strings"]}',
@@ -108,6 +114,7 @@ const STATE_SCHEMAS: Partial<Record<OnboardingState, string>> = {
     '{"urgency": "one of: ACTIVELY_LOOKING, OPEN_TO_OPPORTUNITIES, NOT_LOOKING"}',
   URGENCY: '{"noticePeriod": "string describing notice period or null"}',
   NOTICE_PERIOD: '{"visaStatus": "string describing visa/work auth status or null"}',
+  VISA_STATUS: '{"avoidTechnologies": ["array of technology/framework/tool name strings, empty if none mentioned"]}',
 }
 
 async function extractProfileUpdate(
@@ -172,6 +179,7 @@ const upsertProfileSchema = z.object({
   targetRoles: z.array(z.string()).optional(),
   industries: z.array(z.string()).optional(),
   locations: z.array(z.string()).optional(),
+  avoidTechnologies: z.array(z.string()).optional(),
   remotePreference: z.enum(['REMOTE', 'HYBRID', 'ONSITE', 'OPEN']).optional(),
   salaryMin: z.number().int().positive().nullable().optional(),
   salaryMax: z.number().int().positive().nullable().optional(),
@@ -221,6 +229,7 @@ const onboardingSchema = z.object({
       'URGENCY',
       'NOTICE_PERIOD',
       'VISA_STATUS',
+      'AVOID_TECH',
       'DONE',
     ])
     .optional(),
@@ -283,6 +292,7 @@ router.post('/onboarding', async (req: AuthRequest, res: Response, next: NextFun
     if (extracted.urgency) updateData.urgency = normaliseUrgency(extracted.urgency)
     if (extracted.noticePeriod) updateData.noticePeriod = extracted.noticePeriod
     if (extracted.visaStatus) updateData.visaStatus = extracted.visaStatus
+    if (extracted.avoidTechnologies?.length) updateData.avoidTechnologies = extracted.avoidTechnologies
 
     // Advance to next state
     const nextState = STATE_TRANSITIONS[currentState]

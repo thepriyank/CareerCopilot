@@ -32,6 +32,7 @@ import { GeneratedResumeVersion } from '../../entities/GeneratedResumeVersion'
 import { JobOrigin } from '../../entities/enums'
 import { config } from '../../config'
 import { computeMatchScore } from './matchScore'
+import { hasAvoidedRequiredTech } from './avoidedTechFilter'
 import { flattenResumeText } from '../skills/resumeText'
 import { ExtractedEntities } from '../../types'
 
@@ -65,8 +66,15 @@ export async function ensureMatchedJobsForCandidate(
 
   let newlyMatched = 0
 
+  const avoidTechnologies = profile?.avoidTechnologies ?? []
+
   for (const listing of listings) {
     if (attachedListingIds.has(listing.id)) continue // already in their list, however it got there
+
+    // Hard exclusion (2026-09-09), checked before scoring: a listing that
+    // *requires* a technology the candidate has avoided is never surfaced
+    // at all, not merely scored lower. See avoidedTechFilter.ts's header.
+    if (hasAvoidedRequiredTech(listing.normalizedFields, avoidTechnologies)) continue
 
     const result = computeMatchScore(resumeText, resumeSkills, listing, profile)
     if (result.score < config.matching.minScoreToSurface) continue
