@@ -137,3 +137,60 @@ module "backend_service" {
 
   secret_env_vars = { for k, m in module.secrets : k => m.secret_id }
 }
+
+# ── Daily job discovery (Phase E fix, 2026-09-09) ───────────────────────
+# Replaces reliance on backend_service's in-process node-cron
+# (discoveryCron.ts), which never fires reliably on Cloud Run: a tick that
+# lands while the instance is scaled to zero (min_instances=0 here) simply
+# never runs. This Cloud Run Job — same image as the backend, entrypoint
+# overridden to `node dist/scripts/runDiscovery.js` — is invoked directly by
+# Cloud Scheduler instead, giving genuine once-a-day execution semantics
+# with no always-on process required. JOB_DISCOVERY_CRON_ENABLED stays
+# "false" on the web service (see backend_service.env_vars above) — this
+# Job is now the only path that runs discovery.
+module "discovery_scheduler_sa" {
+  source        = "../../modules/service-account"
+  project_id    = var.project_id
+  account_id    = "jobmagnate-disc-sched-${var.environment}"
+  display_name  = "Jobmagnate discovery-job invoker (${var.environment}) — Cloud Scheduler only, no runtime DB/secret access"
+  project_roles = []
+}
+
+module "discovery_job" {
+  source     = "../../modules/cloud-run-job"
+  project_id = var.project_id
+  region     = var.region
+  job_name   = "jobmagnate-discovery-${var.environment}"
+  image      = var.backend_image
+  # Same runtime SA as the backend service — it already holds the Secret
+  # Manager grants this job needs (DATABASE_URL, LLM provider keys).
+  service_account_email = module.backend_sa.email
+  command               = ["node"]
+  args                  = ["dist/scripts/runDiscovery.js"]
+  labels                = { app = "jobmagnate", environment = var.environment, service = "discovery-job" }
+
+  env_vars = {
+    NODE_ENV           = "production"
+    LLM_PROVIDER_ORDER = var.llm_provider_order
+    LLM_ALLOW_PAID     = "false"
+    LLM_COOLDOWN_MS    = "900000"
+  }
+
+  # Reuses the exact same secret set as backend_service (including
+  # JWT_SECRET/SETTINGS_ENCRYPTION_KEY, which this job never reads) rather
+  # than maintaining a second, narrower list — the runtime SA already has
+  # access to all of them either way, so there's no privilege gained by
+  # subsetting, only a second list to keep in sync.
+  secret_env_vars = { for k, m in module.secrets : k => m.secret_id }
+}
+
+module "discovery_schedule" {
+  source                        = "../../modules/cloud-scheduler-job"
+  project_id                    = var.project_id
+  region                        = var.region
+  name                          = "jobmagnate-discovery-${var.environment}"
+  schedule                      = "30 1 * * *" # 1:30 UTC = 7:00am IST, once daily
+  time_zone                     = "Etc/UTC"
+  cloud_run_job_name            = module.discovery_job.name
+  invoker_service_account_email = module.discovery_scheduler_sa.email
+}

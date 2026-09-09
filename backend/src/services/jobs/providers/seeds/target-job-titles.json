@@ -1,15 +1,18 @@
 {
-  "_comment": "System-wide search terms the discovery cron uses against title-based aggregators (JSearch/Adzuna/Jooble/TheirStack). Discovery is no longer per-candidate (2026-09-06) — this is the interim stand-in for the admin mode described in the F4 plan doc, which will let an admin edit this list from a UI instead of a committed file. Keep it curated, not exhaustive — every title here gets queried on every cron tick.",
+  "_comment": "System-wide search terms the discovery cron uses against title-based aggregators (JSearch/Adzuna/Jooble/TheirStack). Discovery is no longer per-candidate (2026-09-06) — this is the interim stand-in for the admin mode described in the F4 plan doc, which will let an admin edit this list from a UI instead of a committed file. Keep it curated, not exhaustive — every title here gets queried on every cron tick. Scoped to software-engineering roles only as of 2026-09-09 (dropped Product Manager, added AI/ML, Platform, and Lead Engineer) — this list only bounds the keyword-search aggregators; isSoftwareEngineeringRole.ts is the actual filter applied to every discovered job regardless of source, including the unfiltered remote-board/ATS feeds.",
   "titles": [
     "Software Engineer",
+    "Frontend Engineer",
     "Backend Engineer",
     "Full Stack Engineer",
-    "Frontend Engineer",
-    "Engineering Manager",
+    "AI Engineer",
+    "Machine Learning Engineer",
     "Staff Engineer",
-    "DevOps Engineer",
+    "Lead Engineer",
+    "Engineering Manager",
     "Data Engineer",
-    "Product Manager",
+    "Platform Engineer",
+    "DevOps Engineer",
     "QA Engineer"
   ]
 }

@@ -33,6 +33,7 @@ import { atsProviders, remoteBoardProviders, aggregatorProviders, NormalizedJob 
 import { makeHttpContext } from './providers/http'
 import indiaCompaniesSeed from './providers/seeds/india-companies.json'
 import targetJobTitlesSeed from './providers/seeds/target-job-titles.json'
+import { isSoftwareEngineeringRole } from './isSoftwareEngineeringRole'
 import { logger } from '../../utils/logger'
 
 const REMOTE_BOARD_SOURCE_IDS = new Set(remoteBoardProviders.map((p) => p.id))
@@ -250,8 +251,18 @@ export async function discoverJobsGlobally(): Promise<GlobalDiscoveryResult> {
   const seenThisRun = new Set<string>()
   let newListings = 0
   let seen = 0
+  let filteredOut = 0
 
   for (const { job, source } of discovered) {
+    // `titles` only bounds what the keyword-search aggregators ask for —
+    // the remote-board/ATS providers return their entire feed unfiltered.
+    // This is the actual software-engineering-domain gate, applied
+    // regardless of source. See isSoftwareEngineeringRole.ts's header.
+    if (!isSoftwareEngineeringRole(job.title)) {
+      filteredOut++
+      continue
+    }
+
     if (!job.url || seenThisRun.has(job.url)) {
       seen++
       continue
@@ -261,6 +272,10 @@ export async function discoverJobsGlobally(): Promise<GlobalDiscoveryResult> {
     const { isNew } = await upsertJobListing(toJobInput(job, source))
     if (isNew) newListings++
     else seen++
+  }
+
+  if (filteredOut > 0) {
+    logger.info(`discoverJobsGlobally: filtered out ${filteredOut} non-software-engineering listing(s)`)
   }
 
   return { newListings, seen, errors }

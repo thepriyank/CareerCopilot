@@ -34,9 +34,14 @@ jest.mock('../../src/services/skills/extractJobSkills', () => ({
 }))
 
 const fakeProviderA = { id: 'fake-a', detect: () => null, fetch: jest.fn(async (..._args: unknown[]) => [] as unknown[]) }
+// Board providers (RemoteOK/WeWorkRemotely/Himalayas) return their whole
+// feed unfiltered in real life — this fake stands in for that shape, to
+// confirm the software-engineering filter applies to them too (2026-09-09
+// fix), not just the title-search aggregators.
+const fakeBoardProvider = { id: 'fake-board', detect: () => null, fetch: jest.fn(async (..._args: unknown[]) => [] as unknown[]) }
 jest.mock('../../src/services/jobs/providers', () => ({
   atsProviders: [],
-  remoteBoardProviders: [],
+  remoteBoardProviders: [{ id: 'fake-board', detect: () => null, fetch: (...args: unknown[]) => fakeBoardProvider.fetch(...args) }],
   aggregatorProviders: [{ id: 'fake-a', detect: () => null, fetch: (...args: unknown[]) => fakeProviderA.fetch(...args) }],
 }))
 
@@ -66,6 +71,7 @@ beforeEach(() => {
   userJobRepo.rows.length = 0
   mockExtractJobSkills.mockClear()
   fakeProviderA.fetch.mockReset().mockResolvedValue([])
+  fakeBoardProvider.fetch.mockReset().mockResolvedValue([])
 })
 
 describe('ensureUserHasJob', () => {
@@ -138,8 +144,8 @@ describe('ensureUserHasJob', () => {
 describe('discoverJobsGlobally', () => {
   it('counts a genuinely new listing and a same-run duplicate URL as seen, never touching UserJob', async () => {
     fakeProviderA.fetch.mockResolvedValue([
-      { title: 'Engineer', url: 'https://example.com/jobs/1', company: 'Acme' },
-      { title: 'Engineer (dup)', url: 'https://example.com/jobs/1', company: 'Acme' }, // same URL, same run
+      { title: 'Backend Engineer', url: 'https://example.com/jobs/1', company: 'Acme' },
+      { title: 'Backend Engineer (dup)', url: 'https://example.com/jobs/1', company: 'Acme' }, // same URL, same run
     ])
 
     const result = await discoverJobsGlobally()
@@ -151,11 +157,29 @@ describe('discoverJobsGlobally', () => {
   })
 
   it('a job with no URL at all is always counted as seen, never persisted', async () => {
-    fakeProviderA.fetch.mockResolvedValue([{ title: 'No link', url: '', company: 'Acme' }])
+    fakeProviderA.fetch.mockResolvedValue([{ title: 'Backend Engineer', url: '', company: 'Acme' }])
     const result = await discoverJobsGlobally()
     expect(result.newListings).toBe(0)
     expect(result.seen).toBe(1)
     expect(jobListingRepo.rows).toHaveLength(0)
+  })
+
+  it('filters out non-software-engineering listings from board providers, which return their feed unfiltered', async () => {
+    // Board providers have no title/query filtering at the source (unlike
+    // aggregatorProviders, which only ever query the target-title seed) —
+    // this is the actual gate that keeps e.g. "Executive Personal
+    // Assistant" postings out of the pool. Neither counts as "seen" —
+    // they're excluded before the dedup/persistence logic even runs.
+    fakeBoardProvider.fetch.mockResolvedValue([
+      { title: 'Executive Personal Assistant to the Founder', url: 'https://example.com/jobs/2', company: 'Acme' },
+      { title: 'Backend Engineer', url: 'https://example.com/jobs/3', company: 'Acme' },
+    ])
+
+    const result = await discoverJobsGlobally()
+
+    expect(result.newListings).toBe(1)
+    expect(jobListingRepo.rows).toHaveLength(1)
+    expect(jobListingRepo.rows[0].title).toBe('Backend Engineer')
   })
 
   it('queries providers using the system-wide target-title seed, not any candidate profile', async () => {

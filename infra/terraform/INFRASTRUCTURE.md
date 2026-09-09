@@ -45,13 +45,47 @@ State: **local** (`infra/terraform/bootstrap/terraform.tfstate`, gitignored — 
 
 | Resource | Value |
 |---|---|
-| Backend Cloud Run service | `jobmagnate-backend-staging` — https://jobmagnate-backend-staging-w4642vyi6a-as.a.run.app — image tag `20260908-182216` |
-| Frontend Cloud Run service | `jobmagnate-frontend-staging` — https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app — image tag `20260908-182216-amd64` (note the `-amd64` suffix — see deploy history step 7) |
+| Backend Cloud Run service | `jobmagnate-backend-staging` — https://jobmagnate-backend-staging-w4642vyi6a-as.a.run.app — image tag tracks whatever `deploy-backend.yml` last pushed; check `environments/staging/image_tags.tfvars` for the current one, not this table |
+| Frontend Cloud Run service | `jobmagnate-frontend-staging` — https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app — same note |
 | Backend runtime SA | `jobmagnate-be-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` (`roles/storage.objectAdmin` on `jobmagnet-user-data` only — no other project roles; no Firebase-specific role needed, see `main.tf`'s comment on why) |
 | Frontend runtime SA | `jobmagnate-fe-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` (zero project roles — calls no GCP APIs itself) |
-| Neon branch | `staging` (`br-muddy-dream-b3x0ok39`), parent `production` |
+| Neon branch | `staging` (`br-muddy-dream-b3x0ok39`), parent `production` — seeded 2026-09-09 with the 40 real `jsearch`-sourced job listings migrated from local dev Postgres (see "Daily discovery job" below) |
 | Cloud Run scaling | backend: min 0 / max **1** (capped — Phase E migration/cron safety hasn't landed, see plan doc §6/§8); frontend: min 0 / max 3 |
 | Redis | **not configured anywhere** — deliberate, see plan doc's Redis decision |
+
+### Daily discovery job (Phase E fix, applied 2026-09-09)
+
+The in-process `node-cron` in `discoveryCron.ts` never fires reliably on
+Cloud Run (a tick landing while `min_instances=0` is idle just doesn't
+run) — `JOB_DISCOVERY_CRON_ENABLED` stays `"false"` on the web service
+permanently now. Replaced with a real Cloud Run Job + Cloud Scheduler:
+
+| Resource | Value |
+|---|---|
+| Cloud Run Job | `jobmagnate-discovery-staging` — same image as the backend service, entrypoint overridden to `node dist/scripts/runDiscovery.js` |
+| Cloud Scheduler job | `jobmagnate-discovery-staging` — `30 1 * * *` UTC (7:00am IST), once daily |
+| Scheduler invoker SA | `jobmagnate-disc-sched-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` — `roles/run.invoker` on just this one Job, nothing else |
+| Job's runtime identity | reuses `jobmagnate-be-staging` (the backend runtime SA) — already has the Secret Manager grants it needs |
+
+**Software-engineering scope** (2026-09-09 product decision — "we'll not
+just be pulling all the jobs"): discovery now only keeps postings matching
+`isSoftwareEngineeringRole()` — frontend/backend/full-stack/AI/ML, staff
+or lead engineer, engineering manager, data engineer, platform/DevOps/SRE,
+QA/SDET, mobile. This gate applies to **every** provider's output, not
+just the keyword-search aggregators (JSearch/Adzuna/Jooble/TheirStack,
+which only ever query `target-job-titles.json`'s list) — the remote-board
+providers (RemoteOK/WeWorkRemotely/Himalayas) and ATS providers
+(Greenhouse et al.) return their whole feed with no filtering at the
+source, and a real pull surfaced plenty of noise this way before the fix
+(e.g. "Executive Personal Assistant to the Founder").
+
+**Not yet verified**: the Cloud Scheduler → Cloud Run Job invocation
+hasn't been manually triggered and confirmed end-to-end yet (the Job was
+created pointing at an image built *before* `runDiscovery.ts` existed —
+needs a fresh `deploy-backend.yml` run first). Run `gcloud scheduler jobs
+run jobmagnate-discovery-staging --location asia-southeast1 --project
+jobmagnet-6a1ab` to trigger it manually and check
+`gcloud logging read` / `gcloud run jobs executions list` for the result.
 
 ### Secrets provisioned (Secret Manager, real values populated 2026-09-08)
 

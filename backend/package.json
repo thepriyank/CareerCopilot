@@ -11,6 +11,8 @@
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
     "verify:seeds": "ts-node src/scripts/verifySeeds.ts",
+    "discover:run": "ts-node src/scripts/runDiscovery.ts",
+    "discover:run:prod": "node dist/scripts/runDiscovery.js",
     "postinstall": "npx playwright install chromium --with-deps || npx playwright install chromium",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/dataSource.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/dataSource.ts",
