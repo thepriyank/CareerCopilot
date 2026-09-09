@@ -35,6 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # See terraform-apply-staging.yml's comment on the same step (a real
+      # bug hit live on staging 2026-09-09) — applies equally here.
+      - run: git pull --ff-only origin production
+        working-directory: .
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

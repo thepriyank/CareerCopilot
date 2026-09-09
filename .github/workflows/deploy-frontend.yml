@@ -32,6 +32,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # See terraform-apply-staging.yml's comment on the same step — a
+      # queued run in this concurrency group can be pinned to a commit
+      # that's now behind another run's bot-commit to image_tags.tfvars.
+      - run: git pull --ff-only origin main
+        working-directory: .
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

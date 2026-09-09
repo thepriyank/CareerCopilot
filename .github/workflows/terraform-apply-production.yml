@@ -32,6 +32,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # See terraform-apply-staging.yml's comment on the same step (a real
+      # bug hit live on staging 2026-09-09) — applies equally here.
+      - run: git pull --ff-only origin production
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.15.8'
