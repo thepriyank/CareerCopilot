@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+<style>
+  :root {
+    --accent: oklch(0.63 0.108 185);
+    --accent-fg: #ffffff;
+    --accent-subtle: oklch(0.965 0.028 185);
+    --accent-text: oklch(0.44 0.090 185);
+    --success-bg: oklch(0.962 0.03 158);
+    --sage-900: oklch(0.42 0.09 158);
+    --gap: oklch(0.48 0.11 62);
+    --gap-bg: oklch(0.962 0.05 80);
+    --paper: oklch(0.985 0.002 255);
+    --paper-2: oklch(0.972 0.003 255);
+    --paper-3: oklch(0.955 0.004 255);
+    --surface: #ffffff;
+    --line: oklch(0.918 0.004 255);
+    --text: oklch(0.24 0.012 262);
+    --text-soft: oklch(0.44 0.012 262);
+    --text-muted: oklch(0.58 0.010 262);
+    --font-display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --shadow-2: 0 1px 3px oklch(0.2 0.02 262 / 0.09), 0 1px 2px oklch(0.2 0.02 262 / 0.04);
+    --shadow-3: 0 16px 40px -12px oklch(0.2 0.02 262 / 0.18);
+    --r-1: 6px; --r-2: 8px; --r-3: 10px; --r-pill: 999px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper-2); }
+  body { font-family: var(--font-sans); color: var(--text); font-size: 14px; line-height: 1.5; letter-spacing: -0.006em; }
+  .frame { width: 390px; height: 844px; background: var(--paper); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .topbar { height: 56px; flex-shrink: 0; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+  .back { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-soft); }
+  .eyebrow { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .title { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; font-size: 15px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+  .scroll { flex: 1; overflow-y: auto; padding: 16px 16px 100px; display: flex; flex-direction: column; gap: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: 500; background: var(--paper-2); color: var(--text-soft); border: 1px solid var(--line); }
+  .chip-ink { background: var(--accent-subtle); color: var(--accent-text); border-color: transparent; }
+  .chip-match { background: var(--success-bg); color: var(--sage-900); border-color: transparent; }
+  .chip-missing { background: var(--gap-bg); color: var(--gap); border-color: transparent; }
+  .desc-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); box-shadow: var(--shadow-2); padding: 16px; }
+  .section { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); box-shadow: var(--shadow-2); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .section .head { display: flex; align-items: center; justify-content: space-between; }
+  .btn-sm { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: var(--r-1); font-size: 11px; font-weight: 500; background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+  .sticky-cta { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: oklch(1 0 0 / 0.92); border-top: 1px solid var(--line); box-shadow: var(--shadow-3); display: flex; gap: 8px; }
+  .btn-primary-lg { flex: 1; height: 44px; border-radius: var(--r-3); border: none; background: var(--accent); color: var(--accent-fg); font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 7px; }
+  .btn-icon-lg { width: 44px; height: 44px; border-radius: var(--r-3); border: 1px solid var(--line); background: var(--surface); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="topbar">
+      <div class="back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div style="min-width:0;">
+        <div class="eyebrow">Acme Cloud · Remote</div>
+        <div class="title">Senior Backend Engineer</div>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <div class="desc-card">
+        <div style="display:flex;gap:6px;margin-bottom:12px;">
+          <span class="chip chip-ink">Greenhouse</span>
+          <span class="chip">Senior</span>
+          <span class="chip chip-match">Remote</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px;">$150k – $190k</div>
+        <div class="eyebrow" style="margin-bottom:6px;">Job description</div>
+        <div style="font-size:12.5px;line-height:1.6;color:var(--text-soft);">We're looking for a Senior Backend Engineer to own our core Node.js services, design APIs used by 40+ internal teams, and mentor two mid-level engineers…</div>
+      </div>
+
+      <div class="section">
+        <div class="head">
+          <div class="eyebrow">Match</div>
+          <button class="btn-sm">Recompute</button>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <svg width="52" height="52" viewBox="0 0 52 52" style="flex-shrink:0;">
+            <circle cx="26" cy="26" r="21" stroke="var(--paper-3)" stroke-width="5" fill="none"/>
+            <circle cx="26" cy="26" r="21" stroke="var(--accent)" stroke-width="5" fill="none" stroke-dasharray="132" stroke-dashoffset="16" stroke-linecap="round" transform="rotate(-90 26 26)"/>
+          </svg>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+              <span class="chip chip-match">Node.js</span>
+              <span class="chip chip-match">Postgres</span>
+              <span class="chip chip-missing">+ Kubernetes</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Remote-friendly · Within your range</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="head">
+          <div class="eyebrow">Skill gap</div>
+          <button class="btn-sm">Recheck</button>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;">On your resume</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="chip chip-match">Node.js</span><span class="chip chip-match">TypeScript</span></div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;">Real gaps</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;"><span class="chip chip-missing">+ Kubernetes</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="head">
+          <div class="eyebrow">Cover letter</div>
+          <button class="btn-sm">Regenerate</button>
+        </div>
+        <div style="font-size:12.5px;line-height:1.6;color:var(--text-soft);">Dear Hiring Team, I'm excited to apply for the Senior Backend Engineer role at Acme Cloud…</div>
+      </div>
+
+      <div class="section">
+        <div class="head">
+          <div class="eyebrow">Tailored resume</div>
+          <button class="btn-sm">Re-tailor</button>
+        </div>
+        <div style="font-size:12.5px;line-height:1.6;color:var(--text-soft);">Led migration of a monolith to 12 Node.js microservices, cutting p95 latency 38%…</div>
+      </div>
+    </div>
+
+    <div class="sticky-cta">
+      <button class="btn-primary-lg"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/></svg>Tailor resume</button>
+      <button class="btn-icon-lg"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    </div>
+  </div>
+</body>
+</html>

@@ -134,7 +134,7 @@ export default function OnboardingPage() {
           </div>
         }
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 340px', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 340px', overflow: 'hidden' }}>
 
         {/* Chat */}
         <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--line-2)', background: 'var(--paper)' }}>

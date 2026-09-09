@@ -105,7 +105,7 @@ export default function JobBoardPage() {
           </>
         }
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '240px 1fr', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '240px 1fr', overflow: 'hidden' }}>
         {/* Filters */}
         <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', overflow: 'auto' }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>Source</div>
@@ -153,7 +153,7 @@ export default function JobBoardPage() {
             <form onSubmit={handleAddJob} className="card" style={{ padding: 18, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div className="eyebrow">Paste a job description</div>
               {addError && <div style={{ fontSize: 12, color: 'var(--error)' }}>{addError}</div>}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <input placeholder="Job title *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line-2)', fontSize: 13 }} />
                 <input placeholder="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line-2)', fontSize: 13 }} />
                 <input placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line-2)', fontSize: 13 }} />
@@ -198,7 +198,7 @@ export default function JobBoardPage() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+            <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
               {filtered.map((job) => (
                 <div key={job.id} className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>

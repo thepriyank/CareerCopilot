@@ -197,7 +197,7 @@ function ProfileTab() {
           <label style={labelStyle}>Locations</label>
           <input style={inputStyle} value={locations} onChange={(e) => setLocations(e.target.value)} placeholder="Bengaluru, Remote" />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={labelStyle}>Remote preference</label>
             <select style={inputStyle} value={remotePreference} onChange={(e) => setRemotePreference(e.target.value as RemotePreference)}>
@@ -216,7 +216,7 @@ function ProfileTab() {
             </select>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={labelStyle}>Salary min</label>
             <input style={inputStyle} type="number" value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} />
@@ -361,7 +361,7 @@ export default function SettingsPage() {
         eyebrow="Settings"
         title={TAB_TITLES[activeNav]}
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr', overflow: 'hidden' }}>
         {/* Sub-nav */}
         <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)' }}>
           {SUB_NAV.map(n => (

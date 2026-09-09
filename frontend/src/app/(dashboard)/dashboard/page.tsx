@@ -85,7 +85,7 @@ export default function DashboardPage() {
       <div style={{ flex: 1, overflow: 'auto', padding: 28, background: 'var(--paper-2)' }}>
 
         {/* Top strip */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 14, marginBottom: 18 }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 14, marginBottom: 18 }}>
           <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div className="eyebrow">Master resume</div>
@@ -114,7 +114,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Middle */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, marginBottom: 18 }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14, marginBottom: 18 }}>
           <div className="card" style={{ padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {data.topMatches.map((m) => (
-                  <Link key={m.jobId} href={`/jobs/${m.jobId}`} style={{ display: 'grid', gridTemplateColumns: '32px 1fr auto 100px', gap: 14, alignItems: 'center', padding: '10px 6px', borderBottom: '1px solid var(--line-2)', color: 'inherit', textDecoration: 'none' }}>
+                  <Link key={m.jobId} href={`/jobs/${m.jobId}`} className="row-stack" style={{ display: 'grid', gridTemplateColumns: '32px 1fr auto 100px', gap: 14, alignItems: 'center', padding: '10px 6px', borderBottom: '1px solid var(--line-2)', color: 'inherit', textDecoration: 'none' }}>
                     <div style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--paper-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontSize: 15 }}>{(m.company ?? m.title)[0]}</div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 500 }}>{m.title}</div>
@@ -167,7 +167,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Bottom */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div className="card" style={{ padding: 18, display: 'flex', gap: 18, alignItems: 'center' }}>
             {data.topSkillGap ? (
               <>

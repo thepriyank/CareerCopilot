@@ -122,8 +122,8 @@ export default function ProfileCompletion() {
 
           <Card title="Compensation & Status">
             <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
+              <div className="flex flex-wrap gap-4">
+                <div className="flex-1" style={{ minWidth: 120 }}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Min Salary</label>
                   <input
                     type="number"

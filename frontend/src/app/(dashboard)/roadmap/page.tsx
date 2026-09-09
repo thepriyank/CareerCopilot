@@ -77,7 +77,7 @@ export default function RoadmapPage() {
             No skill gaps yet — run a skill-gap check from a job&rsquo;s detail page to start building your roadmap.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 20 }}>
+          <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 20 }}>
 
             {/* Hero gap */}
             {top && (
@@ -133,6 +133,7 @@ export default function RoadmapPage() {
                 <div
                   key={g.skill}
                   onClick={() => setSelectedSkill(g.skill)}
+                  className="row-stack"
                   style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 80px 16px', gap: 10, alignItems: 'center', padding: '8px 4px', borderBottom: '1px solid var(--line-2)', cursor: 'pointer', background: selectedSkill === g.skill ? 'var(--paper-2)' : 'transparent', borderRadius: 6 }}
                 >
                   <span style={{ fontSize: 13.5 }}>{g.skill}</span>

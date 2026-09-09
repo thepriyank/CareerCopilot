@@ -333,12 +333,14 @@ html, body {
 /* ─── Mobile chrome ─── */
 .m-statusbar {
   height: 44px; padding: 0 22px;
-  display: flex; align-items: center; justify-content: space-between;
+  display: none;
+  align-items: center; justify-content: space-between;
   font-size: 14px; font-weight: 600;
 }
 .m-tabbar {
   height: 76px; flex-shrink: 0;
-  display: flex; align-items: flex-start; justify-content: space-around;
+  display: none;
+  align-items: flex-start; justify-content: space-around;
   padding-top: 10px;
   border-top: 1px solid var(--line);
   background: oklch(1 0 0 / 0.9);
@@ -347,8 +349,57 @@ html, body {
 .m-tab {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   font-size: 10px; color: var(--text-muted);
+  min-width: 44px; min-height: 44px;
 }
 .m-tab.active { color: var(--accent-text); }
+
+/* ─── Responsive breakpoint (phones/small tablets) ───
+   Below this width the fixed 240px sidebar can't coexist with real
+   content, so it's replaced by the bottom tab bar (see MobileTabBar
+   and the (dashboard)/layout.tsx shell), and page-level grids collapse
+   to a single column. See `.grid-stack` / `.row-stack` below for how
+   individual pages opt in. */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .m-tabbar { display: flex; }
+
+  .topbar { padding: 0 var(--s-4); }
+  .doc { padding: 24px 20px; }
+}
+
+/* ─── Responsive grid utilities ───
+   Apply alongside an existing inline `gridTemplateColumns` style — the
+   `!important` here wins over the inline value (importance beats
+   origin in the cascade) only below the breakpoint, so desktop layout
+   is untouched. `.grid-stack` is for page-shell / section-level grids
+   (sidebars, split panes, card strips, forms): collapses to one
+   column. `.row-stack` is for dense single-row item grids (list rows
+   whose columns are too narrow to survive at phone width): switches
+   to a wrapping flex row instead, so content reflows rather than
+   clipping. */
+@media (max-width: 768px) {
+  .grid-stack { grid-template-columns: 1fr !important; }
+  .row-stack {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    row-gap: 6px !important;
+  }
+  /* Shells whose panes each carry their own `overflow: auto` (e.g. a
+     filter rail + a scrolling list, or a chat log + a live preview):
+     stacking the columns alone isn't enough, because two independent
+     auto-height rows inside an `overflow: hidden` grid clip instead of
+     scrolling. Let the shell itself scroll as one column and let its
+     panes size to content instead of fighting it for scroll ownership. */
+  .grid-stack-scroll {
+    grid-template-columns: 1fr !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .grid-stack-scroll > * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}
 
 /* ─── Skeleton animation ─── */
 @keyframes shimmer {

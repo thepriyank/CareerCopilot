@@ -91,7 +91,7 @@ export default function LinkedInPage() {
           </>
         }
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', overflow: 'hidden' }}>
 
         {/* Left: paste your profile */}
         <div style={{ borderRight: '1px solid var(--line-2)', overflow: 'auto', padding: 28, background: 'var(--paper)' }}>
@@ -173,7 +173,7 @@ export default function LinkedInPage() {
               {sectionKeys.length > 1 && (
                 <div style={{ marginTop: 22 }}>
                   <div className="eyebrow" style={{ marginBottom: 10 }}>Other sections</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: `repeat(${sectionKeys.length - 1}, 1fr)`, gap: 10 }}>
+                  <div className="row-stack" style={{ display: 'grid', gridTemplateColumns: `repeat(${sectionKeys.length - 1}, 1fr)`, gap: 10 }}>
                     {sectionKeys.filter((k) => k !== activeSection).map((k) => (
                       <div
                         key={k}

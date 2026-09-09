@@ -52,7 +52,7 @@ export default function ResumeUploadPage() {
         eyebrow="Resume · Step 1 of 3"
         title="Bring your resume in"
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', overflow: 'hidden' }}>
 
         {/* Left: dropzone */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 48, borderRight: '1px solid var(--line-2)', background: 'var(--paper)' }}>

@@ -190,7 +190,7 @@ export default function JobDetailPage() {
         title={job.title}
         right={job.url ? <a href={job.url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm"><Icon.Eye size={12} /> Original posting</a> : undefined}
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.1fr', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.1fr', overflow: 'hidden' }}>
         {/* Left: job description */}
         <div style={{ borderRight: '1px solid var(--line-2)', overflow: 'auto', padding: 24, background: 'var(--paper)' }}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>

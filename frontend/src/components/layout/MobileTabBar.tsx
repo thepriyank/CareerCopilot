@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation'
 import { Icon } from '@/components/ui/Icon'
 
 const TABS = [
-  { href: '/dashboard', label: 'Resume',  Icon: Icon.Doc },
-  { href: '/jobs',      label: 'Jobs',    Icon: Icon.Briefcase },
-  { href: '/roadmap',   label: 'Roadmap', Icon: Icon.Map },
-  { href: '/settings',  label: 'You',     Icon: Icon.Settings },
+  { href: '/dashboard', label: 'Dashboard', Icon: Icon.Home },
+  { href: '/jobs',      label: 'Jobs',      Icon: Icon.Briefcase },
+  { href: '/roadmap',   label: 'Roadmap',   Icon: Icon.Map },
+  { href: '/settings',  label: 'You',       Icon: Icon.Settings },
 ]
 
 export function MobileTabBar() {

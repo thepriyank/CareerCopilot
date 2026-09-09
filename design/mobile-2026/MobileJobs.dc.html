@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+<style>
+  :root {
+    --accent: oklch(0.63 0.108 185);
+    --accent-fg: #ffffff;
+    --accent-subtle: oklch(0.965 0.028 185);
+    --accent-text: oklch(0.44 0.090 185);
+    --success-bg: oklch(0.962 0.03 158);
+    --sage-900: oklch(0.42 0.09 158);
+    --paper: oklch(0.985 0.002 255);
+    --paper-2: oklch(0.972 0.003 255);
+    --surface: #ffffff;
+    --line: oklch(0.918 0.004 255);
+    --text: oklch(0.24 0.012 262);
+    --text-soft: oklch(0.44 0.012 262);
+    --text-muted: oklch(0.58 0.010 262);
+    --font-display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --shadow-2: 0 1px 3px oklch(0.2 0.02 262 / 0.09), 0 1px 2px oklch(0.2 0.02 262 / 0.04);
+    --r-1: 6px; --r-2: 8px; --r-3: 10px; --r-pill: 999px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper-2); }
+  body { font-family: var(--font-sans); color: var(--text); font-size: 14px; line-height: 1.5; letter-spacing: -0.006em; }
+  .frame { width: 390px; height: 844px; background: var(--paper); display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { height: 56px; flex-shrink: 0; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .title { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; font-size: 16px; margin-top: 1px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border-radius: var(--r-2); border: none; background: var(--accent); color: var(--accent-fg); font-size: 12px; font-weight: 500; }
+  .filters { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .filter-chip { flex-shrink: 0; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: var(--r-pill); font-size: 12.5px; font-weight: 500; border: 1px solid var(--line); color: var(--text-soft); white-space: nowrap; }
+  .filter-chip.active { background: var(--accent-subtle); color: var(--accent-text); border-color: transparent; }
+  .scroll { flex: 1; overflow-y: auto; padding: 14px 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .job-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3); box-shadow: var(--shadow-2); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .serif { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.018em; }
+  .avatar-sq { width: 40px; height: 40px; border-radius: 9px; background: var(--paper-2); display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 18px; flex-shrink: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: 500; background: var(--paper-2); color: var(--text-soft); border: 1px solid var(--line); }
+  .chip-ink { background: var(--accent-subtle); color: var(--accent-text); border-color: transparent; }
+  .chip-match { background: var(--success-bg); color: var(--sage-900); border-color: transparent; }
+  .match-badge { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--accent-text); background: var(--accent-subtle); border-radius: 999px; padding: 4px 9px; flex-shrink: 0; }
+  .row-btn { display: flex; gap: 8px; }
+  .row-btn .btn { flex: 1; justify-content: center; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); box-shadow: var(--shadow-2); }
+  .m-tabbar { height: 76px; flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-around; padding-top: 10px; border-top: 1px solid var(--line); background: oklch(1 0 0 / 0.9); }
+  .m-tab { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); min-width: 44px; }
+  .m-tab.active { color: var(--accent-text); }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Job match board</div>
+        <div class="title">Your jobs</div>
+      </div>
+      <button class="btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add job</button>
+    </div>
+
+    <div class="filters">
+      <div class="filter-chip active">All · 6</div>
+      <div class="filter-chip">Greenhouse · 2</div>
+      <div class="filter-chip">Lever · 1</div>
+      <div class="filter-chip">RemoteOK · 3</div>
+      <div class="filter-chip">Senior</div>
+      <div class="filter-chip">Mid</div>
+    </div>
+
+    <div class="scroll">
+      <div class="job-card">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div class="avatar-sq">A</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:var(--text-muted);">Acme Cloud · Remote</div>
+            <div class="serif" style="font-size:16px;margin-top:2px;">Senior Backend Engineer</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">$150k – $190k</div>
+          </div>
+          <div class="match-badge">88% match</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          <span class="chip chip-ink">Greenhouse</span>
+          <span class="chip">Senior</span>
+          <span class="chip chip-match">Remote</span>
+        </div>
+        <div class="row-btn">
+          <button class="btn">View job</button>
+          <button class="btn btn-secondary" style="width:38px;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+
+      <div class="job-card">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div class="avatar-sq">N</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:var(--text-muted);">Northwind · Bengaluru</div>
+            <div class="serif" style="font-size:16px;margin-top:2px;">Staff Full-Stack Engineer</div>
+          </div>
+          <div class="match-badge">79% match</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          <span class="chip chip-ink">Lever</span>
+          <span class="chip">Senior</span>
+        </div>
+        <div class="row-btn">
+          <button class="btn">View job</button>
+          <button class="btn btn-secondary" style="width:38px;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+
+      <div class="job-card">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div class="avatar-sq">R</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:var(--text-muted);">Remotely Inc · Remote</div>
+            <div class="serif" style="font-size:16px;margin-top:2px;">Engineering Manager</div>
+          </div>
+          <div class="match-badge">71% match</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;">
+          <span class="chip chip-ink">RemoteOK</span>
+          <span class="chip chip-match">Remote</span>
+        </div>
+        <div class="row-btn">
+          <button class="btn">View job</button>
+          <button class="btn btn-secondary" style="width:38px;flex:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="m-tabbar">
+      <div class="m-tab">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="m-tab active">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M3 12h18"/></svg>
+        <span>Jobs</span>
+      </div>
+      <div class="m-tab">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>
+        <span>Roadmap</span>
+      </div>
+      <div class="m-tab">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.4 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.4 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.4l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.4-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.4-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.4H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.4l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.4 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+        <span>You</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
