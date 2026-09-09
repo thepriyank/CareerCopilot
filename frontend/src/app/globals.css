@@ -363,8 +363,35 @@ html, body {
   .sidebar { display: none; }
   .m-tabbar { display: flex; }
 
-  .topbar { padding: 0 var(--s-4); }
   .doc { padding: 24px 20px; }
+
+  /* `.topbar` is a fixed 56px row on desktop, sized for a one-line
+     title. Several real titles (e.g. roadmap's "Close the gap to your
+     target roles") wrap to two lines at phone width, which the fixed
+     height then clips — and the `right` slot (also vertically
+     centered) overlaps whatever of the second line survives. Let the
+     topbar grow, truncate the title to one line instead of wrapping,
+     and drop `right` (a button, a count, secondary text — width varies
+     a lot per page) to its own full-width row underneath so it always
+     renders complete rather than fighting the title for space. */
+  .topbar {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 12px var(--s-4);
+  }
+  .topbar-main { flex-basis: 100%; }
+  .topbar-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .topbar-right {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start !important;
+  }
 }
 
 /* ─── Responsive grid utilities ───

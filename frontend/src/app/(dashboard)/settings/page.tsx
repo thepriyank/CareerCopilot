@@ -123,6 +123,7 @@ function ProfileTab() {
   const [urgency, setUrgency] = useState<SearchUrgency>('ACTIVELY_LOOKING')
   const [noticePeriod, setNoticePeriod] = useState('')
   const [visaStatus, setVisaStatus] = useState('')
+  const [avoidTechnologies, setAvoidTechnologies] = useState('')
 
   useEffect(() => {
     profileApi
@@ -139,6 +140,7 @@ function ProfileTab() {
           setUrgency(res.profile.urgency)
           setNoticePeriod(res.profile.noticePeriod ?? '')
           setVisaStatus(res.profile.visaStatus ?? '')
+          setAvoidTechnologies((res.profile.avoidTechnologies ?? []).join(', '))
         }
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load your profile'))
@@ -160,6 +162,7 @@ function ProfileTab() {
         urgency,
         noticePeriod: noticePeriod || undefined,
         visaStatus: visaStatus || undefined,
+        avoidTechnologies: avoidTechnologies.split(',').map((s) => s.trim()).filter(Boolean),
       })
       setProfile(res.profile)
       setSaveMsg('Saved!')
@@ -233,6 +236,13 @@ function ProfileTab() {
         <div>
           <label style={labelStyle}>Visa / work authorization</label>
           <input style={inputStyle} value={visaStatus} onChange={(e) => setVisaStatus(e.target.value)} placeholder="No constraints" />
+        </div>
+        <div>
+          <label style={labelStyle}>Technologies to avoid</label>
+          <input style={inputStyle} value={avoidTechnologies} onChange={(e) => setAvoidTechnologies(e.target.value)} placeholder="e.g. PHP, jQuery — from older experience you'd rather not repeat" />
+          <p style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-muted)' }}>
+            Jobs that require any of these as a must-have skill are filtered out of your board entirely.
+          </p>
         </div>
       </div>
 

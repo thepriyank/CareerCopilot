@@ -151,7 +151,16 @@ export default function JobBoardPage() {
         <div style={{ overflow: 'auto', padding: 24, background: 'var(--paper-2)' }}>
           {showAddForm && (
             <form onSubmit={handleAddJob} className="card" style={{ padding: 18, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div className="eyebrow">Paste a job description</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="eyebrow">Paste a job description</div>
+                {/* A close affordance that doesn't depend on scrolling
+                    past the whole form first — on a phone, the Cancel
+                    button below can end up hidden behind the on-screen
+                    keyboard once a field is focused. */}
+                <button type="button" onClick={() => setShowAddForm(false)} aria-label="Close" style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>
+                  <Icon.X size={14} />
+                </button>
+              </div>
               {addError && <div style={{ fontSize: 12, color: 'var(--error)' }}>{addError}</div>}
               <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <input placeholder="Job title *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line-2)', fontSize: 13 }} />
