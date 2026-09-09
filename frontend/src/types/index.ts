@@ -142,6 +142,7 @@ export type OnboardingState =
   | 'URGENCY'
   | 'NOTICE_PERIOD'
   | 'VISA_STATUS'
+  | 'AVOID_TECH'
   | 'DONE'
 
 export interface CandidateProfile {
@@ -150,6 +151,7 @@ export interface CandidateProfile {
   targetRoles: string[]
   industries: string[]
   locations: string[]
+  avoidTechnologies: string[]
   remotePreference: RemotePreference
   salaryMin?: number | null
   salaryMax?: number | null

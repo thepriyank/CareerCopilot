@@ -11,7 +11,7 @@ import ProfileCompletion from '@/components/onboarding/ProfileCompletion'
 type OnboardingState =
   | 'WELCOME' | 'TARGET_ROLES' | 'INDUSTRIES' | 'LOCATIONS'
   | 'REMOTE_PREFERENCE' | 'SALARY' | 'URGENCY' | 'NOTICE_PERIOD'
-  | 'VISA_STATUS' | 'DONE'
+  | 'VISA_STATUS' | 'AVOID_TECH' | 'DONE'
 
 interface Message { from: 'ai' | 'user'; text: string; rationale?: boolean }
 
@@ -40,7 +40,7 @@ const RESUME_QUESTIONS: Partial<Record<OnboardingState, string>> = {
   SALARY: 'How urgently are you looking? Options: Actively looking and applying, Open to opportunities but not urgently, or Not looking right now.',
   URGENCY: 'What is your notice period at your current role (if any)?',
   NOTICE_PERIOD: 'Do you have any visa or work-authorisation constraints?',
-  VISA_STATUS: 'Do you have any visa or work-authorisation constraints?',
+  VISA_STATUS: "Last one: are there any technologies, frameworks, or tools you'd rather not work with?",
 }
 
 export default function OnboardingPage() {

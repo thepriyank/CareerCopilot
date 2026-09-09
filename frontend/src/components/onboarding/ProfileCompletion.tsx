@@ -76,6 +76,19 @@ export default function ProfileCompletion() {
                   onChange={(e) => setProfile({ ...profile, industries: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Technologies to Avoid</label>
+                <input
+                  type="text"
+                  className="w-full border p-2 rounded shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  value={(profile.avoidTechnologies ?? []).join(', ')}
+                  placeholder="e.g. PHP, jQuery — from older experience you'd rather not repeat"
+                  onChange={(e) => setProfile({ ...profile, avoidTechnologies: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Jobs that require any of these as a must-have skill are filtered out of your board entirely.
+                </p>
+              </div>
             </div>
           </Card>
 
