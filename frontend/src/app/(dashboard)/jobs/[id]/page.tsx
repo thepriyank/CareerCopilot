@@ -6,7 +6,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
-import { jobs as jobsApi, downloadFile, ApiError } from '@/lib/api'
+import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
 
 const FIT_LABEL: Record<string, string> = {
@@ -64,6 +64,12 @@ export default function JobDetailPage() {
   const [tailorError, setTailorError] = useState('')
   const [downloadingTailoredPdf, setDownloadingTailoredPdf] = useState(false)
 
+  // Adding a "missing" skill the candidate actually has but forgot to list —
+  // see the confirm dialog rendered at the bottom of this component.
+  const [skillToAdd, setSkillToAdd] = useState<string | null>(null)
+  const [addingSkill, setAddingSkill] = useState(false)
+  const [addSkillError, setAddSkillError] = useState('')
+
   useEffect(() => {
     Promise.all([
       jobsApi.get(id),
@@ -112,6 +118,34 @@ export default function JobDetailPage() {
       setSkillError(err instanceof ApiError ? err.message : 'Could not check skill gaps')
     } finally {
       setCheckingSkills(false)
+    }
+  }
+
+  // Adds a skill flagged as "missing" straight onto the candidate's master
+  // resume — for when the gap is really just an omission (they have the
+  // skill, they just never listed it) rather than a real gap. Re-runs match
+  // + skill-gap afterward so this job's own view reflects it immediately.
+  async function handleAddSkillToResume(skill: string) {
+    setAddingSkill(true)
+    setAddSkillError('')
+    try {
+      const { masterResume } = await masterResumeApi.get()
+      if (!masterResume) {
+        throw new Error('Could not find your master resume')
+      }
+      const content = masterResume.content as { skills?: { id: string; name: string }[] }
+      const existingSkills = content.skills ?? []
+      const alreadyListed = existingSkills.some((s) => s.name.trim().toLowerCase() === skill.trim().toLowerCase())
+      if (!alreadyListed) {
+        const updatedSkills = [...existingSkills, { id: `skill-${Date.now()}`, name: skill }]
+        await masterResumeApi.update(masterResume.id, { content: { ...content, skills: updatedSkills } })
+      }
+      await Promise.all([handleComputeMatch(), skillGap ? handleCheckSkillGap() : Promise.resolve()])
+      setSkillToAdd(null)
+    } catch (err) {
+      setAddSkillError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not add this skill to your resume')
+    } finally {
+      setAddingSkill(false)
     }
   }
 
@@ -216,7 +250,9 @@ export default function JobDetailPage() {
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                     {matchResult.rationale.matchedSkills.map((s) => <Chip key={s} tone="match" icon={<Icon.Check size={10} />}>{s}</Chip>)}
-                    {matchResult.rationale.missingSkills.map((s) => <Chip key={s} tone="missing">+ {s}</Chip>)}
+                    {matchResult.rationale.missingSkills.map((s) => (
+                      <Chip key={s} tone="missing" onClick={() => setSkillToAdd(s)} title="Have this skill? Add it to your resume">+ {s}</Chip>
+                    ))}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {FIT_LABEL[matchResult.rationale.locationFit]} · {FIT_LABEL[matchResult.rationale.salaryFit]}
@@ -249,7 +285,9 @@ export default function JobDetailPage() {
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Real gaps</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                     {skillGap.gaps.length > 0
-                      ? skillGap.gaps.map((s) => <Chip key={s} tone="missing">+ {s}</Chip>)
+                      ? skillGap.gaps.map((s) => (
+                          <Chip key={s} tone="missing" onClick={() => setSkillToAdd(s)} title="Have this skill? Add it to your resume">+ {s}</Chip>
+                        ))
                       : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No gaps found</span>}
                   </div>
                 </div>
@@ -324,6 +362,28 @@ export default function JobDetailPage() {
           </Section>
         </div>
       </div>
+
+      {skillToAdd && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'oklch(0.2 0.02 262 / 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+          onClick={() => !addingSkill && setSkillToAdd(null)}
+        >
+          <div className="card" style={{ padding: 22, maxWidth: 360, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>Missing skill</div>
+            <div className="serif" style={{ fontSize: 18, marginBottom: 8 }}>Add &ldquo;{skillToAdd}&rdquo; to your resume?</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 16 }}>
+              If you already have this skill and just forgot to list it, adding it here updates your master resume — this job&rsquo;s match and skill gap will refresh right away.
+            </div>
+            {addSkillError && <div style={{ fontSize: 12, color: 'var(--error)', marginBottom: 12 }}>{addSkillError}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSkillToAdd(null)} disabled={addingSkill}>Cancel</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => handleAddSkillToResume(skillToAdd)} disabled={addingSkill}>
+                {addingSkill ? 'Adding…' : 'Add to resume'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -230,7 +230,6 @@ export default function JobBoardPage() {
                     )}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    <Chip tone="ink">{job.source}</Chip>
                     {job.experienceLevel && <Chip tone="default">{TIER_LABEL[job.experienceLevel]}</Chip>}
                     {job.isRemote && <Chip tone="match" icon={<Icon.Check size={10} />}>Remote</Chip>}
                   </div>
