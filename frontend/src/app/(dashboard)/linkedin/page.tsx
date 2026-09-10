@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Topbar } from '@/components/layout/Topbar'
 import { StatusPill } from '@/components/ui/StatusPill'
 import { AiBadge } from '@/components/ui/AiBadge'
@@ -32,6 +32,9 @@ export default function LinkedInPage() {
   const [error, setError] = useState('')
   const [activeSection, setActiveSection] = useState<LinkedInSectionKey>('headline')
   const [selectedRewrite, setSelectedRewrite] = useState(0)
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     linkedinApi
@@ -46,6 +49,28 @@ export default function LinkedInPage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  async function handleUploadPdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file later
+    if (!file) return
+
+    setExtracting(true)
+    setExtractError('')
+    try {
+      const { extracted } = await linkedinApi.extractPdf(file)
+      setFields({
+        headline: extracted.headline,
+        about: extracted.about,
+        experience: extracted.experience,
+        skills: extracted.skills,
+      })
+    } catch (err) {
+      setExtractError(err instanceof ApiError ? err.message : 'Could not read this PDF')
+    } finally {
+      setExtracting(false)
+    }
+  }
 
   async function handleAnalyze() {
     setAnalyzing(true)
@@ -95,8 +120,17 @@ export default function LinkedInPage() {
 
         {/* Left: paste your profile */}
         <div style={{ borderRight: '1px solid var(--line-2)', overflow: 'auto', padding: 28, background: 'var(--paper)' }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>Paste your profile sections</div>
-          {error && <div style={{ marginBottom: 14, padding: 12, background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 8, fontSize: 13 }}>{error}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div className="eyebrow">Paste your profile sections</div>
+            <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={extracting}>
+              <Icon.Upload size={12} /> {extracting ? 'Reading PDF…' : 'Upload PDF export'}
+            </button>
+            <input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handleUploadPdf} />
+          </div>
+          <div style={{ marginBottom: 14, padding: 12, background: 'var(--paper-2)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            On your own LinkedIn profile: <strong>More</strong> → <strong>Save to PDF</strong>. Upload that export here and we&rsquo;ll fill the fields below for you to review — we never fetch a profile URL directly (LinkedIn&rsquo;s terms don&rsquo;t allow that).
+          </div>
+          {(error || extractError) && <div style={{ marginBottom: 14, padding: 12, background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 8, fontSize: 13 }}>{error || extractError}</div>}
           <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {(Object.keys(SECTION_LABELS) as LinkedInSectionKey[]).map((key) => (
               <div key={key}>

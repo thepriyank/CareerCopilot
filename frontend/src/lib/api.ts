@@ -191,6 +191,19 @@ export const linkedin = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // Reads headline/about/experience/skills out of a LinkedIn "Save to PDF"
+  // export — never a live-URL fetch (see linkedinPdfExtractor.ts on the
+  // backend for why). Returns extracted text for the user to review/edit
+  // before running the existing `review()` call above.
+  extractPdf: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<{ extracted: { headline: string; about: string; experience: string; skills: string } }>(
+      '/api/linkedin/extract-pdf',
+      { method: 'POST', body: form }
+    )
+  },
 }
 
 // ─── Skill roadmap ────────────────────────────────────────────────────────────

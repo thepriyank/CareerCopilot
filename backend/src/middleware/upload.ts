@@ -21,3 +21,19 @@ export const uploadMiddleware = multer({
   fileFilter,
   limits: { fileSize: config.upload.maxFileSize },
 }).single('file')
+
+// PDF-only variant — for uploads that are never a resume DOCX, e.g. a
+// LinkedIn "Save to PDF" profile export (see routes/linkedin.routes.ts).
+function pdfFileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCallback): void {
+  if (file.mimetype === 'application/pdf') {
+    cb(null, true)
+  } else {
+    cb(new Error('INVALID_FILE_TYPE'))
+  }
+}
+
+export const pdfUploadMiddleware = multer({
+  storage,
+  fileFilter: pdfFileFilter,
+  limits: { fileSize: config.upload.maxFileSize },
+}).single('file')
