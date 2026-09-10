@@ -67,8 +67,11 @@ Recruiter-facing roles are not part of MVP.
   Centralized logs, prompt+response storage (with PII minimization), usage dashboards.
 
 - **Frontends:**  
-  - Web app (React/Next).
-  - Mobile app (React Native/Flutter) consuming same backend.
+  - Web app (React/Next), responsive down to phone width.
+  - Installable as a PWA (add-to-home-screen, standalone display, app-shell
+    service worker) — see `docs/pwa.md`. This covers the "mobile" surface
+    for now; a native app is still the longer-term option below.
+  - Mobile app (React Native/Flutter) consuming same backend — deferred.
 
 ## 6. Functional requirements (MVP)
 
