@@ -5,22 +5,26 @@ import { errorHandler } from '../../src/middleware/errorHandler'
 import { SkillGapReport } from '../../src/entities/SkillGapReport'
 import { MatchResult } from '../../src/entities/MatchResult'
 import { CourseRecommendation } from '../../src/entities/CourseRecommendation'
+import { GeneratedResumeVersion } from '../../src/entities/GeneratedResumeVersion'
 import { createFakeRepo } from './testUtils/fakeRepo'
 
 const skillGapRepo = createFakeRepo()
 const matchRepo = createFakeRepo()
 const courseRepo = createFakeRepo()
+const resumeRepo = createFakeRepo()
 
 jest.mock('../../src/config/dataSource', () => {
   const { SkillGapReport } = require('../../src/entities/SkillGapReport')
   const { MatchResult } = require('../../src/entities/MatchResult')
   const { CourseRecommendation } = require('../../src/entities/CourseRecommendation')
+  const { GeneratedResumeVersion } = require('../../src/entities/GeneratedResumeVersion')
   return {
     AppDataSource: {
       getRepository: jest.fn((entity: unknown) => {
         if (entity === SkillGapReport) return skillGapRepo
         if (entity === MatchResult) return matchRepo
         if (entity === CourseRecommendation) return courseRepo
+        if (entity === GeneratedResumeVersion) return resumeRepo
         throw new Error(`No fake repo registered for entity: ${entity}`)
       }),
     },
@@ -46,6 +50,7 @@ beforeEach(() => {
   skillGapRepo.rows.length = 0
   matchRepo.rows.length = 0
   courseRepo.rows.length = 0
+  resumeRepo.rows.length = 0
 })
 
 describe('GET /api/skill-gaps', () => {
@@ -76,6 +81,24 @@ describe('GET /api/skill-gaps', () => {
     expect(systemDesign.weight).toBe(45) // (80 + 10) / 2, other user's Rust excluded
     expect(res.body.gaps.map((g: { skill: string }) => g.skill)).not.toContain('Rust')
     expect(res.body.savedGoals).toEqual(['Go'])
+  })
+
+  it('excludes a skill from the aggregated gaps once the current master resume lists it — marking it achieved should shrink the roadmap even though the stored report snapshot is untouched', async () => {
+    skillGapRepo.rows.push(
+      { id: 'sg1', userId: USER_ID, jobId: 'job-1', missingSkills: ['System design', 'Kubernetes'], createdAt: new Date('2026-01-01') } as never
+    )
+    matchRepo.rows.push({ id: 'm1', userId: USER_ID, jobId: 'job-1', score: 50 } as never)
+    resumeRepo.rows.push({
+      id: 'mr1', userId: USER_ID, type: 'MASTER',
+      content: { skills: [{ id: 's1', name: 'Kubernetes' }] },
+    } as never)
+
+    const res = await request(buildApp()).get('/api/skill-gaps').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    const skills = res.body.gaps.map((g: { skill: string }) => g.skill)
+    expect(skills).toContain('System design')
+    expect(skills).not.toContain('Kubernetes') // now covered by the master resume
   })
 })
 
