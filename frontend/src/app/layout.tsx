@@ -3,19 +3,17 @@ import './globals.css'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 
 export const metadata: Metadata = {
-  applicationName: 'Jobmagnate',
-  title: 'Jobmagnate',
+  applicationName: 'JobMagnate',
+  title: 'JobMagnate',
   description: 'The career copilot that shows its work.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Jobmagnate',
+    title: 'JobMagnate',
   },
   formatDetection: { telephone: false },
   icons: {
-    // Resolves once public/icons/apple-touch-icon.png is added
-    // (see public/icons/README.md). Harmless 404 until then.
     apple: '/icons/apple-touch-icon.png',
   },
 }
@@ -34,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Syne:wght@700&display=swap"
           rel="stylesheet"
         />
       </head>

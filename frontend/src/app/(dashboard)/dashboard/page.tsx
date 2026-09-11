@@ -151,7 +151,7 @@ export default function DashboardPage() {
           <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column' }}>
             <div className="eyebrow" style={{ marginBottom: 14 }}>Recent activity</div>
             {data.recentActivity.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nothing yet — activity shows up here as you use Jobmagnate.</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nothing yet — activity shows up here as you use JobMagnate.</div>
             ) : (
               data.recentActivity.map((a, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', borderTop: i > 0 ? '1px solid var(--line-2)' : 'none' }}>

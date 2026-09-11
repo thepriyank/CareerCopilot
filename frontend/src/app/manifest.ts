@@ -12,8 +12,8 @@ import type { MetadataRoute } from 'next'
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
-    name: 'Jobmagnate — Career Copilot',
-    short_name: 'Jobmagnate',
+    name: 'JobMagnate — Career Copilot',
+    short_name: 'JobMagnate',
     description: 'The career copilot that shows its work — resume tailoring, job matching, and skill gaps, with every AI edit waiting on your approval.',
     start_url: '/dashboard',
     scope: '/',

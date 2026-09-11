@@ -147,7 +147,7 @@ export default function LinkedInPage() {
           </div>
           <div style={{ marginTop: 14, padding: 14, background: 'var(--info-bg)', borderRadius: 10, fontSize: 12.5, color: 'var(--info)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <Icon.Bell size={14} />
-            <div><strong>MVP scope</strong> — Jobmagnate doesn&rsquo;t post or edit LinkedIn directly. Paste your current profile, review the feedback, and update your profile manually.</div>
+            <div><strong>MVP scope</strong> — JobMagnate doesn&rsquo;t post or edit LinkedIn directly. Paste your current profile, review the feedback, and update your profile manually.</div>
           </div>
         </div>
 

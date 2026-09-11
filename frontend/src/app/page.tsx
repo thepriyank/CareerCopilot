@@ -20,10 +20,10 @@ export default function LandingPage() {
         padding: '0 48px', borderBottom: '1px solid var(--line)',
         background: 'var(--paper)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, flex: 1 }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
           <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
-          Jobmagnate
+          <span className="wordmark">JobMagnate</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Link href="/login" className="btn btn-ghost btn-sm">Sign in</Link>
@@ -34,7 +34,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section style={{ padding: '96px 48px 80px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ maxWidth: 760 }}>
-          <div className="eyebrow" style={{ marginBottom: 16 }}>Jobmagnate</div>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>JobMagnate</div>
           <h1 className="display" style={{ fontSize: 72, lineHeight: 1, marginBottom: 24 }}>
             The career copilot<br />that <em style={{ fontStyle: 'italic' }}>shows its work.</em>
           </h1>

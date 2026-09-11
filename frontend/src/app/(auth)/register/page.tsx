@@ -42,10 +42,10 @@ export default function RegisterPage() {
     <div className="app-root" style={{ minHeight: '100vh', background: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
       <div style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, textDecoration: 'none', color: 'var(--text)' }}>
+          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 22, textDecoration: 'none', color: 'var(--text)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
             <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
-            Jobmagnate
+            <span className="wordmark">JobMagnate</span>
           </Link>
           <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginTop: 8 }}>Create your free account</div>
         </div>
