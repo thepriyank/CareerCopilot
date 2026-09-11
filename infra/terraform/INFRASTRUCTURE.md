@@ -108,13 +108,17 @@ Scheduler state is `ENABLED`. Each `deploy-backend.yml` run also updates
 this Job's image — it shares `var.backend_image` with the backend
 service — so it stays on current code automatically.
 
-**Known caveat:** that run logged `discoveryCron: 4 provider error(s)`.
-Discovery still completes and inserts jobs, but not every provider
-returns — expected, because the keyword aggregators (JSearch / Adzuna /
-Jooble / TheirStack) have no API keys on staging and the free
-remote-board providers get rate-limited or blocked intermittently. It is
-not a failure of the job. If job volume looks thin, read the latest
-execution's logs to see which providers errored.
+**Known caveat (as of the 2026-09-10 run, before Adzuna was provisioned):**
+that run logged `discoveryCron: 4 provider error(s)`. Discovery still
+completes and inserts jobs, but not every provider returns — expected,
+because the keyword aggregators (JSearch / Adzuna / Jooble / TheirStack)
+had no API keys on staging at the time and the free remote-board
+providers get rate-limited or blocked intermittently. It is not a
+failure of the job. Adzuna now has a real key (see "Secrets
+provisioned" below) so it should stop erroring from the next run
+onward; JSearch/Jooble/TheirStack remain unconfigured. If job volume
+looks thin, read the latest execution's logs to see which providers
+errored.
 
 Manual trigger: `gcloud scheduler jobs run jobmagnate-discovery-staging
 --location asia-southeast1 --project jobmagnet-6a1ab`, then
@@ -127,7 +131,9 @@ resource.labels.job_name="jobmagnate-discovery-staging"'` for the result.
 
 All under `jobmagnate-staging-*`: `database-url`, `jwt-secret` (freshly generated, not reused from local dev), `settings-encryption-key` (same), `gemini-api-key`, `cerebras-api-key`, `ollama-api-key`, `openrouter-api-key` (these 4 copied from local `backend/.env`'s real free-tier keys).
 
-**Not provisioned**: `GROQ_API_KEY` — empty in local dev too, deliberately excluded from `enabled_secrets` rather than created with a blank value (see `variables.tf`'s comment — an empty-but-present secret would make the app think Groq is configured when it isn't). Also not provisioned: any paid-tier key (DeepSeek/Anthropic/OpenAI — `LLM_ALLOW_PAID=false`) or any job-aggregator key (none configured locally either).
+**Added 2026-09-12**: `adzuna-app-id`, `adzuna-app-key` — real free-tier Adzuna credentials (India-scoped, `/v1/api/jobs/in/...`), the first job-aggregator key this project has. `providers/adzuna.ts` and `discoveryService.ts` already queried this endpoint whenever the two env vars were present; the only gap was provisioning them, via adding both names to `variables.tf`'s `enabled_secrets` and populating real values with `gcloud secrets versions add`.
+
+**Not provisioned**: `GROQ_API_KEY` — empty in local dev too, deliberately excluded from `enabled_secrets` rather than created with a blank value (see `variables.tf`'s comment — an empty-but-present secret would make the app think Groq is configured when it isn't). Also not provisioned: any paid-tier key (DeepSeek/Anthropic/OpenAI — `LLM_ALLOW_PAID=false`) or any other job-aggregator key (Jooble/JSearch/TheirStack — none configured locally either).
 
 State: **remote**, `gs://jobmagnet-6a1ab-tfstate/env/staging`.
 
