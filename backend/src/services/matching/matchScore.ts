@@ -124,21 +124,95 @@ function preferenceFitScore(locationFit: LocationFit, salaryFit: SalaryFit): num
 
 const normalizeSkillName = (s: string) => s.trim().toLowerCase()
 
+/**
+ * Fuzzy skill matching (2026-09-11) — added after a real diagnostic
+ * showed exact-string matching missing obviously-equivalent skills
+ * purely because a job's AI extraction and a résumé's AI extraction
+ * phrased the same thing differently (e.g. a job listing "People
+ * Leadership" against a résumé's "Technical leadership" — same fact,
+ * zero string overlap, so a strong Engineering Manager match scored
+ * one point under the surfacing threshold on skill coverage alone).
+ *
+ * A small, curated set of common abbreviation/full-name pairs and
+ * near-synonymous leadership phrasing — not an attempt at general
+ * semantic matching (that's the real embeddings-based "Tier B" this
+ * file's header already flags as the deferred, more correct fix).
+ * Each entry maps a normalized skill name to a canonical bucket id;
+ * two skills match if they share a bucket.
+ */
+const SKILL_ALIASES: Record<string, string> = {
+  'people leadership': 'leadership',
+  'technical leadership': 'leadership',
+  'team leadership': 'leadership',
+  'engineering leadership': 'leadership',
+  leadership: 'leadership',
+
+  k8s: 'kubernetes',
+  kubernetes: 'kubernetes',
+  js: 'javascript',
+  javascript: 'javascript',
+  ts: 'typescript',
+  typescript: 'typescript',
+  ml: 'machine learning',
+  'machine learning': 'machine learning',
+  ai: 'artificial intelligence',
+  'artificial intelligence': 'artificial intelligence',
+  ui: 'user interface',
+  'user interface': 'user interface',
+  ux: 'user experience',
+  'user experience': 'user experience',
+  iac: 'infrastructure as code',
+  'infrastructure as code': 'infrastructure as code',
+  sre: 'site reliability engineering',
+  'site reliability engineering': 'site reliability engineering',
+  gcp: 'google cloud platform',
+  'google cloud platform': 'google cloud platform',
+  aws: 'amazon web services',
+  'amazon web services': 'amazon web services',
+  oop: 'object oriented programming',
+  'object oriented programming': 'object oriented programming',
+  'object-oriented programming': 'object oriented programming',
+}
+
+/**
+ * True when two already-normalized (trim + lowercase) skill names count
+ * as the same skill: exact match, one containing the other (catches
+ * suffix/prefix variants like "react" / "react.js", "database" /
+ * "databases" — length-gated so short strings like "ai" or "js" can't
+ * false-positive-match as a substring of an unrelated word; those are
+ * still caught by the alias table below), or both resolving to the
+ * same alias bucket.
+ */
+function skillsMatch(a: string, b: string): boolean {
+  if (a === b) return true
+  if (a.length >= 3 && b.length >= 3 && (a.includes(b) || b.includes(a))) return true
+  const bucket = SKILL_ALIASES[a]
+  return bucket !== undefined && bucket === SKILL_ALIASES[b]
+}
+
 interface SkillCoverageResult {
   coverage: number
   matchedSkills: string[]
   missingSkills: string[]
 }
 
-/** Direct structured-list overlap — both sides are AI-extracted once elsewhere; see this file's header comment. */
+/** Fuzzy structured-list overlap — both sides are AI-extracted once elsewhere; see this file's header comment and skillsMatch() above. */
 function computeSkillCoverage(jobSkills: string[], resumeSkills: string[]): SkillCoverageResult {
   if (jobSkills.length === 0) {
     // No extractable requirements → neutral, not zero (same rule as before the rewrite).
     return { coverage: 0.5, matchedSkills: [], missingSkills: [] }
   }
-  const resumeSkillSet = new Set(resumeSkills.map(normalizeSkillName))
-  const matchedSkills = jobSkills.filter((s) => resumeSkillSet.has(normalizeSkillName(s)))
-  const missingSkills = jobSkills.filter((s) => !resumeSkillSet.has(normalizeSkillName(s)))
+  const normalizedResumeSkills = resumeSkills.map(normalizeSkillName)
+  const matchedSkills: string[] = []
+  const missingSkills: string[] = []
+  for (const skill of jobSkills) {
+    const normalized = normalizeSkillName(skill)
+    if (normalizedResumeSkills.some((r) => skillsMatch(normalized, r))) {
+      matchedSkills.push(skill)
+    } else {
+      missingSkills.push(skill)
+    }
+  }
   return { coverage: matchedSkills.length / jobSkills.length, matchedSkills, missingSkills }
 }
 

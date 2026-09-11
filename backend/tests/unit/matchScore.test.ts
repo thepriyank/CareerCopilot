@@ -121,3 +121,46 @@ describe('computeMatchScore', () => {
     expect(Number.isFinite(result.score)).toBe(true)
   })
 })
+
+// 2026-09-11: a real diagnostic run (see git history / session notes) found
+// a genuinely strong Engineering Manager match scoring one point under the
+// surfacing threshold, entirely because the job's "People Leadership" and
+// the résumé's "Technical leadership" are the same fact worded differently
+// by two independent AI extractions — exact-string skill coverage counted
+// that as zero overlap. These lock in the fuzzy-matching fix.
+describe('computeSkillCoverage fuzzy matching (via computeMatchScore)', () => {
+  it('matches suffix/prefix skill-name variants (e.g. "React" / "React.js")', () => {
+    const result = computeMatchScore(
+      strongResumeText,
+      ['React'],
+      buildJob({ skills: ['React.js'] }),
+      buildProfile()
+    )
+    expect(result.rationale.matchedSkills).toEqual(['React.js'])
+    expect(result.rationale.missingSkills).toEqual([])
+  })
+
+  it('matches near-synonymous leadership phrasing via the alias table — the real regression case', () => {
+    const result = computeMatchScore(
+      strongResumeText,
+      ['Technical leadership'],
+      buildJob({ skills: ['People Leadership'] }),
+      buildProfile()
+    )
+    expect(result.rationale.matchedSkills).toEqual(['People Leadership'])
+  })
+
+  it('matches common abbreviation <-> full-name pairs via the alias table (K8s / Kubernetes)', () => {
+    const result = computeMatchScore(strongResumeText, ['Kubernetes'], buildJob({ skills: ['K8s'] }), buildProfile())
+    expect(result.rationale.matchedSkills).toEqual(['K8s'])
+  })
+
+  it('does not let a short skill name false-positive-match as a substring of an unrelated word', () => {
+    // "ai" must not match "rails" (which literally contains the substring
+    // "ai") just because it's short — only exact match or the alias table
+    // should count for names under 3 characters.
+    const result = computeMatchScore(strongResumeText, ['ai'], buildJob({ skills: ['Rails'] }), buildProfile())
+    expect(result.rationale.matchedSkills).toEqual([])
+    expect(result.rationale.missingSkills).toEqual(['Rails'])
+  })
+})
