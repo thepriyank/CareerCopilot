@@ -21,7 +21,8 @@ export default function LandingPage() {
         background: 'var(--paper)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, flex: 1 }}>
-          <i style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--accent)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontStyle: 'normal' }}>J</i>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
+          <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
           Jobmagnate
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

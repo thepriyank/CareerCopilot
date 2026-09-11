@@ -48,7 +48,8 @@ export function Sidebar({ active }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="logo">
-        <i>J</i>
+        {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
+        <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
         <span>Jobmagnate</span>
       </div>
 
