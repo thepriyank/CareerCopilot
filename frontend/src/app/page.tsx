@@ -15,12 +15,12 @@ export default function LandingPage() {
   return (
     <div className="app-root" style={{ minHeight: '100vh', background: 'var(--paper)' }}>
       {/* Nav */}
-      <nav style={{
+      <nav className="landing-nav landing-section-px" style={{
         height: 64, display: 'flex', alignItems: 'center',
         padding: '0 48px', borderBottom: '1px solid var(--line)',
         background: 'var(--paper)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, flex: 1 }}>
+        <div className="landing-nav-logo" style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, flex: 1 }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
           <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
           <span className="wordmark">JobMagnate</span>
@@ -32,7 +32,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section style={{ padding: '96px 48px 80px', maxWidth: 1200, margin: '0 auto' }}>
+      <section className="landing-hero landing-section-px" style={{ padding: '96px 48px 80px', maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ maxWidth: 760 }}>
           <div className="eyebrow" style={{ marginBottom: 16 }}>JobMagnate</div>
           <h1 className="display" style={{ fontSize: 72, lineHeight: 1, marginBottom: 24 }}>
@@ -55,8 +55,8 @@ export default function LandingPage() {
       </section>
 
       {/* Workflow strip */}
-      <section style={{ padding: '0 48px 80px', maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 0 }}>
+      <section className="landing-section-px" style={{ padding: '0 48px 80px', maxWidth: 1200, margin: '0 auto' }}>
+        <div className="grid-stack landing-workflow-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 0 }}>
           {WORKFLOW.map(({ n, h, desc }, i) => (
             <div key={n} style={{ padding: '28px 20px', borderLeft: i > 0 ? '1px solid var(--line-2)' : 'none' }}>
               <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>{n}</div>
@@ -69,11 +69,11 @@ export default function LandingPage() {
       </section>
 
       {/* Product preview */}
-      <section style={{ padding: '0 48px 96px', maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'center' }}>
+      <section className="landing-section-px" style={{ padding: '0 48px 96px', maxWidth: 1200, margin: '0 auto' }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'center' }}>
           <div>
             <div className="eyebrow" style={{ marginBottom: 12 }}>Match intelligence</div>
-            <h2 className="serif" style={{ fontSize: 42, marginBottom: 16 }}>See why you fit — before you apply.</h2>
+            <h2 className="serif landing-h2" style={{ fontSize: 42, marginBottom: 16 }}>See why you fit — before you apply.</h2>
             <p style={{ fontSize: 15, color: 'var(--text-soft)', lineHeight: 1.65, marginBottom: 24 }}>
               Every job gets a scored breakdown. Matched skills in green, gaps in amber.
               AI explains the fit in plain language — never a black box.
@@ -110,7 +110,7 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section style={{ padding: '80px 48px', background: 'var(--ink-900)', textAlign: 'center' }}>
+      <section className="landing-cta landing-section-px" style={{ padding: '80px 48px', background: 'var(--ink-900)', textAlign: 'center' }}>
         <div className="eyebrow" style={{ color: 'rgba(245,243,238,0.55)', marginBottom: 16 }}>Free to start</div>
         <h2 className="display" style={{ fontSize: 52, color: 'var(--text-onink)', marginBottom: 20 }}>
           Your next role starts here.

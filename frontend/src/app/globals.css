@@ -397,6 +397,48 @@ html, body {
   }
 }
 
+/* ─── Landing page (app/page.tsx) mobile fixes ───
+   Fixed 2026-09-11: the nav's logo group had `flex: 1` with no wrapping,
+   so the wordmark + both buttons exceeded the viewport width and
+   overlapped on phones — same failure shape as the dashboard `.topbar`
+   fix above, and the same cure: wrap the logo onto its own row instead
+   of fighting the buttons for space. Every section below also kept its
+   full desktop side-padding, grid columns, and type scale, none of
+   which was cut down for narrow screens. */
+@media (max-width: 768px) {
+  .landing-section-px { padding-left: 20px !important; padding-right: 20px !important; }
+
+  .landing-nav {
+    flex-wrap: wrap;
+    height: auto !important;
+    row-gap: 10px;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+  .landing-nav-logo { flex-basis: 100% !important; }
+
+  .landing-hero { padding-top: 48px !important; padding-bottom: 40px !important; }
+  .landing-hero h1 { font-size: 34px !important; }
+
+  .landing-h2 { font-size: 26px !important; }
+
+  .landing-cta { padding-top: 48px !important; padding-bottom: 48px !important; }
+  .landing-cta h2 { font-size: 30px !important; }
+
+  /* The 5-column workflow strip's left-border dividers only make sense
+     between horizontal columns — once grid-stack (below) collapses it
+     to one column, swap to a top border between stacked rows instead. */
+  .landing-workflow-grid > div {
+    border-left: none !important;
+    border-top: 1px solid var(--line-2);
+    padding-top: 20px !important;
+  }
+  .landing-workflow-grid > div:first-child {
+    border-top: none;
+    padding-top: 28px !important;
+  }
+}
+
 /* ─── Responsive grid utilities ───
    Apply alongside an existing inline `gridTemplateColumns` style — the
    `!important` here wins over the inline value (importance beats
