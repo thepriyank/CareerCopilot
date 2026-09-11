@@ -439,6 +439,24 @@ html, body {
   }
 }
 
+/* ─── Jobs page (app/(dashboard)/jobs/page.tsx) mobile filter dropdown ───
+   The Source/Level filter sidebar used to stack full-width above the job
+   grid on mobile (via .grid-stack-scroll), permanently eating vertical
+   space before a single job card was visible. Replaced with a toggle
+   button in the Topbar that reveals a closable panel instead — the
+   desktop sidebar (.jobs-filters-desktop) stays exactly as it was. */
+.jobs-filter-toggle { display: none; }
+@media (max-width: 768px) {
+  .jobs-filter-toggle { display: inline-flex !important; }
+  .jobs-shell { grid-template-columns: 1fr !important; }
+  .jobs-filters-desktop { display: none !important; }
+}
+@media (min-width: 769px) {
+  /* Safety net — the dropdown's toggle is mobile-only, so this never
+     actually renders on desktop, but don't rely on that alone. */
+  .jobs-filter-dropdown { display: none !important; }
+}
+
 /* ─── Responsive grid utilities ───
    Apply alongside an existing inline `gridTemplateColumns` style — the
    `!important` here wins over the inline value (importance beats

@@ -33,6 +33,7 @@ export default function JobBoardPage() {
 
   const [sourceFilter, setSourceFilter] = useState<string | null>(null)
   const [tierFilter, setTierFilter] = useState<ExperienceLevel | null>(null)
+  const [showFilters, setShowFilters] = useState(false)
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [form, setForm] = useState<NewJobForm>(EMPTY_FORM)
@@ -91,6 +92,58 @@ export default function JobBoardPage() {
     }
   }
 
+  // Shared between the always-visible desktop sidebar and the closable
+  // mobile dropdown (see the Topbar's filter toggle below) — same state,
+  // same handlers either way. `closeOnSelect` auto-dismisses the mobile
+  // dropdown after a pick, which is a no-op on desktop (it's never open).
+  function renderFilterList(closeOnSelect: boolean) {
+    const pick = (fn: () => void) => () => {
+      fn()
+      if (closeOnSelect) setShowFilters(false)
+    }
+    return (
+      <>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>Source</div>
+        <div
+          onClick={pick(() => setSourceFilter(null))}
+          style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: !sourceFilter ? 'var(--accent-subtle)' : 'transparent', color: !sourceFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !sourceFilter ? 500 : 400, cursor: 'pointer' }}
+        >
+          All · {jobList.length}
+        </div>
+        {sources.map((s) => (
+          <div
+            key={s}
+            onClick={pick(() => setSourceFilter(s))}
+            style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: sourceFilter === s ? 'var(--accent-subtle)' : 'transparent', color: sourceFilter === s ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: sourceFilter === s ? 500 : 400, cursor: 'pointer', textTransform: 'capitalize' }}
+          >
+            {s} · {jobList.filter((j) => j.source === s).length}
+          </div>
+        ))}
+
+        {tiers.length > 0 && (
+          <>
+            <div className="eyebrow" style={{ marginTop: 18, marginBottom: 10 }}>Level</div>
+            <div
+              onClick={pick(() => setTierFilter(null))}
+              style={{ padding: '6px 10px', fontSize: 13, marginBottom: 2, color: !tierFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !tierFilter ? 500 : 400, cursor: 'pointer' }}
+            >
+              All levels
+            </div>
+            {tiers.map((t) => (
+              <div
+                key={t}
+                onClick={pick(() => setTierFilter(t))}
+                style={{ padding: '6px 10px', fontSize: 13, color: tierFilter === t ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: tierFilter === t ? 500 : 400, cursor: 'pointer' }}
+              >
+                {TIER_LABEL[t]}
+              </div>
+            ))}
+          </>
+        )}
+      </>
+    )
+  }
+
   return (
     <>
       <Topbar
@@ -98,6 +151,17 @@ export default function JobBoardPage() {
         title="Your jobs"
         right={
           <>
+            <button
+              className="jobs-filter-toggle btn btn-secondary btn-sm"
+              onClick={() => setShowFilters((s) => !s)}
+              aria-label={showFilters ? 'Close filters' : 'Open filters'}
+              aria-expanded={showFilters}
+            >
+              {showFilters ? <Icon.X size={13} /> : <Icon.Filter size={13} />}
+              {!showFilters && (sourceFilter || tierFilter) && (
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)' }} />
+              )}
+            </button>
             <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filtered.length} job{filtered.length === 1 ? '' : 's'}</div>
             <button className="btn btn-primary btn-sm" onClick={() => setShowAddForm((s) => !s)}>
               <Icon.Plus size={13} /> Add job
@@ -105,46 +169,31 @@ export default function JobBoardPage() {
           </>
         }
       />
-      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '240px 1fr', overflow: 'hidden' }}>
-        {/* Filters */}
-        <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', overflow: 'auto' }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Source</div>
-          <div
-            onClick={() => setSourceFilter(null)}
-            style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: !sourceFilter ? 'var(--accent-subtle)' : 'transparent', color: !sourceFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !sourceFilter ? 500 : 400, cursor: 'pointer' }}
-          >
-            All · {jobList.length}
-          </div>
-          {sources.map((s) => (
-            <div
-              key={s}
-              onClick={() => setSourceFilter(s)}
-              style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: sourceFilter === s ? 'var(--accent-subtle)' : 'transparent', color: sourceFilter === s ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: sourceFilter === s ? 500 : 400, cursor: 'pointer', textTransform: 'capitalize' }}
-            >
-              {s} · {jobList.filter((j) => j.source === s).length}
-            </div>
-          ))}
 
-          {tiers.length > 0 && (
-            <>
-              <div className="eyebrow" style={{ marginTop: 18, marginBottom: 10 }}>Level</div>
-              <div
-                onClick={() => setTierFilter(null)}
-                style={{ padding: '6px 10px', fontSize: 13, marginBottom: 2, color: !tierFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !tierFilter ? 500 : 400, cursor: 'pointer' }}
-              >
-                All levels
-              </div>
-              {tiers.map((t) => (
-                <div
-                  key={t}
-                  onClick={() => setTierFilter(t)}
-                  style={{ padding: '6px 10px', fontSize: 13, color: tierFilter === t ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: tierFilter === t ? 500 : 400, cursor: 'pointer' }}
-                >
-                  {TIER_LABEL[t]}
-                </div>
-              ))}
-            </>
-          )}
+      {/* Mobile filter dropdown — closable, only ever shown below 768px
+          (see .jobs-filter-toggle / .jobs-filter-dropdown in globals.css).
+          On desktop the sidebar below is always visible instead. */}
+      {showFilters && (
+        <div className="jobs-filter-dropdown card" style={{ margin: '10px 16px 0', padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className="eyebrow" style={{ margin: 0 }}>Filters</div>
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              aria-label="Close"
+              style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <Icon.X size={14} />
+            </button>
+          </div>
+          {renderFilterList(true)}
+        </div>
+      )}
+
+      <div className="jobs-shell" style={{ flex: 1, display: 'grid', gridTemplateColumns: '240px 1fr', overflow: 'hidden' }}>
+        {/* Filters — always visible on desktop; hidden on mobile in favor of the dropdown above */}
+        <div className="jobs-filters-desktop" style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', overflow: 'auto' }}>
+          {renderFilterList(false)}
         </div>
 
         {/* Job grid */}
