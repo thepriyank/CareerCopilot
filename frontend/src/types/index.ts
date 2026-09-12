@@ -311,6 +311,10 @@ export interface MatchScoreRationale {
   missingSkills: string[]
   locationFit: LocationFit
   salaryFit: SalaryFit
+  // Added 2026-09-12 — older persisted MatchResults won't have these
+  // (undefined), so the UI must handle their absence gracefully.
+  skillCoverage?: number
+  preferenceFit?: number
 }
 
 export interface MatchResult {

@@ -22,7 +22,7 @@ jest.mock('../../src/config/dataSource', () => {
 })
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-import { ensureMatchedJobsForCandidate } from '../../src/services/matching/surfaceJobs'
+import { ensureMatchedJobsForCandidate, recomputeMatchesForCandidate } from '../../src/services/matching/surfaceJobs'
 import { CandidateProfile } from '../../src/entities/CandidateProfile'
 
 const USER_ID = 'user-1'
@@ -124,5 +124,62 @@ describe('ensureMatchedJobsForCandidate — avoided-technology exclusion', () =>
 
     expect(result.newlyMatched).toBe(0) // already attached, not re-evaluated — not a new exclusion decision
     expect(userJobRepo.rows).toHaveLength(1) // the pre-existing pasted job stays, untouched
+  })
+})
+
+describe('recomputeMatchesForCandidate', () => {
+  it("creates a fresh MatchResult for every job already on the candidate's list", async () => {
+    userJobRepo.rows.push({ id: 'uj-1', userId: USER_ID, jobListingId: 'listing-1', origin: JobOrigin.MATCHED, jobListing: baseListing() } as never)
+    userJobRepo.rows.push({
+      id: 'uj-2',
+      userId: USER_ID,
+      jobListingId: 'listing-2',
+      origin: JobOrigin.MATCHED,
+      jobListing: baseListing({ id: 'listing-2', skills: ['Go'] }),
+    } as never)
+
+    const result = await recomputeMatchesForCandidate(USER_ID, baseProfile(), masterResume as never)
+
+    expect(result.recomputed).toBe(2)
+    expect(matchRepo.rows).toHaveLength(2)
+    expect(matchRepo.rows.map((r: any) => r.jobId).sort()).toEqual(['uj-1', 'uj-2'])
+  })
+
+  it('skips a UserJob with no jobListing relation loaded rather than crashing', async () => {
+    userJobRepo.rows.push({ id: 'uj-1', userId: USER_ID, jobListingId: 'listing-1', origin: JobOrigin.MATCHED } as never)
+
+    const result = await recomputeMatchesForCandidate(USER_ID, baseProfile(), masterResume as never)
+
+    expect(result.recomputed).toBe(0)
+    expect(matchRepo.rows).toHaveLength(0)
+  })
+
+  it("only recomputes for the given user, not other candidates' jobs", async () => {
+    userJobRepo.rows.push({ id: 'uj-1', userId: USER_ID, jobListingId: 'listing-1', origin: JobOrigin.MATCHED, jobListing: baseListing() } as never)
+    userJobRepo.rows.push({ id: 'uj-2', userId: 'other-user', jobListingId: 'listing-1', origin: JobOrigin.MATCHED, jobListing: baseListing() } as never)
+
+    const result = await recomputeMatchesForCandidate(USER_ID, baseProfile(), masterResume as never)
+
+    expect(result.recomputed).toBe(1)
+    expect(matchRepo.rows).toHaveLength(1)
+    expect((matchRepo.rows[0] as { userId: string }).userId).toBe(USER_ID)
+  })
+
+  it('reflects a newly-added résumé skill in the fresh score — the whole point of this function', async () => {
+    userJobRepo.rows.push({
+      id: 'uj-1',
+      userId: USER_ID,
+      jobListingId: 'listing-1',
+      origin: JobOrigin.MATCHED,
+      jobListing: baseListing({ skills: ['Python', 'Go'] }),
+    } as never)
+    const resumeWithGo = { content: { skills: [{ id: '1', name: 'Python' }, { id: '2', name: 'Go' }] } }
+
+    const result = await recomputeMatchesForCandidate(USER_ID, baseProfile(), resumeWithGo as never)
+
+    expect(result.recomputed).toBe(1)
+    const rationale = (matchRepo.rows[0] as { rationale: { matchedSkills: string[]; missingSkills: string[] } }).rationale
+    expect(rationale.matchedSkills).toEqual(expect.arrayContaining(['Python', 'Go']))
+    expect(rationale.missingSkills).toEqual([])
   })
 })

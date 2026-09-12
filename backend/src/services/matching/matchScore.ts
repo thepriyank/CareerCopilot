@@ -49,6 +49,15 @@ export interface MatchScoreRationale {
   missingSkills: string[]
   locationFit: LocationFit
   salaryFit: SalaryFit
+  // 0-1 raw values for the other two weighted components — added
+  // 2026-09-12 so the UI can show why a score landed where it did (a
+  // 100%-skill-coverage job can still score ~60% overall, since
+  // lexicalSimilarity carries the largest weight — see WEIGHTS below —
+  // and is a blunt whole-document TF-cosine similarity, not a skills
+  // measure. Without these two, "why is my score X" was unanswerable
+  // from the API response alone.)
+  skillCoverage: number
+  preferenceFit: number
 }
 
 export interface MatchScoreResult {
@@ -248,6 +257,8 @@ export function computeMatchScore(
       missingSkills,
       locationFit,
       salaryFit,
+      skillCoverage: Math.round(skillCoverage * 1000) / 1000,
+      preferenceFit: Math.round(preferenceFit * 1000) / 1000,
     },
     gaps: missingSkills,
   }

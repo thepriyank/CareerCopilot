@@ -96,3 +96,48 @@ export async function ensureMatchedJobsForCandidate(
 
   return { newlyMatched }
 }
+
+/**
+ * Recomputes and persists a fresh MatchResult for every job already on
+ * this candidate's list, against their current résumé/profile. Without
+ * this, editing the résumé (e.g. adding a "missing" skill from a job's
+ * Match/Skill-gap section — see jobs/[id]/page.tsx's handleAddSkillToResume)
+ * only ever refreshed the one job being viewed; every other already-
+ * matched job kept showing a score computed against the résumé's old
+ * skill set until a candidate happened to reopen it individually. Called
+ * from routes/masterResume.routes.ts's PUT handler whenever `content`
+ * actually changes. No LLM call happens here (see this file's header) —
+ * fine to run synchronously even across a candidate's whole list.
+ */
+export async function recomputeMatchesForCandidate(
+  userId: string,
+  profile: CandidateProfile | null,
+  masterResume: Pick<GeneratedResumeVersion, 'content'>
+): Promise<{ recomputed: number }> {
+  const userJobRepo = AppDataSource.getRepository(UserJob)
+  const matchRepo = AppDataSource.getRepository(MatchResult)
+
+  const entities = masterResume.content as unknown as ExtractedEntities
+  const resumeText = flattenResumeText(entities)
+  const resumeSkills = (entities.skills ?? []).map((s) => s.name).filter(Boolean)
+
+  const userJobs = await userJobRepo.find({ where: { userId }, relations: ['jobListing'] })
+
+  let recomputed = 0
+  for (const userJob of userJobs) {
+    if (!userJob.jobListing) continue
+    const result = computeMatchScore(resumeText, resumeSkills, userJob.jobListing, profile)
+    await matchRepo.save(
+      matchRepo.create({
+        userId,
+        jobId: userJob.id,
+        score: result.score,
+        rationale: result.rationale as unknown as Record<string, unknown>,
+        gaps: result.gaps,
+      })
+    )
+    recomputed++
+  }
+
+  return { recomputed }
+}

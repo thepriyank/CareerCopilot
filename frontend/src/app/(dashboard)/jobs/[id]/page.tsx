@@ -126,8 +126,12 @@ export default function JobDetailPage() {
 
   // Adds a skill flagged as "missing" straight onto the candidate's master
   // resume — for when the gap is really just an omission (they have the
-  // skill, they just never listed it) rather than a real gap. Re-runs match
-  // + skill-gap afterward so this job's own view reflects it immediately.
+  // skill, they just never listed it) rather than a real gap. The backend's
+  // PUT /api/resume/master/:id already recomputes match scores for every
+  // job on the candidate's list when content changes (not just this one —
+  // see recomputeMatchesForCandidate's header) — so this just re-fetches
+  // the already-fresh result for the job being viewed, rather than
+  // triggering yet another compute on top of that.
   async function handleAddSkillToResume(skill: string) {
     setAddingSkill(true)
     setAddSkillError('')
@@ -143,7 +147,8 @@ export default function JobDetailPage() {
         const updatedSkills = [...existingSkills, { id: `skill-${Date.now()}`, name: skill }]
         await masterResumeApi.update(masterResume.id, { content: { ...content, skills: updatedSkills } })
       }
-      await Promise.all([handleComputeMatch(), skillGap ? handleCheckSkillGap() : Promise.resolve()])
+      const [matchRes] = await Promise.all([jobsApi.getMatch(id), skillGap ? handleCheckSkillGap() : Promise.resolve()])
+      setMatchResult(matchRes.matchResult)
       setSkillToAdd(null)
     } catch (err) {
       setAddSkillError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not add this skill to your resume')
@@ -298,6 +303,24 @@ export default function JobDetailPage() {
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {FIT_LABEL[matchResult.rationale.locationFit]} · {FIT_LABEL[matchResult.rationale.salaryFit]}
                   </div>
+                  {matchResult.rationale.skillCoverage !== undefined && matchResult.rationale.preferenceFit !== undefined && (
+                    <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid var(--line-2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Score breakdown</div>
+                      {[
+                        { label: 'Text similarity', value: matchResult.rationale.lexicalSimilarity, weight: 0.55 },
+                        { label: 'Skill coverage', value: matchResult.rationale.skillCoverage, weight: 0.3 },
+                        { label: 'Preference fit', value: matchResult.rationale.preferenceFit, weight: 0.15 },
+                      ].map((row) => (
+                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)' }}>
+                          <span>{row.label} <span style={{ color: 'var(--text-muted)' }}>({Math.round(row.weight * 100)}% weight)</span></span>
+                          <span className="mono">{Math.round(row.value * 100)}%</span>
+                        </div>
+                      ))}
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>
+                        Text similarity compares your whole résumé against the whole job description — it carries the most weight, and typically scores lower than skill coverage alone even for a genuinely strong match. A 100% skill match doesn&rsquo;t guarantee a high total score.
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

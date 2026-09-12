@@ -92,6 +92,28 @@ describe('computeMatchScore', () => {
     expect(result.rationale.matchedSkills).toEqual(expect.arrayContaining(['Python', 'Kubernetes']))
   })
 
+  // 2026-09-12: a real user saw 100% skill coverage ("no gaps found") but
+  // only a 60% overall score, with no way to see why from the API response
+  // — skillCoverage/preferenceFit weren't exposed, only lexicalSimilarity
+  // was. These two lock in that both are now present and correct, so the
+  // UI can show the actual weighted breakdown instead of a mystery number.
+  it('exposes skillCoverage and preferenceFit on the rationale, not just lexicalSimilarity', () => {
+    const result = computeMatchScore(
+      strongResumeText,
+      strongResumeSkills,
+      buildJob({ skills: ['Python', 'Kubernetes'], salary: '12,00,000 - 18,00,000' }),
+      buildProfile()
+    )
+    expect(result.rationale.skillCoverage).toBe(1)
+    expect(result.rationale.preferenceFit).toBe(1)
+    // A perfect skill+preference score still isn't a perfect total, because
+    // lexicalSimilarity (55% weight) is a whole-document comparison, not a
+    // skills-only one — this is the exact confusion the breakdown exists to
+    // resolve, not a bug.
+    expect(result.rationale.lexicalSimilarity).toBeLessThan(1)
+    expect(result.score).toBeLessThan(100)
+  })
+
   it('scores a weak / unrelated resume low', () => {
     const weakResumeText = 'Watercolor painting workshop instructor with 10 years of teaching experience.'
     const result = computeMatchScore(weakResumeText, [], buildJob(), buildProfile())
