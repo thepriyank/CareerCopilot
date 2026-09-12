@@ -147,4 +147,14 @@ export const config = {
     keyFile: process.env.GCS_KEY_FILE ?? '',
     credentialsJson: process.env.GCS_CREDENTIALS_JSON ?? '',
   },
+
+  // Shared-secret auth for POST /api/internal/jobs/ingest — the local
+  // JobSpy scraper (scripts/jobspy-ingest/) posts jobs here directly since
+  // it runs as its own process outside this app, on whatever machine has
+  // this repo cloned (see that script's README). Unset token → the route
+  // rejects every request (fail closed, not open) rather than defaulting to
+  // no auth at all.
+  internalIngest: {
+    token: process.env.INTERNAL_INGEST_TOKEN ?? '',
+  },
 } as const

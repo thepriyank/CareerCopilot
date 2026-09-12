@@ -46,7 +46,7 @@ jest.mock('../../src/services/jobs/providers', () => ({
 }))
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-import { ensureUserHasJob, discoverJobsGlobally, JobInput } from '../../src/services/jobs/discoveryService'
+import { ensureUserHasJob, discoverJobsGlobally, ingestExternalJobs, JobInput } from '../../src/services/jobs/discoveryService'
 
 const USER_A = 'user-a'
 const USER_B = 'user-b'
@@ -187,5 +187,54 @@ describe('discoverJobsGlobally', () => {
     const [entry] = fakeProviderA.fetch.mock.calls[0] as [{ query: { titles: string[] } }]
     expect(entry.query.titles.length).toBeGreaterThan(0)
     expect(typeof entry.query.titles[0]).toBe('string')
+  })
+})
+
+describe('ingestExternalJobs', () => {
+  it('upserts already-normalized jobs through the same filter + dedup path as discoverJobsGlobally', async () => {
+    const result = await ingestExternalJobs([
+      baseInput({ title: 'Backend Engineer', url: 'https://example.com/jobs/10', source: 'jobspy:naukri' }),
+      baseInput({ title: 'Backend Engineer (dup)', url: 'https://example.com/jobs/10', source: 'jobspy:naukri' }), // same URL, same run
+    ])
+
+    expect(result.newListings).toBe(1)
+    expect(result.seen).toBe(1)
+    expect(result.filteredOut).toBe(0)
+    expect(jobListingRepo.rows).toHaveLength(1)
+    expect(userJobRepo.rows).toHaveLength(0) // shared pool only, never attaches a candidate
+  })
+
+  it('applies the same software-engineering-role filter as every other source', async () => {
+    const result = await ingestExternalJobs([
+      baseInput({ title: 'Executive Personal Assistant to the Founder', url: 'https://example.com/jobs/11' }),
+      baseInput({ title: 'Backend Engineer', url: 'https://example.com/jobs/12' }),
+    ])
+
+    expect(result.newListings).toBe(1)
+    expect(result.filteredOut).toBe(1)
+    expect(jobListingRepo.rows).toHaveLength(1)
+    expect(jobListingRepo.rows[0].title).toBe('Backend Engineer')
+  })
+
+  it('uses preExtractedSkills directly and skips the LLM extraction call when present', async () => {
+    const result = await ingestExternalJobs([
+      baseInput({
+        url: 'https://example.com/jobs/13',
+        source: 'jobspy:naukri',
+        preExtractedSkills: ['Java', 'Spring Boot'],
+      }),
+    ])
+
+    expect(result.newListings).toBe(1)
+    expect(mockExtractJobSkills).not.toHaveBeenCalled()
+    expect(jobListingRepo.rows[0].skills).toEqual(['Java', 'Spring Boot'])
+  })
+
+  it('falls back to LLM extraction when preExtractedSkills is absent', async () => {
+    const result = await ingestExternalJobs([baseInput({ url: 'https://example.com/jobs/14', source: 'jobspy:indeed' })])
+
+    expect(result.newListings).toBe(1)
+    expect(mockExtractJobSkills).toHaveBeenCalledTimes(1)
+    expect(jobListingRepo.rows[0].skills).toEqual(expect.arrayContaining(['Python', 'Rust']))
   })
 })

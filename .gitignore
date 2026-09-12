@@ -9,6 +9,13 @@
 Thumbs.db
 *.tsbuildinfo
 
+# Python (scripts/jobspy-ingest/) — venv and run-state, never committed.
+__pycache__/
+*.pyc
+.venv/
+venv/
+scripts/jobspy-ingest/.state.json
+
 # Root-level tooling (Neon CLI, etc.) — see package.json
 node_modules/
 .mcp.json
