@@ -364,6 +364,12 @@ const TAB_TITLES: Record<string, string> = {
 
 export default function SettingsPage() {
   const [activeNav, setActiveNav] = useState('API keys')
+  const router = useRouter()
+
+  function handleSignOut() {
+    clearToken()
+    router.push('/login')
+  }
 
   return (
     <>
@@ -373,7 +379,7 @@ export default function SettingsPage() {
       />
       <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr', overflow: 'hidden' }}>
         {/* Sub-nav */}
-        <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)' }}>
+        <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', display: 'flex', flexDirection: 'column' }}>
           {SUB_NAV.map(n => (
             <div
               key={n}
@@ -383,6 +389,14 @@ export default function SettingsPage() {
               {n}
             </div>
           ))}
+          <div style={{ flex: 1 }} />
+          <div
+            onClick={handleSignOut}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', marginTop: 12, borderTop: '1px solid var(--line-2)', paddingTop: 16 }}
+          >
+            <Icon.LogOut size={14} />
+            Sign out
+          </div>
         </div>
 
         {/* Form */}

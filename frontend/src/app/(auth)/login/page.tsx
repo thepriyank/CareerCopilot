@@ -36,7 +36,7 @@ export default function LoginPage() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 22, textDecoration: 'none', color: 'var(--text)' }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
-            <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
+            <img src="/icons/logo-mark.png" alt="" width={74} height={22} />
             <span className="wordmark">JobMagnate</span>
           </Link>
           <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginTop: 8 }}>Sign in to your account</div>

@@ -25,7 +25,7 @@ export default function OfflinePage() {
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
-      <img src="/icons/logo-mark.png" alt="" width={109} height={33} />
+      <img src="/icons/logo-mark.png" alt="" width={87} height={26} />
       <h1 style={{ fontSize: 18, fontWeight: 600, margin: '8px 0 0' }}>You&rsquo;re offline</h1>
       <p style={{ fontSize: 14, color: '#6b7280', maxWidth: 320, lineHeight: 1.5, margin: 0 }}>
         JobMagnate needs a connection for most things — your jobs, matches, and resume all live on the server. Reconnect and try again.

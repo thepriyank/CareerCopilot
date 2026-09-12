@@ -22,7 +22,7 @@ export default function LandingPage() {
       }}>
         <div className="landing-nav-logo" style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 18, flex: 1 }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
-          <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
+          <img src="/icons/logo-mark.png" alt="" width={74} height={22} />
           <span className="wordmark">JobMagnate</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -119,6 +119,25 @@ export default function LandingPage() {
           <Icon.Upload size={18} /> Upload your resume
         </Link>
       </section>
+
+      {/* Footer */}
+      <footer
+        className="landing-section-px"
+        style={{
+          padding: '24px 48px', borderTop: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 8, fontSize: 12, color: 'var(--text-muted)',
+        }}
+      >
+        <div>&copy; {new Date().getFullYear()} JobMagnate. All rights reserved.</div>
+        <div>
+          A{' '}
+          <a href="https://nowmagnate.com" target="_blank" rel="noreferrer" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+            NowMagnate Innovations
+          </a>{' '}
+          company
+        </div>
+      </footer>
     </div>
   )
 }

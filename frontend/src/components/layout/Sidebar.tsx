@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Icon } from '@/components/ui/Icon'
 import { Avatar } from '@/components/ui/Avatar'
 import { auth as authApi } from '@/lib/api'
+import { clearToken } from '@/lib/auth'
 
 const MAIN_NAV = [
   { href: '/dashboard',  label: 'Dashboard',  Icon: Icon.Home },
@@ -25,8 +26,14 @@ interface SidebarProps {
 
 export function Sidebar({ active }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [userName, setUserName] = useState<string | null>(null)
   const [plan, setPlan] = useState<string>('Free plan')
+
+  function handleSignOut() {
+    clearToken()
+    router.push('/login')
+  }
 
   useEffect(() => {
     authApi
@@ -49,7 +56,7 @@ export function Sidebar({ active }: SidebarProps) {
     <aside className="sidebar">
       <div className="logo">
         {/* eslint-disable-next-line @next/next/no-img-element -- a small static brand asset, not worth next/image's overhead here */}
-        <img src="/icons/logo-mark.png" alt="" width={93} height={28} />
+        <img src="/icons/logo-mark.png" alt="" width={74} height={22} />
         <span className="wordmark">JobMagnate</span>
       </div>
 
@@ -89,9 +96,18 @@ export function Sidebar({ active }: SidebarProps) {
           <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '…'}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{plan}</div>
         </div>
-        <Link href="/settings">
+        <Link href="/settings" title="Settings" style={{ color: 'var(--text-muted)', display: 'flex' }}>
           <Icon.Settings size={14} />
         </Link>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          title="Sign out"
+          aria-label="Sign out"
+          style={{ display: 'flex', alignItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+        >
+          <Icon.LogOut size={14} />
+        </button>
       </div>
     </aside>
   )
