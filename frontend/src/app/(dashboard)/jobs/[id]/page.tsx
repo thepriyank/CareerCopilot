@@ -228,7 +228,6 @@ export default function JobDetailPage() {
         {/* Left: job description */}
         <div style={{ borderRight: '1px solid var(--line-2)', overflow: 'auto', padding: 24, background: 'var(--paper)' }}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-            <Chip tone="ink">{job.source}</Chip>
             {job.experienceLevel && <Chip>{job.experienceLevel}</Chip>}
             {job.isRemote && <Chip tone="match" icon={<Icon.Check size={10} />}>Remote</Chip>}
           </div>

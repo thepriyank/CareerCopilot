@@ -31,7 +31,6 @@ export default function JobBoardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null)
   const [tierFilter, setTierFilter] = useState<ExperienceLevel | null>(null)
   const [showFilters, setShowFilters] = useState(false)
 
@@ -59,15 +58,12 @@ export default function JobBoardPage() {
     fetchJobs()
   }, [])
 
-  const sources = useMemo(() => [...new Set(jobList.map((j) => j.source))].sort(), [jobList])
   const tiers = useMemo(
     () => [...new Set(jobList.map((j) => j.experienceLevel).filter((t): t is ExperienceLevel => !!t))],
     [jobList]
   )
 
-  const filtered = jobList.filter(
-    (j) => (!sourceFilter || j.source === sourceFilter) && (!tierFilter || j.experienceLevel === tierFilter)
-  )
+  const filtered = jobList.filter((j) => !tierFilter || j.experienceLevel === tierFilter)
 
   async function handleAddJob(e: React.FormEvent) {
     e.preventDefault()
@@ -103,26 +99,9 @@ export default function JobBoardPage() {
     }
     return (
       <>
-        <div className="eyebrow" style={{ marginBottom: 10 }}>Source</div>
-        <div
-          onClick={pick(() => setSourceFilter(null))}
-          style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: !sourceFilter ? 'var(--accent-subtle)' : 'transparent', color: !sourceFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !sourceFilter ? 500 : 400, cursor: 'pointer' }}
-        >
-          All · {jobList.length}
-        </div>
-        {sources.map((s) => (
-          <div
-            key={s}
-            onClick={pick(() => setSourceFilter(s))}
-            style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: sourceFilter === s ? 'var(--accent-subtle)' : 'transparent', color: sourceFilter === s ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: sourceFilter === s ? 500 : 400, cursor: 'pointer', textTransform: 'capitalize' }}
-          >
-            {s} · {jobList.filter((j) => j.source === s).length}
-          </div>
-        ))}
-
         {tiers.length > 0 && (
           <>
-            <div className="eyebrow" style={{ marginTop: 18, marginBottom: 10 }}>Level</div>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>Level</div>
             <div
               onClick={pick(() => setTierFilter(null))}
               style={{ padding: '6px 10px', fontSize: 13, marginBottom: 2, color: !tierFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !tierFilter ? 500 : 400, cursor: 'pointer' }}
@@ -158,7 +137,7 @@ export default function JobBoardPage() {
               aria-expanded={showFilters}
             >
               {showFilters ? <Icon.X size={13} /> : <Icon.Filter size={13} />}
-              {!showFilters && (sourceFilter || tierFilter) && (
+              {!showFilters && tierFilter && (
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)' }} />
               )}
             </button>
