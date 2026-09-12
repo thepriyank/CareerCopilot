@@ -35,8 +35,19 @@ export const remoteBoardProviders: Provider[] = [remoteok, weworkremotely, himal
  * meaningful skill-gap/match extraction on 8 of 10 real postings. Approved
  * for live use; still a no-op until JSEARCH_API_KEY is set, same as the
  * other aggregators here.
+ *
+ * adzuna deliberately excluded (2026-09-12): its `/search` endpoint hard-
+ * truncates `description` to 500 chars by design (confirmed against
+ * Adzuna's own docs and a live pull — no paid tier or param lifts this), so
+ * skill extraction and match scoring were running on a snippet, not the real
+ * JD. The only way to get the full text is following `redirect_url` to
+ * whatever site Adzuna aggregated it from — unresolvable in advance, and
+ * ARCHITECTURE.md's job-source policy already rules out scraping several of
+ * the platforms that could be. Module kept (adzuna.ts) in case a
+ * from-approved-ATS-only redirect resolution is built later; not wired into
+ * discovery until then.
  */
-export const aggregatorProviders: Provider[] = [theirstack, adzuna, jooble, jsearch]
+export const aggregatorProviders: Provider[] = [theirstack, jooble, jsearch]
 
 export const allProviders: Provider[] = [...atsProviders, ...remoteBoardProviders, ...aggregatorProviders]
 
