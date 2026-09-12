@@ -30,6 +30,19 @@ shared platform infrastructure, and is scoped to India only.
    ```
    This installs `python-jobspy` from PyPI — **not** a clone of JobSpy's own
    repository, just the published package.
+   **Windows on ARM64**: `python-jobspy` hard-pins `numpy==1.26.3` and a few
+   other exact versions that predate official `win_arm64` wheels, and one
+   dependency (`tls-client`) bundles a native DLL that's x64-only regardless
+   of wheel availability — there's no way to make it work on an ARM64
+   Python interpreter (confirmed 2026-09-12). If `python --version` prints
+   an ARM64 build, create the venv with an x64 Python instead (e.g. one
+   installed via `uv python install 3.12`, or the standard python.org AMD64
+   installer) — Windows on ARM64 runs x64 code fine under emulation:
+   ```bash
+   <path-to-x64-python> -m venv .venv
+   .venv\Scripts\python -m pip install -r requirements.txt
+   .venv\Scripts\python scrape_and_post.py --dry-run
+   ```
 4. Copy `.env.example` to `.env` in this same directory and fill in:
    - `BACKEND_INGEST_URL` — where the backend's `/api/internal/jobs/ingest`
      route is reachable from *this* machine. If the backend runs on the same
@@ -99,15 +112,22 @@ same `INTERNAL_INGEST_TOKEN` value), then run.
 
 ## Site selection
 
-Defaults to `indeed,naukri` — the two strongest India-specific sources, and
-the two JobSpy itself documents as reliable (Indeed: "no rate limiting";
-Naukri: structured skills field). `linkedin` is deliberately **not** in the
-default list — this project has a standing extra-caution stance on LinkedIn
-specifically (see `CLAUDE.md` §7); add it yourself via `JOBSPY_SITES` in
-`.env` if you want it anyway. `glassdoor`, `google`, `bayt`, and `bdjobs` are
-also supported by JobSpy but not defaulted on here (bayt/bdjobs aren't
-India-relevant; glassdoor/google are reasonable additions if you want more
-volume later).
+Defaults to `indeed` only. **Naukri was tried and confirmed blocked**
+(2026-09-12): every request comes back `HTTP 406 "recaptcha required"` —
+real, active bot-detection, not a transient rate limit. Working around a
+CAPTCHA is out of bounds regardless of the broader scraping decision, so
+Naukri stays out of the defaults; add it via `JOBSPY_SITES` if you want to
+try anyway, but expect 0 results. This also means Naukri's structured
+`skills` field (the reason `JobInput.preExtractedSkills` exists) currently
+never actually fires — it's still there for if/when Naukri becomes
+reachable, or for other sites that return structured skills.
+
+`linkedin` is also **not** in the default list — this project has a standing
+extra-caution stance on LinkedIn specifically (see `CLAUDE.md` §7); add it
+yourself via `JOBSPY_SITES` if you want it anyway. `glassdoor`, `google`,
+`bayt`, and `bdjobs` are also supported by JobSpy but not defaulted on here
+(bayt/bdjobs aren't India-relevant; glassdoor/google are reasonable
+additions if you want more volume later — untested here).
 
 ## Tuning (all optional, set in `.env`)
 
@@ -120,6 +140,15 @@ volume later).
 
 ## Known limitations
 
+- The backend runs a sequential LLM skill-extraction call per genuinely NEW
+  job it ingests — a batch of many new jobs can take minutes, not seconds.
+  `BATCH_SIZE` (20) and the POST timeout (5 minutes) are tuned around this;
+  don't raise `BATCH_SIZE` much without also raising `POST_TIMEOUT_SECONDS`
+  in `scrape_and_post.py`, or batches will time out. A failed batch doesn't
+  corrupt anything (the backend dedupes by URL) — just re-run the script;
+  `last_run_at` is only saved when every batch in a run succeeded, so a
+  partially-failed run correctly stays in "first run" mode (no `hours_old`
+  filter) until a clean run completes.
 - JobSpy's own docs note LinkedIn rate-limits after ~10 pages from one IP,
   and any site can return HTTP 429 under load — this script logs and skips
   a failed title/site rather than crashing the whole run, but if you're

@@ -54,7 +54,13 @@ TITLES_FILE = REPO_ROOT / "backend" / "src" / "services" / "jobs" / "providers" 
 
 load_dotenv(SCRIPT_DIR / ".env")
 
-DEFAULT_SITES = ["indeed", "naukri"]
+# naukri deliberately excluded (confirmed live 2026-09-12): every request
+# gets HTTP 406 "recaptcha required" from Naukri's own API — this isn't a
+# transient block, it's active bot-detection. Working around a CAPTCHA is
+# out of bounds regardless of the broader scraping decision, so this stays
+# indeed-only until/unless a legitimate way to query Naukri appears. Add it
+# back via JOBSPY_SITES if you want to try anyway, but expect 0 results.
+DEFAULT_SITES = ["indeed"]
 COUNTRY = "India"  # per the 2026-09-12 decision: India-only for now
 
 
@@ -74,7 +80,14 @@ HOURS_OLD = env_int("JOBSPY_HOURS_OLD", 24)
 SLEEP_SECONDS = env_int("JOBSPY_SLEEP_SECONDS", 8)
 BACKEND_INGEST_URL = os.environ.get("BACKEND_INGEST_URL", "").strip()
 INTERNAL_INGEST_TOKEN = os.environ.get("INTERNAL_INGEST_TOKEN", "").strip()
-BATCH_SIZE = 200  # backend caps a single request at 500 jobs; stay well under
+# Small on purpose: the backend runs a sequential LLM skill-extraction call
+# per genuinely NEW job (upsertJobListing), so a big batch can take minutes,
+# not seconds — a 200-job batch timed out entirely on first real use
+# (2026-09-12). Small batches keep each request comfortably inside
+# POST_TIMEOUT_SECONDS and mean one slow/failed batch only loses a small
+# slice of the run, not all of it.
+BATCH_SIZE = 20
+POST_TIMEOUT_SECONDS = 300
 
 
 def load_titles() -> list:
@@ -102,12 +115,23 @@ def is_nan(value) -> bool:
         return False
 
 
+# Confirmed live (2026-09-12) against jobspy 1.1.82: missing/optional fields
+# come back as the literal STRING "None" (or "nan" for a couple of fields),
+# not an actual Python None/NaN — e.g. a job with no salary has
+# min_amount == "None" (the 4-character string), not None. Both must be
+# treated as missing, or downstream code silently misreads a present-but-
+# useless string as real data (is_remote == "False" is truthy as a string!).
+_MISSING_STRINGS = {"none", "nan", "nat"}
+
+
 def clean(value):
-    """None-ify pandas NaN/NaT and empty strings; pass everything else through."""
+    """None-ify pandas NaN/NaT, jobspy's stringified "None"/"nan", and empty strings."""
     if value is None or is_nan(value):
         return None
-    if isinstance(value, str) and value.strip() == "":
-        return None
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "" or stripped.lower() in _MISSING_STRINGS:
+            return None
     return value
 
 
@@ -189,6 +213,20 @@ def build_skills(row: dict) -> list:
     return []
 
 
+def parse_bool(value) -> bool | None:
+    """jobspy returns is_remote as an actual bool in some code paths and as the
+    stringified "True"/"False" in others (confirmed live 2026-09-12) — never
+    trust Python truthiness on a non-empty string like "False"."""
+    value = clean(value)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return bool(value)
+
+
 def normalize_row(row: dict, site_hint: str) -> dict | None:
     url = first_present(row, "job_url_direct", "JOB_URL_DIRECT", "job_url", "JOB_URL")
     title = first_present(row, "title", "TITLE")
@@ -196,7 +234,7 @@ def normalize_row(row: dict, site_hint: str) -> dict | None:
         return None
 
     site = first_present(row, "site", "SITE") or site_hint
-    is_remote = first_present(row, "is_remote", "IS_REMOTE")
+    is_remote = parse_bool(first_present(row, "is_remote", "IS_REMOTE"))
 
     return {
         "title": str(title),
@@ -205,7 +243,7 @@ def normalize_row(row: dict, site_hint: str) -> dict | None:
         "url": str(url),
         "description": str(first_present(row, "description", "DESCRIPTION") or ""),
         "salary": build_salary(row),
-        "isRemote": bool(is_remote) if is_remote is not None else None,
+        "isRemote": is_remote,
         "postedAt": to_iso_datetime(first_present(row, "date_posted", "DATE_POSTED")),
         "source": f"jobspy:{site}",
         "preExtractedSkills": build_skills(row) or None,
@@ -240,7 +278,7 @@ def post_batch(jobs: list) -> dict:
         BACKEND_INGEST_URL,
         json={"jobs": jobs},
         headers={"Authorization": f"Bearer {INTERNAL_INGEST_TOKEN}", "content-type": "application/json"},
-        timeout=60,
+        timeout=POST_TIMEOUT_SECONDS,
     )
     resp.raise_for_status()
     return resp.json()
@@ -288,19 +326,28 @@ def run_once(dry_run: bool = False) -> None:
         return
 
     totals = {"newListings": 0, "seen": 0, "filteredOut": 0}
-    for i in range(0, len(deduped), BATCH_SIZE):
-        batch = deduped[i : i + BATCH_SIZE]
-        if not batch:
-            continue
+    batches = [deduped[i : i + BATCH_SIZE] for i in range(0, len(deduped), BATCH_SIZE)]
+    failed_batches = 0
+    for n, batch in enumerate(batches, start=1):
         try:
             result = post_batch(batch)
             for k in totals:
                 totals[k] += result.get(k, 0)
+            print(f"  batch {n}/{len(batches)} ({len(batch)} jobs): {result}")
         except requests.RequestException as exc:
-            print(f"  ! failed to post batch of {len(batch)}: {exc}", file=sys.stderr)
+            failed_batches += 1
+            print(f"  ! batch {n}/{len(batches)} ({len(batch)} jobs) failed: {exc}", file=sys.stderr)
 
-    print(f"ingest result: {totals}")
-    save_state({"last_run_at": datetime.now(timezone.utc).isoformat()})
+    print(f"ingest totals: {totals} ({failed_batches}/{len(batches)} batches failed)")
+
+    if failed_batches == 0:
+        save_state({"last_run_at": datetime.now(timezone.utc).isoformat()})
+    else:
+        print(
+            "NOT updating last_run_at since at least one batch failed — the next run will "
+            "still do a full (non-hours_old-filtered) pass rather than risk silently skipping jobs.",
+            file=sys.stderr,
+        )
 
 
 def run_inspect() -> None:
