@@ -33,7 +33,6 @@ import { JobOrigin } from '../../entities/enums'
 import { config } from '../../config'
 import { computeMatchScore } from './matchScore'
 import { hasAvoidedRequiredTech } from './avoidedTechFilter'
-import { flattenResumeText } from '../skills/resumeText'
 import { ExtractedEntities } from '../../types'
 
 /**
@@ -53,7 +52,6 @@ export async function ensureMatchedJobsForCandidate(
   const matchRepo = AppDataSource.getRepository(MatchResult)
 
   const entities = masterResume.content as unknown as ExtractedEntities
-  const resumeText = flattenResumeText(entities)
   const resumeSkills = (entities.skills ?? []).map((s) => s.name).filter(Boolean)
 
   const existingUserJobs = await userJobRepo.find({ where: { userId } })
@@ -76,7 +74,7 @@ export async function ensureMatchedJobsForCandidate(
     // at all, not merely scored lower. See avoidedTechFilter.ts's header.
     if (hasAvoidedRequiredTech(listing.normalizedFields, avoidTechnologies)) continue
 
-    const result = computeMatchScore(resumeText, resumeSkills, listing, profile)
+    const result = computeMatchScore(resumeSkills, listing, profile)
     if (result.score < config.matching.minScoreToSurface) continue
 
     const userJob = await userJobRepo.save(
@@ -118,7 +116,6 @@ export async function recomputeMatchesForCandidate(
   const matchRepo = AppDataSource.getRepository(MatchResult)
 
   const entities = masterResume.content as unknown as ExtractedEntities
-  const resumeText = flattenResumeText(entities)
   const resumeSkills = (entities.skills ?? []).map((s) => s.name).filter(Boolean)
 
   const userJobs = await userJobRepo.find({ where: { userId }, relations: ['jobListing'] })
@@ -126,7 +123,7 @@ export async function recomputeMatchesForCandidate(
   let recomputed = 0
   for (const userJob of userJobs) {
     if (!userJob.jobListing) continue
-    const result = computeMatchScore(resumeText, resumeSkills, userJob.jobListing, profile)
+    const result = computeMatchScore(resumeSkills, userJob.jobListing, profile)
     await matchRepo.save(
       matchRepo.create({
         userId,

@@ -1,26 +1,27 @@
 /**
- * Match scoring (F4) — v2, Tier A of the 2026-09-06 matching redesign.
+ * Match scoring (F4) — v3 (2026-09-13): skill coverage + preference fit
+ * only. Whole-document lexical/semantic text similarity (the "v2" formula's
+ * largest weighted component, 55%) was removed by explicit product
+ * decision: comparing an entire résumé against an entire job description
+ * as a bag-of-words is a weak signal of actual relevance and reliably
+ * dragged down genuinely strong matches (a candidate with 100% of a job's
+ * required skills could still land around 60% overall under the old
+ * formula) — skills and stated preferences (location/salary) are what
+ * actually determine whether a job is worth showing someone. See
+ * matchScore.test.ts's history for the real case that prompted this.
  *
- * Skill coverage used to be computed by re-running a regex extractor over
- * the job's raw description on every single match/skill-gap/tailor request,
- * then regex-matching the result against the résumé flattened back into
- * plain text (see git history / the matching-redesign memo this replaced).
- * Both sides are now AI-extracted exactly once — the job's skills at
- * discovery time (`services/skills/extractJobSkills.ts`, persisted on
- * `JobListing.skills`), the résumé's at parse time
+ * PRD.md §5/§8's "embeddings-based similarity" direction (the old
+ * `services/matching/semanticSimilarity.ts`, deleted with this change) is
+ * accordingly no longer part of this file's roadmap.
+ *
+ * Skill coverage compares two already-AI-extracted structured lists — the
+ * job's skills at discovery time (`services/skills/extractJobSkills.ts`,
+ * persisted on `JobListing.skills`), the résumé's at parse time
  * (`services/parsing/entityExtractor.ts`, persisted on
- * `ExtractedEntities.skills`) — so this function just compares two already-
- * clean structured lists. No LLM call happens here; the cost of extraction
- * was already paid once, elsewhere.
- *
- * PRD.md §5/§8 describes "embeddings-based similarity" for the lexical/
- * semantic half of the score. That's `computeSemanticSimilarity()`
- * (services/matching/semanticSimilarity.ts) — deliberately named and kept as
- * its own module so swapping its TF-cosine implementation for a real
- * embedding model (Tier B, deferred post-MVP) never touches this file.
+ * `ExtractedEntities.skills`). No LLM call happens here; the cost of
+ * extraction was already paid once, elsewhere.
  */
 
-import { computeSemanticSimilarity } from './semanticSimilarity'
 import { CandidateProfile } from '../../entities/CandidateProfile'
 import { RemotePreference } from '../../entities/enums'
 
@@ -44,18 +45,13 @@ export type LocationFit = 'remote-ok' | 'location-match' | 'location-mismatch' |
 export type SalaryFit = 'within-range' | 'below-range' | 'above-range' | 'unknown'
 
 export interface MatchScoreRationale {
-  lexicalSimilarity: number // 0-1, raw, for transparency — sourced from computeSemanticSimilarity()
   matchedSkills: string[]
   missingSkills: string[]
   locationFit: LocationFit
   salaryFit: SalaryFit
-  // 0-1 raw values for the other two weighted components — added
-  // 2026-09-12 so the UI can show why a score landed where it did (a
-  // 100%-skill-coverage job can still score ~60% overall, since
-  // lexicalSimilarity carries the largest weight — see WEIGHTS below —
-  // and is a blunt whole-document TF-cosine similarity, not a skills
-  // measure. Without these two, "why is my score X" was unanswerable
-  // from the API response alone.)
+  // 0-1 raw values for the two weighted components — see WEIGHTS below.
+  // Exposed (not just baked into `score`) so the UI can show the actual
+  // breakdown rather than a bare number.
   skillCoverage: number
   preferenceFit: number
 }
@@ -66,7 +62,11 @@ export interface MatchScoreResult {
   gaps: string[]
 }
 
-const WEIGHTS = { lexical: 0.55, skillCoverage: 0.3, preferenceFit: 0.15 }
+// Preserves the 2:1 ratio the v2 formula already had between these two
+// components (skillCoverage 0.30 : preferenceFit 0.15), renormalized to
+// sum to 1 now that lexical similarity is gone, rather than picking new
+// numbers from scratch.
+const WEIGHTS = { skillCoverage: 2 / 3, preferenceFit: 1 / 3 }
 
 function computeLocationFit(job: MatchableJob, profile: CandidateProfile | null): LocationFit {
   if (!profile) return 'unknown'
@@ -208,8 +208,19 @@ interface SkillCoverageResult {
 /** Fuzzy structured-list overlap — both sides are AI-extracted once elsewhere; see this file's header comment and skillsMatch() above. */
 function computeSkillCoverage(jobSkills: string[], resumeSkills: string[]): SkillCoverageResult {
   if (jobSkills.length === 0) {
-    // No extractable requirements → neutral, not zero (same rule as before the rewrite).
-    return { coverage: 0.5, matchedSkills: [], missingSkills: [] }
+    // No extractable requirements → still not zero (a job's skills failing
+    // to extract isn't the candidate's fault), but no longer a full neutral
+    // 0.5 either. That was fine when skillCoverage was 30% of the total
+    // score; now that it's 2/3 (see WEIGHTS — text similarity's removal
+    // moved skills from "one of three signals" to "the dominant one"), a
+    // flat 0.5 systematically outscored jobs with genuine, verified partial
+    // skill overlap — a real inversion found via 2026-09-13 calibration
+    // against the live pool (several Greenhouse/Indeed postings with a
+    // failed skill extraction were landing at ~58% purely off this default
+    // + preference fit, while jobs with real 40-50% skill overlap scored
+    // lower). Lowered so "we don't know" can never outrank "we checked and
+    // it's a real, if partial, match."
+    return { coverage: 0.3, matchedSkills: [], missingSkills: [] }
   }
   const normalizedResumeSkills = resumeSkills.map(normalizeSkillName)
   const matchedSkills: string[] = []
@@ -226,33 +237,28 @@ function computeSkillCoverage(jobSkills: string[], resumeSkills: string[]): Skil
 }
 
 /**
- * Scores a candidate's master resume against a job posting.
- * `resumeText` (flattened prose — see `flattenResumeText`) feeds the
- * semantic-similarity signal; `resumeSkills` (the résumé's own AI-extracted
- * `ExtractedEntities.skills` names) feeds skill coverage directly, no
- * flattening/regex round-trip needed for that half of the score.
+ * Scores a candidate's master resume against a job posting. `resumeSkills`
+ * (the résumé's own AI-extracted `ExtractedEntities.skills` names) feeds
+ * skill coverage directly; `profile` feeds location/salary preference fit.
+ * No résumé prose/description text is used at all — see this file's header
+ * for why (removed 2026-09-13).
  */
 export function computeMatchScore(
-  resumeText: string,
   resumeSkills: string[],
   job: MatchableJob,
   profile: CandidateProfile | null
 ): MatchScoreResult {
-  const lexicalSimilarity = computeSemanticSimilarity(resumeText, job.description)
-
   const { coverage: skillCoverage, matchedSkills, missingSkills } = computeSkillCoverage(job.skills, resumeSkills)
 
   const locationFit = computeLocationFit(job, profile)
   const salaryFit = computeSalaryFit(job, profile)
   const preferenceFit = preferenceFitScore(locationFit, salaryFit)
 
-  const combined =
-    lexicalSimilarity * WEIGHTS.lexical + skillCoverage * WEIGHTS.skillCoverage + preferenceFit * WEIGHTS.preferenceFit
+  const combined = skillCoverage * WEIGHTS.skillCoverage + preferenceFit * WEIGHTS.preferenceFit
 
   return {
     score: Math.round(combined * 100),
     rationale: {
-      lexicalSimilarity: Math.round(lexicalSimilarity * 1000) / 1000,
       matchedSkills,
       missingSkills,
       locationFit,

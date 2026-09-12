@@ -19,6 +19,20 @@ const FIT_LABEL: Record<string, string> = {
   unknown: 'Not enough data',
 }
 
+// true = this preference is satisfied, false = it isn't (shown as a
+// mismatch), undefined = not enough data to say either way (neutral, not
+// a mismatch) — drives the Preferences chips' color in the Skill gap
+// section below.
+const FIT_MATCHES: Record<string, boolean | undefined> = {
+  'remote-ok': true,
+  'location-match': true,
+  'location-mismatch': false,
+  'within-range': true,
+  'below-range': false,
+  'above-range': false,
+  unknown: undefined,
+}
+
 function Section({
   title,
   children,
@@ -307,18 +321,14 @@ export default function JobDetailPage() {
                     <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid var(--line-2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Score breakdown</div>
                       {[
-                        { label: 'Text similarity', value: matchResult.rationale.lexicalSimilarity, weight: 0.55 },
-                        { label: 'Skill coverage', value: matchResult.rationale.skillCoverage, weight: 0.3 },
-                        { label: 'Preference fit', value: matchResult.rationale.preferenceFit, weight: 0.15 },
+                        { label: 'Skill coverage', value: matchResult.rationale.skillCoverage, weight: 2 / 3 },
+                        { label: 'Preference fit', value: matchResult.rationale.preferenceFit, weight: 1 / 3 },
                       ].map((row) => (
                         <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)' }}>
                           <span>{row.label} <span style={{ color: 'var(--text-muted)' }}>({Math.round(row.weight * 100)}% weight)</span></span>
                           <span className="mono">{Math.round(row.value * 100)}%</span>
                         </div>
                       ))}
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>
-                        Text similarity compares your whole résumé against the whole job description — it carries the most weight, and typically scores lower than skill coverage alone even for a genuinely strong match. A 100% skill match doesn&rsquo;t guarantee a high total score.
-                      </div>
                     </div>
                   )}
                 </div>
@@ -358,6 +368,25 @@ export default function JobDetailPage() {
               </div>
             ) : (
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Not checked yet. Requires a master resume.</div>
+            )}
+            {matchResult && (
+              <div style={{ marginTop: skillGap ? 4 : 0, paddingTop: skillGap ? 8 : 0, borderTop: skillGap ? '1px solid var(--line-2)' : 'none' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Preferences</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  <Chip
+                    tone={FIT_MATCHES[matchResult.rationale.locationFit] === true ? 'match' : FIT_MATCHES[matchResult.rationale.locationFit] === false ? 'missing' : 'default'}
+                    icon={FIT_MATCHES[matchResult.rationale.locationFit] === true ? <Icon.Check size={10} /> : undefined}
+                  >
+                    {FIT_LABEL[matchResult.rationale.locationFit]}
+                  </Chip>
+                  <Chip
+                    tone={FIT_MATCHES[matchResult.rationale.salaryFit] === true ? 'match' : FIT_MATCHES[matchResult.rationale.salaryFit] === false ? 'missing' : 'default'}
+                    icon={FIT_MATCHES[matchResult.rationale.salaryFit] === true ? <Icon.Check size={10} /> : undefined}
+                  >
+                    {FIT_LABEL[matchResult.rationale.salaryFit]}
+                  </Chip>
+                </div>
+              </div>
             )}
           </Section>
 

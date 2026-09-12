@@ -306,13 +306,14 @@ export type LocationFit = 'remote-ok' | 'location-match' | 'location-mismatch' |
 export type SalaryFit = 'within-range' | 'below-range' | 'above-range' | 'unknown'
 
 export interface MatchScoreRationale {
-  lexicalSimilarity: number
   matchedSkills: string[]
   missingSkills: string[]
   locationFit: LocationFit
   salaryFit: SalaryFit
-  // Added 2026-09-12 — older persisted MatchResults won't have these
-  // (undefined), so the UI must handle their absence gracefully.
+  // Optional: older persisted MatchResults (before 2026-09-12) won't have
+  // these, so the UI must handle their absence gracefully. Rows from before
+  // 2026-09-13 may also still carry a since-retired `lexicalSimilarity`
+  // field — harmless, just untyped and unrendered now.
   skillCoverage?: number
   preferenceFit?: number
 }

@@ -61,24 +61,31 @@ function buildProfile(overrides: Partial<CandidateProfile> = {}): CandidateProfi
   } as CandidateProfile
 }
 
-const strongResumeText = `
-Backend engineer with production experience.
-
-Deployed services on Kubernetes and wrote Python microservices for payments.
-
-# Skills
-Python, Kubernetes, PostgreSQL
-`
 const strongResumeSkills = ['Python', 'Kubernetes', 'PostgreSQL']
 
 describe('computeMatchScore', () => {
-  it('scores a strong lexical + skill + location match highly', () => {
+  // 2026-09-13: whole-document text similarity was removed from the formula
+  // by explicit product decision — a real case showed 100% skill coverage
+  // still landing around 60% overall purely because of a weak lexical
+  // signal, with skills/preferences (the things that actually determine
+  // relevance) diluted by a much larger, blunter weight. This is the
+  // headline case the removal exists to fix: full skill + preference match
+  // now scores at (or very near) 100, not held back by anything else.
+  it('scores a perfect skill + location + salary match at (or near) 100 — the case that prompted removing text similarity', () => {
     const result = computeMatchScore(
-      strongResumeText,
-      strongResumeSkills,
+      ['Python', 'Kubernetes', 'Rust'],
       buildJob({ salary: '12,00,000 - 18,00,000' }),
       buildProfile()
     )
+    expect(result.score).toBeGreaterThanOrEqual(95)
+    expect(result.rationale.skillCoverage).toBe(1)
+    expect(result.rationale.preferenceFit).toBe(1)
+    expect(result.rationale.locationFit).toBe('location-match')
+    expect(result.rationale.salaryFit).toBe('within-range')
+  })
+
+  it('scores a strong skill + location match highly, reporting the real skill gap', () => {
+    const result = computeMatchScore(strongResumeSkills, buildJob({ salary: '12,00,000 - 18,00,000' }), buildProfile())
     expect(result.score).toBeGreaterThan(50)
     expect(result.rationale.matchedSkills).toEqual(expect.arrayContaining(['Python', 'Kubernetes']))
     expect(result.rationale.missingSkills).toContain('Rust')
@@ -88,41 +95,17 @@ describe('computeMatchScore', () => {
   })
 
   it('matches skill names case-insensitively, reporting the job\'s own casing', () => {
-    const result = computeMatchScore(strongResumeText, ['python', 'KUBERNETES'], buildJob(), buildProfile())
+    const result = computeMatchScore(['python', 'KUBERNETES'], buildJob(), buildProfile())
     expect(result.rationale.matchedSkills).toEqual(expect.arrayContaining(['Python', 'Kubernetes']))
   })
 
-  // 2026-09-12: a real user saw 100% skill coverage ("no gaps found") but
-  // only a 60% overall score, with no way to see why from the API response
-  // — skillCoverage/preferenceFit weren't exposed, only lexicalSimilarity
-  // was. These two lock in that both are now present and correct, so the
-  // UI can show the actual weighted breakdown instead of a mystery number.
-  it('exposes skillCoverage and preferenceFit on the rationale, not just lexicalSimilarity', () => {
-    const result = computeMatchScore(
-      strongResumeText,
-      strongResumeSkills,
-      buildJob({ skills: ['Python', 'Kubernetes'], salary: '12,00,000 - 18,00,000' }),
-      buildProfile()
-    )
-    expect(result.rationale.skillCoverage).toBe(1)
-    expect(result.rationale.preferenceFit).toBe(1)
-    // A perfect skill+preference score still isn't a perfect total, because
-    // lexicalSimilarity (55% weight) is a whole-document comparison, not a
-    // skills-only one — this is the exact confusion the breakdown exists to
-    // resolve, not a bug.
-    expect(result.rationale.lexicalSimilarity).toBeLessThan(1)
-    expect(result.score).toBeLessThan(100)
-  })
-
-  it('scores a weak / unrelated resume low', () => {
-    const weakResumeText = 'Watercolor painting workshop instructor with 10 years of teaching experience.'
-    const result = computeMatchScore(weakResumeText, [], buildJob(), buildProfile())
+  it('scores a job with no matching skills at all low', () => {
+    const result = computeMatchScore([], buildJob(), buildProfile())
     expect(result.score).toBeLessThan(40)
   })
 
   it('treats remote roles as a location fit when the profile is remote-open', () => {
     const result = computeMatchScore(
-      strongResumeText,
       strongResumeSkills,
       buildJob({ isRemote: true, location: 'Worldwide' }),
       buildProfile({ locations: ['New York'], remotePreference: RemotePreference.REMOTE })
@@ -131,58 +114,53 @@ describe('computeMatchScore', () => {
   })
 
   it('degrades to "unknown" signals gracefully when there is no profile at all', () => {
-    const result = computeMatchScore(strongResumeText, strongResumeSkills, buildJob(), null)
+    const result = computeMatchScore(strongResumeSkills, buildJob(), null)
     expect(result.rationale.locationFit).toBe('unknown')
     expect(result.rationale.salaryFit).toBe('unknown')
     expect(Number.isFinite(result.score)).toBe(true)
   })
 
-  it('does not crash on a job with no extracted skills (neutral skill coverage)', () => {
-    const result = computeMatchScore(strongResumeText, strongResumeSkills, buildJob({ skills: [] }), buildProfile())
-    expect(result.gaps).toEqual([])
-    expect(Number.isFinite(result.score)).toBe(true)
-  })
-})
+  it('does not crash on a job with no extracted skills, and scores it below a genuine partial skill match', () => {
+    const noSkillsResult = computeMatchScore(strongResumeSkills, buildJob({ skills: [] }), buildProfile())
+    expect(noSkillsResult.gaps).toEqual([])
+    expect(Number.isFinite(noSkillsResult.score)).toBe(true)
+    expect(noSkillsResult.rationale.skillCoverage).toBe(0.3)
 
-// 2026-09-11: a real diagnostic run (see git history / session notes) found
-// a genuinely strong Engineering Manager match scoring one point under the
-// surfacing threshold, entirely because the job's "People Leadership" and
-// the résumé's "Technical leadership" are the same fact worded differently
-// by two independent AI extractions — exact-string skill coverage counted
-// that as zero overlap. These lock in the fuzzy-matching fix.
-describe('computeSkillCoverage fuzzy matching (via computeMatchScore)', () => {
-  it('matches suffix/prefix skill-name variants (e.g. "React" / "React.js")', () => {
-    const result = computeMatchScore(
-      strongResumeText,
-      ['React'],
-      buildJob({ skills: ['React.js'] }),
-      buildProfile()
-    )
-    expect(result.rationale.matchedSkills).toEqual(['React.js'])
-    expect(result.rationale.missingSkills).toEqual([])
+    // 2026-09-13 calibration finding: a job with zero verified skill data
+    // must never outscore one with real, if partial, overlap — the old 0.5
+    // neutral default did exactly that once skillCoverage became 2/3 of
+    // the total weight (see computeSkillCoverage's comment).
+    const partialMatchResult = computeMatchScore(['Python'], buildJob({ skills: ['Python', 'Kubernetes', 'Rust'] }), buildProfile())
+    expect(partialMatchResult.score).toBeGreaterThan(noSkillsResult.score)
   })
 
-  it('matches near-synonymous leadership phrasing via the alias table — the real regression case', () => {
-    const result = computeMatchScore(
-      strongResumeText,
-      ['Technical leadership'],
-      buildJob({ skills: ['People Leadership'] }),
-      buildProfile()
-    )
-    expect(result.rationale.matchedSkills).toEqual(['People Leadership'])
-  })
+  // 2026-09-12: a real diagnostic run (see git history / session notes) found
+  // a genuinely strong Engineering Manager match scoring one point under the
+  // surfacing threshold, entirely because the job's "People Leadership" and
+  // the résumé's "Technical leadership" are the same fact worded differently
+  // by two independent AI extractions — exact-string skill coverage counted
+  // that as zero overlap. These lock in the fuzzy-matching fix.
+  describe('computeSkillCoverage fuzzy matching (via computeMatchScore)', () => {
+    it('matches suffix/prefix skill-name variants (e.g. "React" / "React.js")', () => {
+      const result = computeMatchScore(['React'], buildJob({ skills: ['React.js'] }), buildProfile())
+      expect(result.rationale.matchedSkills).toEqual(['React.js'])
+      expect(result.rationale.missingSkills).toEqual([])
+    })
 
-  it('matches common abbreviation <-> full-name pairs via the alias table (K8s / Kubernetes)', () => {
-    const result = computeMatchScore(strongResumeText, ['Kubernetes'], buildJob({ skills: ['K8s'] }), buildProfile())
-    expect(result.rationale.matchedSkills).toEqual(['K8s'])
-  })
+    it('matches near-synonymous leadership phrasing via the alias table — the real regression case', () => {
+      const result = computeMatchScore(['Technical leadership'], buildJob({ skills: ['People Leadership'] }), buildProfile())
+      expect(result.rationale.matchedSkills).toEqual(['People Leadership'])
+    })
 
-  it('does not let a short skill name false-positive-match as a substring of an unrelated word', () => {
-    // "ai" must not match "rails" (which literally contains the substring
-    // "ai") just because it's short — only exact match or the alias table
-    // should count for names under 3 characters.
-    const result = computeMatchScore(strongResumeText, ['ai'], buildJob({ skills: ['Rails'] }), buildProfile())
-    expect(result.rationale.matchedSkills).toEqual([])
-    expect(result.rationale.missingSkills).toEqual(['Rails'])
+    it('matches common abbreviation <-> full-name pairs via the alias table (K8s / Kubernetes)', () => {
+      const result = computeMatchScore(['Kubernetes'], buildJob({ skills: ['K8s'] }), buildProfile())
+      expect(result.rationale.matchedSkills).toEqual(['K8s'])
+    })
+
+    it('does not let a short skill name false-positive-match as a substring of an unrelated word', () => {
+      const result = computeMatchScore(['ai'], buildJob({ skills: ['Rails'] }), buildProfile())
+      expect(result.rationale.matchedSkills).toEqual([])
+      expect(result.rationale.missingSkills).toEqual(['Rails'])
+    })
   })
 })

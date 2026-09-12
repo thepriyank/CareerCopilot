@@ -74,20 +74,27 @@ export const config = {
   // maxListingsToScore bounds how much of the pool one `GET /api/jobs` call
   // rescans (see that file's scale note).
   //
-  // 32, not a round guess: validated live (2026-09-06) against a real
-  // résumé (54 skills) scored against a 300+-listing pool. The lexical half
-  // of the score (bag-of-words résumé-vs-JD overlap) tops out much lower
-  // than intuition suggests even for a genuinely great match — the single
-  // best real match in that run scored 37/100, not 80+. 32 was the highest
-  // point in the observed distribution where every title above it was a
-  // real software-engineering match and every false positive (an unrelated
-  // role coasting on `computeSkillCoverage`'s "no extractable skills →
-  // neutral 0.5" default — see matchScore.ts) fell below it; the same test
-  // showed false positives creeping in as low as 30. Not a proof this holds
-  // for every résumé/pool combination — revisit if real usage shows it's
-  // too strict or too loose.
+  // 38, recalibrated 2026-09-13 after removing lexical/text similarity from
+  // the score entirely (matchScore.ts's v3 formula — skillCoverage 2/3 +
+  // preferenceFit 1/3, product decision: whole-résumé-vs-whole-JD text
+  // similarity was a weak, noisy signal that reliably dragged down
+  // genuinely strong skill matches). That change shifts the whole score
+  // distribution upward and made the old 32 (calibrated for the v2/lexical-
+  // heavy formula) far too permissive — validated live against the real
+  // staging pool (509 listings, a 74-skill résumé): 32 would have surfaced
+  // 43% of the pool. Inspected real titles/scores band by band; 38 is the
+  // point below which relevance visibly drops off (a Frontend/Full-Stack/
+  // Backend Engineer role with real, verified skill overlap sits at 38+;
+  // below it the pool gets noticeably noisier — mismatched stacks, weak
+  // overlap), surfacing a curated ~27% instead. Same calibration also
+  // caught and fixed a real inversion: a job with a totally failed skill
+  // extraction (0 skills, `computeSkillCoverage`'s neutral default) was
+  // outscoring jobs with genuine partial overlap once skills became the
+  // dominant weight — the neutral default dropped from 0.5 to 0.3 to fix
+  // it (see matchScore.ts). Not a proof this holds for every résumé/pool
+  // combination — revisit if real usage shows it's too strict or too loose.
   matching: {
-    minScoreToSurface: parseInt(process.env.JOB_MATCH_MIN_SCORE ?? '32', 10),
+    minScoreToSurface: parseInt(process.env.JOB_MATCH_MIN_SCORE ?? '38', 10),
     maxListingsToScore: parseInt(process.env.JOB_MATCH_MAX_LISTINGS_TO_SCORE ?? '500', 10),
   },
 

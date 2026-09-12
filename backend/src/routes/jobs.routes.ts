@@ -289,9 +289,8 @@ router.get('/:id/cover-letter/pdf', async (req: AuthRequest, res: Response, next
 })
 
 // POST /api/jobs/:id/match — scores the caller's master resume against this
-// job (semantic/lexical similarity + skill coverage + preference fit — see
-// services/matching/matchScore.ts for the v1-scoring-approach note) and
-// persists a MatchResult.
+// job (skill coverage + preference fit — see services/matching/matchScore.ts
+// for the v3-scoring-approach note) and persists a MatchResult.
 router.post('/:id/match', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
@@ -301,9 +300,8 @@ router.post('/:id/match', async (req: AuthRequest, res: Response, next: NextFunc
     const profile = await profileRepo.findOneBy({ userId })
 
     const entities = masterResume.content as unknown as ExtractedEntities
-    const resumeText = flattenResumeText(entities)
     const resumeSkills = (entities.skills ?? []).map((s) => s.name).filter(Boolean)
-    const result = computeMatchScore(resumeText, resumeSkills, job, profile)
+    const result = computeMatchScore(resumeSkills, job, profile)
 
     const matchRepo = AppDataSource.getRepository(MatchResult)
     const matchResult = matchRepo.create({
