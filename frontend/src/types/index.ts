@@ -295,6 +295,9 @@ export interface JobPosting {
   // yet (null for a just-pasted job with no score computed). See
   // surfaceJobs.ts on the backend for how a pool job earns a place here.
   matchScore: number | null
+  // Set once the candidate marks this job as applied (PUT /:id/applied);
+  // null when they haven't. Separate from opening the original posting.
+  appliedAt: string | null
 }
 
 // ─── Match scoring (F4) ─────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { Router, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { AppDataSource } from '../config/dataSource'
+import { UserJob } from '../entities/UserJob'
 import { GeneratedResumeVersion } from '../entities/GeneratedResumeVersion'
 import { GeneratedCoverLetter } from '../entities/GeneratedCoverLetter'
 import { SkillGapReport } from '../entities/SkillGapReport'
@@ -107,6 +108,30 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
   try {
     const job = await loadJobView(req.userId!, req.params.id as string)
     if (!job) throw jobNotFoundError()
+    res.json({ job })
+  } catch (err) {
+    next(err)
+  }
+})
+
+const setAppliedSchema = z.object({ applied: z.boolean() })
+
+// PUT /api/jobs/:id/applied — marks or unmarks this job as applied
+// (UserJob.appliedAt). A deliberate, separate action from opening the
+// original posting — nothing else in this file ever sets this.
+router.put('/:id/applied', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId!
+    const { applied } = setAppliedSchema.parse(req.body)
+
+    const userJobRepo = AppDataSource.getRepository(UserJob)
+    const userJob = await userJobRepo.findOneBy({ id: req.params.id as string, userId })
+    if (!userJob) throw jobNotFoundError()
+
+    userJob.appliedAt = applied ? new Date() : null
+    await userJobRepo.save(userJob)
+
+    const job = await loadJobView(userId, userJob.id)
     res.json({ job })
   } catch (err) {
     next(err)

@@ -32,6 +32,7 @@ export default function JobBoardPage() {
   const [error, setError] = useState('')
 
   const [tierFilter, setTierFilter] = useState<ExperienceLevel | null>(null)
+  const [appliedFilter, setAppliedFilter] = useState<'all' | 'applied' | 'not-applied'>('all')
   const [showFilters, setShowFilters] = useState(false)
 
   const [showAddForm, setShowAddForm] = useState(false)
@@ -63,7 +64,11 @@ export default function JobBoardPage() {
     [jobList]
   )
 
-  const filtered = jobList.filter((j) => !tierFilter || j.experienceLevel === tierFilter)
+  const filtered = jobList.filter(
+    (j) =>
+      (!tierFilter || j.experienceLevel === tierFilter) &&
+      (appliedFilter === 'all' || (appliedFilter === 'applied') === !!j.appliedAt)
+  )
 
   async function handleAddJob(e: React.FormEvent) {
     e.preventDefault()
@@ -97,11 +102,27 @@ export default function JobBoardPage() {
       fn()
       if (closeOnSelect) setShowFilters(false)
     }
+    const appliedOptions: { value: 'all' | 'applied' | 'not-applied'; label: string }[] = [
+      { value: 'all', label: 'All' },
+      { value: 'applied', label: 'Applied' },
+      { value: 'not-applied', label: 'Not applied' },
+    ]
     return (
       <>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>Applied</div>
+        {appliedOptions.map((opt) => (
+          <div
+            key={opt.value}
+            onClick={pick(() => setAppliedFilter(opt.value))}
+            style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: appliedFilter === opt.value ? 'var(--accent-subtle)' : 'transparent', color: appliedFilter === opt.value ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: appliedFilter === opt.value ? 500 : 400, cursor: 'pointer' }}
+          >
+            {opt.label}
+          </div>
+        ))}
+
         {tiers.length > 0 && (
           <>
-            <div className="eyebrow" style={{ marginBottom: 10 }}>Level</div>
+            <div className="eyebrow" style={{ marginTop: 18, marginBottom: 10 }}>Level</div>
             <div
               onClick={pick(() => setTierFilter(null))}
               style={{ padding: '6px 10px', fontSize: 13, marginBottom: 2, color: !tierFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !tierFilter ? 500 : 400, cursor: 'pointer' }}
@@ -137,7 +158,7 @@ export default function JobBoardPage() {
               aria-expanded={showFilters}
             >
               {showFilters ? <Icon.X size={13} /> : <Icon.Filter size={13} />}
-              {!showFilters && tierFilter && (
+              {!showFilters && (tierFilter || appliedFilter !== 'all') && (
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)' }} />
               )}
             </button>
@@ -258,6 +279,7 @@ export default function JobBoardPage() {
                     )}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {job.appliedAt && <Chip tone="match" icon={<Icon.CheckCircle size={10} />}>Applied</Chip>}
                     {job.experienceLevel && <Chip tone="default">{TIER_LABEL[job.experienceLevel]}</Chip>}
                     {job.isRemote && <Chip tone="match" icon={<Icon.Check size={10} />}>Remote</Chip>}
                   </div>

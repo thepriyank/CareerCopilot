@@ -263,6 +263,74 @@ describe('GET /api/jobs/:id', () => {
   })
 })
 
+describe('PUT /api/jobs/:id/applied', () => {
+  it('rejects a job posting that does not belong to the caller', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Mine', description: 'desc' })
+
+    const otherToken = signToken(OTHER_USER_ID, 'FREE')
+    const res = await request(app)
+      .put(`/api/jobs/${created.body.job.id}/applied`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ applied: true })
+    expect(res.status).toBe(404)
+  })
+
+  it('marks a job as applied, setting a timestamp', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Mine', description: 'desc' })
+    expect(created.body.job.appliedAt).toBeNull()
+
+    const res = await request(app)
+      .put(`/api/jobs/${created.body.job.id}/applied`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ applied: true })
+
+    expect(res.status).toBe(200)
+    expect(res.body.job.appliedAt).not.toBeNull()
+  })
+
+  it('unmarks a job as applied, clearing the timestamp', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Mine', description: 'desc' })
+    await request(app)
+      .put(`/api/jobs/${created.body.job.id}/applied`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ applied: true })
+
+    const res = await request(app)
+      .put(`/api/jobs/${created.body.job.id}/applied`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ applied: false })
+
+    expect(res.status).toBe(200)
+    expect(res.body.job.appliedAt).toBeNull()
+  })
+
+  it('rejects a payload missing the required "applied" boolean', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Mine', description: 'desc' })
+
+    const res = await request(app)
+      .put(`/api/jobs/${created.body.job.id}/applied`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+    expect(res.status).toBe(400)
+  })
+})
+
 describe('POST /api/jobs/:id/skill-gap', () => {
   it('requires a master resume to exist first', async () => {
     const app = buildApp()

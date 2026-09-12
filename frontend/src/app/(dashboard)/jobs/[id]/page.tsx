@@ -70,6 +70,9 @@ export default function JobDetailPage() {
   const [addingSkill, setAddingSkill] = useState(false)
   const [addSkillError, setAddSkillError] = useState('')
 
+  const [togglingApplied, setTogglingApplied] = useState(false)
+  const [appliedError, setAppliedError] = useState('')
+
   useEffect(() => {
     Promise.all([
       jobsApi.get(id),
@@ -149,6 +152,23 @@ export default function JobDetailPage() {
     }
   }
 
+  // Deliberately separate from the "Apply" link below — opening the
+  // original posting doesn't mean they finished applying, so nothing marks
+  // this automatically (see backend UserJob.appliedAt's comment).
+  async function handleToggleApplied() {
+    if (!job) return
+    setTogglingApplied(true)
+    setAppliedError('')
+    try {
+      const res = await jobsApi.setApplied(job.id, !job.appliedAt)
+      setJob(res.job)
+    } catch (err) {
+      setAppliedError(err instanceof ApiError ? err.message : 'Could not update applied status')
+    } finally {
+      setTogglingApplied(false)
+    }
+  }
+
   async function handleGenerateCoverLetter() {
     setGeneratingLetter(true)
     setLetterError('')
@@ -220,10 +240,32 @@ export default function JobDetailPage() {
   return (
     <>
       <Topbar
+        backHref="/jobs"
+        backLabel="Jobs"
         eyebrow={`${job.company || 'Unknown company'}${job.location ? ' · ' + job.location : ''}`}
         title={job.title}
-        right={job.url ? <a href={job.url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm"><Icon.Eye size={12} /> Original posting</a> : undefined}
+        right={
+          <>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleToggleApplied}
+              disabled={togglingApplied}
+              title={job.appliedAt ? `Applied on ${new Date(job.appliedAt).toLocaleDateString()}` : undefined}
+            >
+              {job.appliedAt ? <Icon.CheckCircle size={13} /> : <Icon.Check size={13} />}
+              {togglingApplied ? 'Updating…' : job.appliedAt ? 'Applied' : 'Mark as applied'}
+            </button>
+            {job.url && (
+              <a href={job.url} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm">
+                <Icon.Send size={12} /> Apply
+              </a>
+            )}
+          </>
+        }
       />
+      {appliedError && (
+        <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--error)' }}>{appliedError}</div>
+      )}
       <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.1fr', overflow: 'hidden' }}>
         {/* Left: job description */}
         <div style={{ borderRight: '1px solid var(--line-2)', overflow: 'auto', padding: 24, background: 'var(--paper)' }}>

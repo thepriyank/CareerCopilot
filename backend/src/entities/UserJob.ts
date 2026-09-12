@@ -52,6 +52,13 @@ export class UserJob {
   @Column({ type: 'enum', enum: JobOrigin })
   origin!: JobOrigin
 
+  // Set when the candidate marks this job as applied (see PUT
+  // /api/jobs/:id/applied); null when not applied. A deliberate, separate
+  // action from opening the original posting — clicking "Apply" never sets
+  // this on its own.
+  @Column({ type: 'timestamp', nullable: true })
+  appliedAt!: Date | null
+
   @CreateDateColumn()
   createdAt!: Date
 

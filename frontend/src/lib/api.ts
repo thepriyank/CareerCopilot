@@ -251,6 +251,12 @@ export const jobs = {
       body: JSON.stringify(data),
     }),
 
+  setApplied: (jobId: string, applied: boolean) =>
+    request<{ job: JobPosting }>(`/api/jobs/${jobId}/applied`, {
+      method: 'PUT',
+      body: JSON.stringify({ applied }),
+    }),
+
   getMatch: (jobId: string) => request<{ matchResult: MatchResult | null }>(`/api/jobs/${jobId}/match`),
 
   computeMatch: (jobId: string) =>
