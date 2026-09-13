@@ -26,6 +26,15 @@ function artifactKey(a: ApprovalArtifact) {
   return `${a.artifactType}:${a.id}`
 }
 
+// Approve/reject only make sense before a decision has been made — an
+// approved or rejected artifact is done, and showing live action buttons
+// next to its "Rejected"/"Approved" pill reads as broken (they'd re-fire
+// the same decision, or in the reject case, a no-op reject on an already-
+// rejected row).
+function needsDecision(a: ApprovalArtifact): boolean {
+  return a.status === 'DRAFT' || a.status === 'IN_REVIEW'
+}
+
 export default function ApprovalsPage() {
   const [artifacts, setArtifacts] = useState<ApprovalArtifact[]>([])
   const [loading, setLoading] = useState(true)
@@ -173,22 +182,26 @@ export default function ApprovalsPage() {
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.preview || '—'}</div>
                         <StatusPill status={STATUS_TO_PILL[a.status]} />
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ justifyContent: 'center' }}
-                          disabled={busy}
-                          onClick={(e) => { e.stopPropagation(); handleDecision(a, 'reject') }}
-                        >
-                          Reject
-                        </button>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          style={{ justifyContent: 'center' }}
-                          disabled={busy}
-                          onClick={(e) => { e.stopPropagation(); handleDecision(a, 'approve') }}
-                        >
-                          {busy ? 'Working…' : 'Approve'}
-                        </button>
+                        {needsDecision(a) ? (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ justifyContent: 'center' }}
+                            disabled={busy}
+                            onClick={(e) => { e.stopPropagation(); handleDecision(a, 'reject') }}
+                          >
+                            Reject
+                          </button>
+                        ) : <div />}
+                        {needsDecision(a) ? (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            style={{ justifyContent: 'center' }}
+                            disabled={busy}
+                            onClick={(e) => { e.stopPropagation(); handleDecision(a, 'approve') }}
+                          >
+                            {busy ? 'Working…' : 'Approve'}
+                          </button>
+                        ) : <div />}
                       </div>
                     )
                   })}
@@ -213,12 +226,14 @@ export default function ApprovalsPage() {
                 {actionError && <div style={{ marginBottom: 12, padding: 10, background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 8, fontSize: 12.5 }}>{actionError}</div>}
                 <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-soft)', whiteSpace: 'pre-wrap' }}>{selected.preview || 'No preview available.'}</div>
               </div>
-              <div style={{ padding: 14, borderTop: '1px solid var(--line-2)', display: 'flex', gap: 8 }}>
-                <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={actioningKey === selectedKey} onClick={() => handleDecision(selected, 'reject')}>Reject</button>
-                <button className="btn btn-primary btn-sm" style={{ flex: 1.4, justifyContent: 'center' }} disabled={actioningKey === selectedKey} onClick={() => handleDecision(selected, 'approve')}>
-                  {actioningKey === selectedKey ? 'Working…' : `Approve for ${selected.jobCompany ?? 'General'}`}
-                </button>
-              </div>
+              {needsDecision(selected) && (
+                <div style={{ padding: 14, borderTop: '1px solid var(--line-2)', display: 'flex', gap: 8 }}>
+                  <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} disabled={actioningKey === selectedKey} onClick={() => handleDecision(selected, 'reject')}>Reject</button>
+                  <button className="btn btn-primary btn-sm" style={{ flex: 1.4, justifyContent: 'center' }} disabled={actioningKey === selectedKey} onClick={() => handleDecision(selected, 'approve')}>
+                    {actioningKey === selectedKey ? 'Working…' : `Approve for ${selected.jobCompany ?? 'General'}`}
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <div style={{ padding: 24, fontSize: 13, color: 'var(--text-muted)' }}>Select an artifact to preview it.</div>
