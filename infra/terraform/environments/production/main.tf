@@ -101,7 +101,7 @@ module "backend_service" {
 
   env_vars = {
     NODE_ENV                        = "production"
-    CORS_ORIGIN                     = module.frontend_service.url
+    CORS_ORIGIN                     = "${module.frontend_service.url},https://${var.custom_domain}"
     JWT_EXPIRES_IN                  = "7d"
     FIREBASE_PROJECT_ID             = var.firebase_project_id
     GCS_BUCKET_NAME                 = var.existing_gcs_bucket_name
@@ -117,4 +117,28 @@ module "backend_service" {
   }
 
   secret_env_vars = { for k, m in module.secrets : k => m.secret_id }
+}
+
+# Maps the apex domain to the frontend service. Requires var.custom_domain to
+# already be verified in Google Search Console (https://search.google.com/search-console)
+# for a principal that also has Owner/Editor on this project — critically,
+# that verification must extend to whichever principal actually calls this
+# API. When Terraform runs as jobmagnate-deployer (GitHub Actions via WIF,
+# same as every other apply in this environment), the *service account* also
+# needs to be added as a verified owner on the Search Console property
+# (Settings -> Users and permissions -> Add owner -> the SA's email) — a
+# human verifying it under their own Google account is not, by itself,
+# enough for a service-account-driven apply to succeed. Skipping this step
+# fails the apply with a "domain is not verified" error, not a Terraform bug.
+resource "google_cloud_run_domain_mapping" "frontend" {
+  location = var.region
+  name     = var.custom_domain
+
+  metadata {
+    namespace = var.project_id
+  }
+
+  spec {
+    route_name = module.frontend_service.name
+  }
 }

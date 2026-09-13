@@ -17,3 +17,8 @@ output "frontend_service_account_email" {
 output "provisioned_secret_ids" {
   value = { for k, m in module.secrets : k => m.secret_id }
 }
+
+output "custom_domain_dns_records" {
+  description = "A/AAAA (or CNAME) records Google assigned for var.custom_domain once the mapping applies successfully. Create these at your registrar (GoDaddy) exactly as shown — run `terraform output custom_domain_dns_records` or check this apply's log."
+  value       = google_cloud_run_domain_mapping.frontend.status
+}

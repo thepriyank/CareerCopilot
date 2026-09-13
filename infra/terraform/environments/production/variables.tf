@@ -48,6 +48,12 @@ variable "enabled_secrets" {
   ]
 }
 
+variable "custom_domain" {
+  description = "Apex domain to map to the frontend Cloud Run service via google_cloud_run_domain_mapping. Must already be verified in Google Search Console (https://search.google.com/search-console) for an account/service-account that is a Domain owner or Editor on this project, or the mapping resource will fail to create — see main.tf's comment."
+  type        = string
+  default     = "jobmagnate.com"
+}
+
 variable "llm_provider_order" {
   # Matches staging's default exactly, including "groq" first even though
   # it's not in enabled_secrets above — harmless, the app's provider chain
