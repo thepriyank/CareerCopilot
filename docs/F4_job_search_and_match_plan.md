@@ -281,7 +281,12 @@ job rows.
   - New **`/applications`** page — status board (Saved / Ready / Applied /
     Interviewing / Offer / Closed), per-card next-action date and notes.
     Dashboard gets an "Applications" summary card (counts + next action).
-- No credential capture, no auto-fill, no background submission anywhere.
+- No credential capture and no background submission anywhere. Form
+  auto-fill is out of scope for the *web app* — a page cannot fill a form on
+  another origin, and the server must never do it. It is delivered instead
+  by the post-MVP Assisted Apply browser extension, which fills forms
+  locally in the candidate's own browser and never submits them; see
+  `docs/assisted_apply_extension_plan.md` and `BRD.md` §7.2/§11.
 
 ---
 

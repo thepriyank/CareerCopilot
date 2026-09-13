@@ -50,34 +50,23 @@ real browser with a real session.
   actively opened and is looking at. It never opens, navigates or acts on
   pages on its own.
 
-### What must change in the docs
+### Source-of-truth amendments (applied 2026-09-13)
 
-`docs/F4_job_search_and_match_plan.md` §D currently ends with:
-
-> No credential capture, no auto-fill, no background submission anywhere.
-
+`docs/F4_job_search_and_match_plan.md` §D previously ended with an absolute
+"no credential capture, **no auto-fill**, no background submission anywhere."
 That line was written for a *server-side* assisted-apply flow, where
 "auto-fill" would have meant backend automation. A user-installed extension
 filling a form locally is a materially different mechanism — but it **is**
-auto-fill, and the line is absolute, so it cannot simply be reinterpreted.
+auto-fill, so the line could not simply be reinterpreted in our own favour.
+It now scopes the auto-fill prohibition to the web app and points here; the
+credential and submission bans are untouched.
 
-**Proposed amendment** (needs sign-off before it is applied — the F4 doc and
-the BRD are source-of-truth documents, per `CLAUDE.md` §2):
-
-> No credential capture and no background submission anywhere. Form
-> auto-fill is out of scope for the *web app*; it is delivered instead by the
-> Assisted Apply browser extension, which fills forms locally in the user's
-> own browser and never submits them — see
-> `docs/assisted_apply_extension_plan.md`.
-
-**`BRD.md` §7.2** (post-MVP list) should gain a line:
-
-> - Assisted Apply browser extension — local, user-driven form autofill; no
->   credentials, no autonomous submission.
-
-**`BRD.md` §11 Phase 3** should record that the extension is the chosen
-compliant path, and that it does *not* engage the OAuth-only clause, because
-it holds no third-party credentials or tokens of any kind.
+`BRD.md` §7.2 gained this extension and the whole paid-subscription
+programme as post-MVP items. `BRD.md` §11 Phase 3 now records that the
+extension is the chosen compliant path and, specifically, that it does not
+*engage* the OAuth-only clause rather than merely satisfying it — there is
+no third-party credential, cookie or token anywhere in this design for that
+clause to govern.
 
 ## How it works, from the user's side
 

@@ -1,8 +1,14 @@
 # Monetization — packaging decision and staging
 
-**Status:** decided 2026-09-13, nothing paywalled yet. This document records
-*what will eventually be paid*, *what stays free permanently*, and
-deliberately, *what not to build yet*.
+**Status:** decided 2026-09-13. **Post-MVP in its entirety** — paid plans and
+every feature inside them are out of scope for the current release
+(`BRD.md` §7.2). The MVP is live and being marketed as a wholly free
+product, and stays that way until this work is deliberately scheduled.
+
+This document records *what will eventually be paid*, *what stays free
+permanently*, and deliberately, *what not to build yet*. The only thing it
+asks for in the near term is a UI label and some usage measurement; no
+billing, entitlement or pricing work should begin off the back of it.
 
 ## The governing principle
 
