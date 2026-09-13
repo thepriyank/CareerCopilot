@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Topbar } from '@/components/layout/Topbar'
 import { Icon } from '@/components/ui/Icon'
-import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, ApiError } from '@/lib/api'
+import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, ApiError } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
-import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency, User } from '@/types'
+import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency, User, ExtensionTokenSummary } from '@/types'
 
 function ModelConnectionCard() {
   const [status, setStatus] = useState<ModelConnectionStatus | null>(null)
@@ -422,6 +422,141 @@ function PlanTab() {
   )
 }
 
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// The Assisted Apply browser extension isn't built yet (see
+// docs/assisted_apply_extension_plan.md — Phase 1+), but the backend and
+// this revoke UI are live now so a token can be minted for local extension
+// development ahead of that. A token is a long-lived, individually
+// revocable credential — distinct from the web session — meant to live in
+// the extension's storage; see docs/assisted_apply_extension_plan.md's
+// "Authentication" section.
+function ExtensionsTab() {
+  const [tokens, setTokens] = useState<ExtensionTokenSummary[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [minting, setMinting] = useState(false)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [revealed, setRevealed] = useState<{ token: string; label: string } | null>(null)
+  const [labelInput, setLabelInput] = useState('')
+
+  function load() {
+    setLoading(true)
+    extensionApi
+      .listTokens()
+      .then((res) => setTokens(res.tokens))
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load your connected extensions'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(load, [])
+
+  async function handleMint() {
+    setMinting(true)
+    setError('')
+    try {
+      const res = await extensionApi.mintToken(labelInput.trim() || undefined)
+      setRevealed({ token: res.token, label: res.label })
+      setLabelInput('')
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not generate a token')
+    } finally {
+      setMinting(false)
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    setRevokingId(id)
+    setError('')
+    try {
+      await extensionApi.revokeToken(id)
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not revoke this token')
+    } finally {
+      setRevokingId(null)
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: 22, maxWidth: 760 }}>
+      <div className="eyebrow" style={{ marginBottom: 4 }}>Extensions</div>
+      <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Connected extensions</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 18 }}>
+        Tokens the Assisted Apply browser extension uses to act on your behalf — distinct from your regular
+        sign-in, and revocable individually at any time.
+      </div>
+
+      {error && <div style={{ fontSize: 12, color: 'var(--error)', marginBottom: 14 }}>{error}</div>}
+
+      {revealed && (
+        <div style={{ padding: 14, borderRadius: 10, background: 'var(--accent-subtle)', border: '1px solid var(--accent-subtle-bd)', marginBottom: 18 }}>
+          <div style={{ fontSize: 12.5, color: 'var(--accent-text)', marginBottom: 8 }}>
+            <strong>{revealed.label}</strong> — copy this now, you won&rsquo;t see it again.
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <code className="mono" style={{ flex: 1, fontSize: 12, padding: '8px 10px', background: 'var(--paper)', borderRadius: 6, overflow: 'auto', whiteSpace: 'nowrap' }}>
+              {revealed.token}
+            </code>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => navigator.clipboard?.writeText(revealed.token)}
+            >
+              Copy
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => setRevealed(null)}>Done</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <input
+          type="text"
+          placeholder="Label (optional) — e.g. Chrome on MacBook"
+          value={labelInput}
+          onChange={(e) => setLabelInput(e.target.value)}
+          style={{ flex: 1, padding: '8px 12px', fontSize: 13, borderRadius: 8, border: '1px solid var(--line-2)', background: 'var(--paper)' }}
+        />
+        <button className="btn btn-primary btn-sm" onClick={handleMint} disabled={minting}>
+          {minting ? 'Generating…' : 'Generate a token'}
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
+      ) : !tokens || tokens.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No connected extensions yet.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {tokens.map((t) => (
+            <div
+              key={t.id}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 12px', borderRadius: 8, background: 'var(--paper-2)' }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{t.label}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                  Created {formatDateTime(t.createdAt)} · Last used {t.lastUsedAt ? formatDateTime(t.lastUsedAt) : 'never'}
+                </div>
+              </div>
+              {t.revokedAt ? (
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Revoked</span>
+              ) : (
+                <button className="btn btn-ghost btn-sm" disabled={revokingId === t.id} onClick={() => handleRevoke(t.id)}>
+                  {revokingId === t.id ? 'Revoking…' : 'Revoke'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ComingSoonTab({ label }: { label: string }) {
   return (
     <div className="card" style={{ padding: 22, maxWidth: 640, fontSize: 13, color: 'var(--text-muted)' }}>
@@ -430,13 +565,14 @@ function ComingSoonTab({ label }: { label: string }) {
   )
 }
 
-const SUB_NAV = ['Profile', 'API keys', 'Privacy & data', 'Plan', 'Notifications', 'Export']
+const SUB_NAV = ['Profile', 'API keys', 'Privacy & data', 'Plan', 'Extensions', 'Notifications', 'Export']
 
 const TAB_TITLES: Record<string, string> = {
   'Profile': 'Your career profile',
   'API keys': 'API keys & model strategy',
   'Privacy & data': 'Privacy & data',
   'Plan': 'Plan & billing',
+  'Extensions': 'Connected extensions',
   'Notifications': 'Notifications',
   'Export': 'Export your data',
 }
@@ -484,6 +620,7 @@ export default function SettingsPage() {
           {activeNav === 'Privacy & data' && <PrivacyTab />}
           {activeNav === 'Export' && <ExportTab />}
           {activeNav === 'Plan' && <PlanTab />}
+          {activeNav === 'Extensions' && <ExtensionsTab />}
           {activeNav === 'Notifications' && <ComingSoonTab label="Notifications" />}
 
           {activeNav === 'API keys' && (

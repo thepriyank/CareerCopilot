@@ -15,6 +15,8 @@ import { SkillGapReport } from './SkillGapReport'
 import { CourseRecommendation } from './CourseRecommendation'
 import { LinkedInReviewReport } from './LinkedInReviewReport'
 import { ModelUsageRecord } from './ModelUsageRecord'
+import { ExtensionToken } from './ExtensionToken'
+import { ExtensionFill } from './ExtensionFill'
 
 @Entity('users')
 export class User {
@@ -107,4 +109,10 @@ export class User {
 
   @OneToMany(() => ModelUsageRecord, (mu) => mu.user)
   modelUsageRecords!: ModelUsageRecord[]
+
+  @OneToMany(() => ExtensionToken, (et) => et.user)
+  extensionTokens!: ExtensionToken[]
+
+  @OneToMany(() => ExtensionFill, (ef) => ef.user)
+  extensionFills!: ExtensionFill[]
 }

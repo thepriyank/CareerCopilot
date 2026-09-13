@@ -11,6 +11,7 @@ import skillGapsRoutes from './skillGaps.routes'
 import dashboardRoutes from './dashboard.routes'
 import accountRoutes from './account.routes'
 import internalIngestRoutes from './internalIngest.routes'
+import extensionRoutes from './extension.routes'
 
 const router = Router()
 
@@ -26,5 +27,6 @@ router.use('/skill-gaps', skillGapsRoutes)
 router.use('/dashboard', dashboardRoutes)
 router.use('/account', accountRoutes)
 router.use('/internal', internalIngestRoutes)
+router.use('/extension', extensionRoutes)
 
 export default router

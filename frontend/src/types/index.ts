@@ -1,3 +1,13 @@
+// ─── Assisted Apply extension ──────────────────────────────────────────────────
+
+export interface ExtensionTokenSummary {
+  id: string
+  label: string
+  createdAt: string
+  lastUsedAt: string | null
+  revokedAt: string | null
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface User {
