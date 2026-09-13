@@ -17,4 +17,4 @@
 # "Deploy history" is the narrative; this file is the machine-read value.
 
 backend_image  = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/backend:5e729b27447a92f07e6b05f254e4bfe67b0c44c5"
-frontend_image = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend:5e729b27447a92f07e6b05f254e4bfe67b0c44c5"
+frontend_image = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend:78e671ecabf9371749c4dec0bbc6355bd4314324"
