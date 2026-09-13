@@ -1,7 +1,10 @@
 # Assisted Apply — browser extension (post-MVP)
 
-**Status:** planned, not started. Explicitly **post-MVP** — the MVP is live
-and being marketed; nothing here competes for that runway.
+**Status:** Phase 0a (one-month pass) and Phase 0b (backend — tokens, fills,
+job/artifact resolution; see "Backend additions") shipped 2026-09-13.
+Extension client code (Phase 1+) not started; first three adapters decided
+2026-09-13 from live pool data (see below). Explicitly **post-MVP** — the
+MVP is live and being marketed; nothing here competes for that runway.
 
 ## Context
 
@@ -137,6 +140,51 @@ which adapter to use rather than making it sniff the page.
 writing any, run a count of the current job pool grouped by application-URL
 hostname and build the top three. The pool is real and already large enough
 to answer this.
+
+### Which three adapters first (decided 2026-09-13)
+
+Queried the live staging pool (512 listings, all with a URL) grouped by
+application-URL hostname, with known ATS tenant subdomains collapsed into
+one family (`*.greenhouse.io` + `grnh.se`, `*.myworkdayjobs.com`,
+`*.smartrecruiters.com`, `*.keka.com`, `*.lever.co`) and aggregators
+(Indeed, LinkedIn, Glassdoor, WeWorkRemotely, Himalayas, RemoteOK, Shine,
+Bebee, CutShort) excluded per open question 1 — those are a separate
+go/no-go, not a Tier 1 target. Real employer-hosted ATS forms, ranked:
+
+| ATS | Listings | Distinct companies |
+|---|---|---|
+| **Greenhouse** | 31 | 10 |
+| **Workday** | 19 | 15 |
+| **SmartRecruiters** | 18 | 9 |
+| Keka | 12 | 12 |
+| Lever | 11 | 8 |
+| Breezy / Workable | 3 each | — |
+| Ashby / Rippling / Taleo | 2 each | — |
+| BambooHR | 1 | — |
+
+The long tail — 147 listings, almost entirely one-off company-custom career
+sites (`careers.stryker.com`, `jobs.siemens.com`, …) — has no adapter-sized
+cluster hiding in it; it's Tier 2's problem, not Tier 1's.
+
+**Decision: Greenhouse, Workday, SmartRecruiters — in that order.** Two
+results worth calling out because they contradict the assumption this
+document started with (existing discovery-provider coverage for Greenhouse/
+Lever/SmartRecruiters, no Workday or Keka provider at all):
+
+- **Workday outranks Lever and SmartRecruiters on distinct-company count**
+  (15 companies) despite having no dedicated discovery provider — its
+  listings arrive entirely through the generic aggregators (jsearch,
+  TheirStack, …). Discovery-provider coverage and real-world ATS prevalence
+  are independent signals; this is why the decision was made from the pool,
+  not from which `services/jobs/providers/*.ts` modules happen to exist.
+- **Keka (12 listings, 12 companies) outranks Lever (11, 8)** — unsurprising
+  in hindsight for an India-first product (`BRD.md`'s India-first realities)
+  but not something to have guessed correctly. Not in the initial three:
+  close, but Workday's larger, more diverse footprint wins the third slot.
+  Worth revisiting once discovery volume grows.
+
+Lever stays a natural Phase 3 addition (existing discovery-provider
+coverage, real if smaller footprint) rather than one of the first three.
 
 **Tier 2 — generic mapping with a global cache (LLM, rare).** For unknown
 forms:
@@ -426,7 +474,8 @@ useful, everything else lands incrementally.
    treat aggregators as a separate go/no-go requiring the written
    per-platform review `BRD.md` §11 already mandates. **LinkedIn stays
    excluded** per `BRD.md` §9/§10.
-2. Which three adapters first — answer from pool data, not intuition.
+2. ~~Which three adapters first~~ — decided 2026-09-13: Greenhouse, Workday,
+   SmartRecruiters. See "Which three adapters first" above.
 3. `UserJob.appliedAt` now vs. waiting for F4 §D's `JobApplication`.
 4. Does the extension need to work for jobs *not* discovered through
    JobMagnate (a posting the user found themselves)? It easily can — the
