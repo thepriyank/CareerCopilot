@@ -95,7 +95,8 @@ the long pole and should already be in progress.
 1. `User.planExpiresAt` + migration; new signups get `now + 30 days`.
 2. `resolveEffectivePlan(user)` — the single source of truth for entitlement.
    Nothing reads `user.plan` directly.
-3. **Backfill for existing users** — see the open question below.
+3. **Opt-in activation flow for pre-existing users** — banner + `POST
+   /api/account/activate-pass`; see below. No backfill migration.
 4. Pass state surfaced in the UI: days remaining, and what happens after.
 5. The extension's fill endpoint honours the pass (unlimited while active).
 
@@ -138,21 +139,48 @@ that is not a framework and does not need to become one.
   selling non-recurring passes.
 - A refund policy and terms of service become mandatory the day money moves.
 
-## Open question: users who signed up before the pass exists
+## Existing users: opt in on next visit (decided 2026-09-13)
 
-The MVP is already live, so there is a cohort with no `planExpiresAt`. Three
-options, and this needs an answer before the migration is written:
+The MVP is already live, so there is a cohort with no pass. **They are not
+backfilled.** Instead, on their next visit they are told about the pass and
+activate it themselves — *"Your free month is ready. Activate it whenever
+you're ready to use it."* — and the 30 days start from the day they accept,
+not from the deploy date.
 
-| Option | Effect |
-|---|---|
-| **Grant the same 30 days from ship date** (recommended) | Fair, simple, one-line migration. Everyone gets the same promise; early users are not punished for arriving first. |
-| Grandfather permanently free | Generous, but creates a permanent two-tier user base you must support and explain forever. |
-| Treat as free tier immediately | Cheapest, and the worst — it silently takes away capability from your earliest, most engaged users. |
+This is better than a blanket backfill for a reason worth naming: a
+backfilled month burns down whether or not the user ever opens the app, so a
+dormant user's entire pass expires unused and they get nothing. Opt-in means
+the month starts when the user is actually present to spend it, which is both
+fairer and a genuine re-engagement moment.
 
-Recommendation is the first: `UPDATE users SET planExpiresAt = now() + 30d
-WHERE planExpiresAt IS NULL`. It also has the useful property of putting
-every current user's expiry on roughly the same date, which makes the billing
-deadline a single visible cliff rather than a slow trickle.
+### Mechanism
+
+Eligibility needs **no new column** — it is derivable:
+
+```
+eligible = user.createdAt < PASS_LAUNCH_AT AND user.planExpiresAt IS NULL
+```
+
+On accept: `planExpiresAt = now() + 30 days`. That's the whole flow.
+
+- **New users are still auto-granted at signup** — no acceptance step. They
+  are told during onboarding, not asked. The asymmetry is deliberate: a new
+  user has no prior expectation to renegotiate, an existing one does.
+- **Banner dismissal state lives in the existing `User.settings` jsonb** — no
+  migration for it. Keep offering after a dismissal (it is a gift, not a
+  nag), but as a quiet banner rather than a repeated modal.
+- **An eligible user who has not yet accepted is never blocked.** If they
+  reach an action the free tier would cap, they see the pass offer *in place
+  of* the limit — the offer is the gate. Nobody hits a wall for not having
+  clicked a button they were never shown.
+
+### Consequence for the billing deadline
+
+Expiries now **stagger** rather than landing on one date, since each user's
+clock starts when they accept. That reduces the risk of a single mass-expiry
+cliff, but it does not move the deadline: **billing must be ready 30 days
+after the first person accepts**, which in practice is 30 days after ship.
+Plan against the earliest expiry, not the median.
 
 ## Related documents
 
