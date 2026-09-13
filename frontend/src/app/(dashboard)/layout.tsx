@@ -3,19 +3,25 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
+import { auth } from '@/lib/api'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { MobileTabBar } from '@/components/layout/MobileTabBar'
+import { PassBanner } from '@/components/layout/PassBanner'
+import type { User } from '@/types'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [ready, setReady] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace('/login')
-    } else {
-      setReady(true)
+      return
     }
+    setReady(true)
+    // Best-effort — the pass banner just doesn't render if this fails.
+    auth.me().then(({ user }) => setUser(user)).catch(() => {})
   }, [router])
 
   if (!ready) {
@@ -31,6 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <Sidebar />
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          {user && <PassBanner user={user} />}
           {children}
         </main>
       </div>

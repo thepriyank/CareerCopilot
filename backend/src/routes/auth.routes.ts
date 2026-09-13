@@ -3,10 +3,12 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { AppDataSource } from '../config/dataSource'
 import { User } from '../entities/User'
-import { AuthProvider } from '../entities/enums'
+import { AuthProvider, Plan } from '../entities/enums'
 import { signToken, requireAuth } from '../middleware/auth'
 import { createError } from '../middleware/errorHandler'
 import { verifyFirebaseIdToken } from '../services/auth/firebaseAdmin'
+import { publicUser } from '../services/auth/publicUser'
+import { resolveEffectivePlan, PASS_DURATION_MS } from '../services/plan/resolveEffectivePlan'
 import { AuthRequest } from '../types'
 import { logger } from '../utils/logger'
 
@@ -27,11 +29,6 @@ const googleAuthSchema = z.object({
   idToken: z.string().min(1),
 })
 
-/** The subset of a User row every auth response has always returned — kept identical for Google sign-in too. */
-function publicUser(user: User) {
-  return { id: user.id, email: user.email, name: user.name, plan: user.plan, createdAt: user.createdAt }
-}
-
 // POST /api/auth/register
 router.post('/register', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -45,10 +42,19 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
-    const user = userRepo.create({ email, passwordHash, name: name ?? null, authProvider: AuthProvider.PASSWORD })
+    // Every new signup gets the one-month full-access pass automatically —
+    // see "The one-month full-access pass" in docs/monetization_plan.md.
+    const user = userRepo.create({
+      email,
+      passwordHash,
+      name: name ?? null,
+      authProvider: AuthProvider.PASSWORD,
+      plan: Plan.PREMIUM,
+      planExpiresAt: new Date(Date.now() + PASS_DURATION_MS),
+    })
     await userRepo.save(user)
 
-    const token = signToken(user.id, user.plan)
+    const token = signToken(user.id, resolveEffectivePlan(user))
     res.status(201).json({ user: publicUser(user), token })
   } catch (err) {
     next(err)
@@ -75,7 +81,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
       throw createError(401, 'INVALID_CREDENTIALS', 'Invalid email or password')
     }
 
-    const token = signToken(user.id, user.plan)
+    const token = signToken(user.id, resolveEffectivePlan(user))
     res.json({ user: publicUser(user), token })
   } catch (err) {
     next(err)
@@ -130,12 +136,15 @@ router.post('/google', async (req: Request, res: Response, next: NextFunction) =
           name: decoded.name ?? null,
           firebaseUid: decoded.uid,
           authProvider: AuthProvider.GOOGLE,
+          // Same one-month pass a password signup gets — see POST /register.
+          plan: Plan.PREMIUM,
+          planExpiresAt: new Date(Date.now() + PASS_DURATION_MS),
         })
         user = await userRepo.save(created)
       }
     }
 
-    const token = signToken(user.id, user.plan)
+    const token = signToken(user.id, resolveEffectivePlan(user))
     res.json({ user: publicUser(user), token, isNewUser })
   } catch (err) {
     next(err)
@@ -148,10 +157,10 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response, next: Nex
     const userRepo = AppDataSource.getRepository(User)
     const user = await userRepo.findOne({
       where: { id: req.userId! },
-      select: ['id', 'email', 'name', 'plan', 'region', 'createdAt'],
+      select: ['id', 'email', 'name', 'plan', 'planExpiresAt', 'settings', 'region', 'createdAt'],
     })
     if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
-    res.json({ user })
+    res.json({ user: publicUser(user) })
   } catch (err) {
     next(err)
   }

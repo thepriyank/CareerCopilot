@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Topbar } from '@/components/layout/Topbar'
 import { Icon } from '@/components/ui/Icon'
-import { settings as settingsApi, profile as profileApi, account as accountApi, ApiError } from '@/lib/api'
+import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, ApiError } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
-import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency } from '@/types'
+import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency, User } from '@/types'
 
 function ModelConnectionCard() {
   const [status, setStatus] = useState<ModelConnectionStatus | null>(null)
@@ -343,6 +343,85 @@ function ExportTab() {
   )
 }
 
+function daysLeft(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now()
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)))
+}
+
+function PlanTab() {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [activating, setActivating] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    authApi
+      .me()
+      .then(({ user }) => setUser(user))
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load your plan'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function handleActivate() {
+    setActivating(true)
+    setError('')
+    try {
+      await accountApi.activatePass()
+      // Reload rather than just updating local state — the sidebar reads
+      // plan via its own independent auth.me() call, and this is the
+      // simplest way to keep it in sync with no new shared user store.
+      window.location.reload()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not activate your pass')
+      setActivating(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="card" style={{ padding: 22, maxWidth: 640, fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
+  }
+
+  if (!user) {
+    return <div className="card" style={{ padding: 22, maxWidth: 640, fontSize: 13, color: 'var(--error)' }}>{error || 'Could not load your plan'}</div>
+  }
+
+  return (
+    <div className="card" style={{ padding: 22, maxWidth: 640 }}>
+      <div className="eyebrow" style={{ marginBottom: 4 }}>Plan</div>
+      {user.plan === 'PREMIUM' && user.planExpiresAt ? (
+        <>
+          <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Full access</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+            {daysLeft(user.planExpiresAt)} {daysLeft(user.planExpiresAt) === 1 ? 'day' : 'days'} left on your one-month pass —
+            unlimited tailored résumés and cover letters. Billing isn&rsquo;t live yet, so there&rsquo;s nothing to set up; we&rsquo;ll
+            let you know here before it lapses.
+          </div>
+        </>
+      ) : user.passEligible ? (
+        <>
+          <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Your free month is ready</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 16 }}>
+            Activate whenever you&rsquo;re ready to use it — 30 days of unlimited tailored résumés and cover letters,
+            starting the day you accept.
+          </div>
+          {error && <div style={{ fontSize: 12, color: 'var(--error)', marginBottom: 12 }}>{error}</div>}
+          <button className="btn btn-primary btn-sm" onClick={handleActivate} disabled={activating}>
+            {activating ? 'Activating…' : 'Activate my free month'}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Free plan</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+            Discovery, matching, skill gaps, LinkedIn review and application tracking are always free. Billing for
+            tailored résumés and cover letters isn&rsquo;t live yet.
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function ComingSoonTab({ label }: { label: string }) {
   return (
     <div className="card" style={{ padding: 22, maxWidth: 640, fontSize: 13, color: 'var(--text-muted)' }}>
@@ -404,7 +483,7 @@ export default function SettingsPage() {
           {activeNav === 'Profile' && <ProfileTab />}
           {activeNav === 'Privacy & data' && <PrivacyTab />}
           {activeNav === 'Export' && <ExportTab />}
-          {activeNav === 'Plan' && <ComingSoonTab label="Plan & billing" />}
+          {activeNav === 'Plan' && <PlanTab />}
           {activeNav === 'Notifications' && <ComingSoonTab label="Notifications" />}
 
           {activeNav === 'API keys' && (

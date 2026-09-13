@@ -4,7 +4,13 @@ export interface User {
   id: string
   email: string
   name?: string | null
+  /** Always the *effective* plan — already accounts for an expired pass. */
   plan: 'FREE' | 'PREMIUM'
+  /** ISO timestamp, or null if the current plan doesn't expire (FREE, or a non-expiring PREMIUM grant). */
+  planExpiresAt?: string | null
+  /** True only for a pre-existing user who can still opt into the one-month pass — see PassBanner. */
+  passEligible?: boolean
+  passBannerDismissed?: boolean
   region?: string | null
   createdAt: string
 }
