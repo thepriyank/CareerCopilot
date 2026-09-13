@@ -4,5 +4,5 @@
 # placeholder until the first real deploy-*-production workflow run
 # updates it.
 
-backend_image  = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/backend:e0f7959ff54c4d8d50b8405f8ac27697e585b772"
+backend_image  = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/backend:7fbe662f57ea28dc32c68177da8ff56d2ee1711e"
 frontend_image = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend:e0f7959ff54c4d8d50b8405f8ac27697e585b772"
