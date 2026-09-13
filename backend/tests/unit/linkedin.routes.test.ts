@@ -28,6 +28,17 @@ jest.mock('../../src/services/ai/linkedinReviewer', () => ({
   reviewLinkedInProfile: (...args: unknown[]) => mockReviewLinkedInProfile(...(args as [any])),
 }))
 
+const mockExtractLinkedInProfileFromPdf = jest.fn(async (..._args: unknown[]) => ({
+  headline: 'Senior Backend Engineer @ Acme',
+  about: 'Builds payments infra.',
+  experience: 'Senior Backend Engineer, Acme',
+  skills: 'Node.js, TypeScript',
+  rawTextLength: 500,
+}))
+jest.mock('../../src/services/ai/linkedinPdfExtractor', () => ({
+  extractLinkedInProfileFromPdf: (...args: unknown[]) => mockExtractLinkedInProfileFromPdf(...(args as [any])),
+}))
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import linkedinRoutes from '../../src/routes/linkedin.routes'
 
@@ -45,6 +56,7 @@ const token = signToken(USER_ID, 'FREE')
 beforeEach(() => {
   reportRepo.rows.length = 0
   mockReviewLinkedInProfile.mockClear()
+  mockExtractLinkedInProfileFromPdf.mockClear()
 })
 
 describe('POST /api/linkedin/review', () => {
@@ -92,5 +104,55 @@ describe('GET /api/linkedin/review', () => {
 
     const res = await request(buildApp()).get('/api/linkedin/review').set('Authorization', `Bearer ${token}`)
     expect(res.body.report.overallScore).toBe(65)
+  })
+})
+
+describe('POST /api/linkedin/extract-pdf', () => {
+  it('rejects unauthenticated requests', async () => {
+    const res = await request(buildApp()).post('/api/linkedin/extract-pdf')
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a request with no file', async () => {
+    const res = await request(buildApp())
+      .post('/api/linkedin/extract-pdf')
+      .set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('NO_FILE')
+  })
+
+  it('rejects a non-PDF file', async () => {
+    const res = await request(buildApp())
+      .post('/api/linkedin/extract-pdf')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('not a pdf'), { filename: 'profile.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('INVALID_FILE_TYPE')
+  })
+
+  it('extracts profile fields from an uploaded PDF and does not persist anything', async () => {
+    const res = await request(buildApp())
+      .post('/api/linkedin/extract-pdf')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('%PDF-1.4 fake'), { filename: 'profile.pdf', contentType: 'application/pdf' })
+
+    expect(res.status).toBe(200)
+    expect(mockExtractLinkedInProfileFromPdf).toHaveBeenCalledTimes(1)
+    expect(res.body.extracted.headline).toBe('Senior Backend Engineer @ Acme')
+    expect(res.body.extracted.skills).toBe('Node.js, TypeScript')
+    expect(reportRepo.rows).toHaveLength(0) // review isn't run/saved until the user separately confirms via POST /review
+  })
+
+  it('surfaces an extraction failure as a 422 with the real message', async () => {
+    mockExtractLinkedInProfileFromPdf.mockRejectedValueOnce(new Error('This PDF has no readable text'))
+
+    const res = await request(buildApp())
+      .post('/api/linkedin/extract-pdf')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('%PDF-1.4 fake'), { filename: 'profile.pdf', contentType: 'application/pdf' })
+
+    expect(res.status).toBe(422)
+    expect(res.body.error.code).toBe('EXTRACT_FAILED')
+    expect(res.body.error.message).toBe('This PDF has no readable text')
   })
 })

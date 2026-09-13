@@ -142,6 +142,7 @@ export type OnboardingState =
   | 'URGENCY'
   | 'NOTICE_PERIOD'
   | 'VISA_STATUS'
+  | 'AVOID_TECH'
   | 'DONE'
 
 export interface CandidateProfile {
@@ -150,6 +151,7 @@ export interface CandidateProfile {
   targetRoles: string[]
   industries: string[]
   locations: string[]
+  avoidTechnologies: string[]
   remotePreference: RemotePreference
   salaryMin?: number | null
   salaryMax?: number | null
@@ -293,6 +295,9 @@ export interface JobPosting {
   // yet (null for a just-pasted job with no score computed). See
   // surfaceJobs.ts on the backend for how a pool job earns a place here.
   matchScore: number | null
+  // Set once the candidate marks this job as applied (PUT /:id/applied);
+  // null when they haven't. Separate from opening the original posting.
+  appliedAt: string | null
 }
 
 // ─── Match scoring (F4) ─────────────────────────────────────────────────────────
@@ -301,11 +306,16 @@ export type LocationFit = 'remote-ok' | 'location-match' | 'location-mismatch' |
 export type SalaryFit = 'within-range' | 'below-range' | 'above-range' | 'unknown'
 
 export interface MatchScoreRationale {
-  lexicalSimilarity: number
   matchedSkills: string[]
   missingSkills: string[]
   locationFit: LocationFit
   salaryFit: SalaryFit
+  // Optional: older persisted MatchResults (before 2026-09-12) won't have
+  // these, so the UI must handle their absence gracefully. Rows from before
+  // 2026-09-13 may also still carry a since-retired `lexicalSimilarity`
+  // field — harmless, just untyped and unrendered now.
+  skillCoverage?: number
+  preferenceFit?: number
 }
 
 export interface MatchResult {

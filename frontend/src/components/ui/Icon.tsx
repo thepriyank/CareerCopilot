@@ -53,4 +53,5 @@ export const Icon = {
   Refresh:    ic(<><path d="M4 12a8 8 0 0114-5l2-2"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 01-14 5l-2 2"/><path d="M4 20v-5h5"/></>),
   Eye:        ic(<><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></>),
   Clock:      ic(<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>),
+  LogOut:     ic(<><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></>),
 }

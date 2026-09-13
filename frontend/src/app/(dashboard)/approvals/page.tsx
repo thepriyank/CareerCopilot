@@ -118,7 +118,7 @@ export default function ApprovalsPage() {
         title="Everything waiting on you"
         right={<div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{grouped.length} jobs · {filtered.length} artifacts</div>}
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr 360px', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr 360px', overflow: 'hidden' }}>
 
         {/* Status filters */}
         <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', overflow: 'auto' }}>
@@ -164,6 +164,7 @@ export default function ApprovalsPage() {
                       <div
                         key={key}
                         onClick={() => setSelectedKey(key)}
+                        className="row-stack"
                         style={{ padding: '12px 18px', display: 'grid', gridTemplateColumns: '180px 1fr 100px 110px 110px', gap: 14, alignItems: 'center', borderTop: ai > 0 ? '1px solid var(--line-2)' : 'none', background: selectedKey === key ? 'var(--paper-2)' : 'transparent', cursor: 'pointer' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

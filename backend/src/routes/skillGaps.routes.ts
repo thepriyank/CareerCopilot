@@ -3,10 +3,12 @@ import { AppDataSource } from '../config/dataSource'
 import { SkillGapReport } from '../entities/SkillGapReport'
 import { MatchResult } from '../entities/MatchResult'
 import { CourseRecommendation } from '../entities/CourseRecommendation'
+import { GeneratedResumeVersion } from '../entities/GeneratedResumeVersion'
+import { ResumeVersionType } from '../entities/enums'
 import { requireAuth } from '../middleware/auth'
 import { createError } from '../middleware/errorHandler'
 import { aggregateSkillGaps } from '../services/skills/aggregateSkillGap'
-import { AuthRequest } from '../types'
+import { AuthRequest, ExtractedEntities } from '../types'
 
 const router = Router()
 router.use(requireAuth)
@@ -21,11 +23,13 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
     const skillGapRepo = AppDataSource.getRepository(SkillGapReport)
     const matchRepo = AppDataSource.getRepository(MatchResult)
     const courseRepo = AppDataSource.getRepository(CourseRecommendation)
+    const resumeRepo = AppDataSource.getRepository(GeneratedResumeVersion)
 
-    const [reports, matches, goals] = await Promise.all([
+    const [reports, matches, goals, masterResume] = await Promise.all([
       skillGapRepo.find({ where: { userId } }),
       matchRepo.find({ where: { userId } }),
       courseRepo.find({ where: { userId } }),
+      resumeRepo.findOne({ where: { userId, type: ResumeVersionType.MASTER }, order: { createdAt: 'DESC' } }),
     ])
 
     // Latest match score per job (a job may have been re-scored).
@@ -34,8 +38,25 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       matchScoreByJobId.set(m.jobId, m.score)
     }
 
+    // Skills the candidate's *current* master resume already lists — a
+    // stored SkillGapReport is a snapshot from whenever that job was last
+    // checked, so a skill marked "achieved" (or added from a job's own
+    // missing-skill chips) since then would otherwise keep showing up here
+    // forever. Filtering against the live resume is what actually shrinks
+    // the roadmap when the candidate closes a gap.
+    const resumeSkillNames = new Set(
+      (((masterResume?.content as unknown as ExtractedEntities)?.skills ?? []) as { name?: string }[])
+        .map((s) => s.name?.trim().toLowerCase())
+        .filter((name): name is string => !!name)
+    )
+
     const gaps = aggregateSkillGaps(
-      reports.map((r) => ({ jobId: r.jobId, missingSkills: r.missingSkills })),
+      reports.map((r) => ({
+        jobId: r.jobId,
+        missingSkills: (r.missingSkills as unknown[])
+          .map(String)
+          .filter((skill) => !resumeSkillNames.has(skill.trim().toLowerCase())),
+      })),
       matchScoreByJobId
     )
 

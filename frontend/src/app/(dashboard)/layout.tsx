@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { MobileTabBar } from '@/components/layout/MobileTabBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -26,11 +27,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="app-root" style={{ height: '100vh', display: 'flex', background: 'var(--paper)', overflow: 'hidden' }}>
-      <Sidebar />
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-        {children}
-      </main>
+    <div className="app-root" style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--paper)', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <Sidebar />
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          {children}
+        </main>
+      </div>
+      {/* Below 768px .sidebar hides and this becomes the primary nav
+          (see globals.css) — a plain flex sibling, not fixed, so it
+          reserves its own space instead of overlapping content. */}
+      <MobileTabBar />
     </div>
   )
 }

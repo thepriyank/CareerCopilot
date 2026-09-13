@@ -6,7 +6,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
-import { jobs as jobsApi, downloadFile, ApiError } from '@/lib/api'
+import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
 
 const FIT_LABEL: Record<string, string> = {
@@ -17,6 +17,20 @@ const FIT_LABEL: Record<string, string> = {
   'below-range': 'Below your range',
   'above-range': 'Above your range',
   unknown: 'Not enough data',
+}
+
+// true = this preference is satisfied, false = it isn't (shown as a
+// mismatch), undefined = not enough data to say either way (neutral, not
+// a mismatch) — drives the Preferences chips' color in the Skill gap
+// section below.
+const FIT_MATCHES: Record<string, boolean | undefined> = {
+  'remote-ok': true,
+  'location-match': true,
+  'location-mismatch': false,
+  'within-range': true,
+  'below-range': false,
+  'above-range': false,
+  unknown: undefined,
 }
 
 function Section({
@@ -63,6 +77,15 @@ export default function JobDetailPage() {
   const [tailoring, setTailoring] = useState(false)
   const [tailorError, setTailorError] = useState('')
   const [downloadingTailoredPdf, setDownloadingTailoredPdf] = useState(false)
+
+  // Adding a "missing" skill the candidate actually has but forgot to list —
+  // see the confirm dialog rendered at the bottom of this component.
+  const [skillToAdd, setSkillToAdd] = useState<string | null>(null)
+  const [addingSkill, setAddingSkill] = useState(false)
+  const [addSkillError, setAddSkillError] = useState('')
+
+  const [togglingApplied, setTogglingApplied] = useState(false)
+  const [appliedError, setAppliedError] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -112,6 +135,56 @@ export default function JobDetailPage() {
       setSkillError(err instanceof ApiError ? err.message : 'Could not check skill gaps')
     } finally {
       setCheckingSkills(false)
+    }
+  }
+
+  // Adds a skill flagged as "missing" straight onto the candidate's master
+  // resume — for when the gap is really just an omission (they have the
+  // skill, they just never listed it) rather than a real gap. The backend's
+  // PUT /api/resume/master/:id already recomputes match scores for every
+  // job on the candidate's list when content changes (not just this one —
+  // see recomputeMatchesForCandidate's header) — so this just re-fetches
+  // the already-fresh result for the job being viewed, rather than
+  // triggering yet another compute on top of that.
+  async function handleAddSkillToResume(skill: string) {
+    setAddingSkill(true)
+    setAddSkillError('')
+    try {
+      const { masterResume } = await masterResumeApi.get()
+      if (!masterResume) {
+        throw new Error('Could not find your master resume')
+      }
+      const content = masterResume.content as { skills?: { id: string; name: string }[] }
+      const existingSkills = content.skills ?? []
+      const alreadyListed = existingSkills.some((s) => s.name.trim().toLowerCase() === skill.trim().toLowerCase())
+      if (!alreadyListed) {
+        const updatedSkills = [...existingSkills, { id: `skill-${Date.now()}`, name: skill }]
+        await masterResumeApi.update(masterResume.id, { content: { ...content, skills: updatedSkills } })
+      }
+      const [matchRes] = await Promise.all([jobsApi.getMatch(id), skillGap ? handleCheckSkillGap() : Promise.resolve()])
+      setMatchResult(matchRes.matchResult)
+      setSkillToAdd(null)
+    } catch (err) {
+      setAddSkillError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not add this skill to your resume')
+    } finally {
+      setAddingSkill(false)
+    }
+  }
+
+  // Deliberately separate from the "Apply" link below — opening the
+  // original posting doesn't mean they finished applying, so nothing marks
+  // this automatically (see backend UserJob.appliedAt's comment).
+  async function handleToggleApplied() {
+    if (!job) return
+    setTogglingApplied(true)
+    setAppliedError('')
+    try {
+      const res = await jobsApi.setApplied(job.id, !job.appliedAt)
+      setJob(res.job)
+    } catch (err) {
+      setAppliedError(err instanceof ApiError ? err.message : 'Could not update applied status')
+    } finally {
+      setTogglingApplied(false)
     }
   }
 
@@ -186,15 +259,36 @@ export default function JobDetailPage() {
   return (
     <>
       <Topbar
+        backHref="/jobs"
+        backLabel="Jobs"
         eyebrow={`${job.company || 'Unknown company'}${job.location ? ' · ' + job.location : ''}`}
         title={job.title}
-        right={job.url ? <a href={job.url} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm"><Icon.Eye size={12} /> Original posting</a> : undefined}
+        right={
+          <>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleToggleApplied}
+              disabled={togglingApplied}
+              title={job.appliedAt ? `Applied on ${new Date(job.appliedAt).toLocaleDateString()}` : undefined}
+            >
+              {job.appliedAt ? <Icon.CheckCircle size={13} /> : <Icon.Check size={13} />}
+              {togglingApplied ? 'Updating…' : job.appliedAt ? 'Applied' : 'Mark as applied'}
+            </button>
+            {job.url && (
+              <a href={job.url} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm">
+                <Icon.Send size={12} /> Apply
+              </a>
+            )}
+          </>
+        }
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.1fr', overflow: 'hidden' }}>
+      {appliedError && (
+        <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--error)' }}>{appliedError}</div>
+      )}
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.1fr', overflow: 'hidden' }}>
         {/* Left: job description */}
         <div style={{ borderRight: '1px solid var(--line-2)', overflow: 'auto', padding: 24, background: 'var(--paper)' }}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-            <Chip tone="ink">{job.source}</Chip>
             {job.experienceLevel && <Chip>{job.experienceLevel}</Chip>}
             {job.isRemote && <Chip tone="match" icon={<Icon.Check size={10} />}>Remote</Chip>}
           </div>
@@ -216,11 +310,27 @@ export default function JobDetailPage() {
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                     {matchResult.rationale.matchedSkills.map((s) => <Chip key={s} tone="match" icon={<Icon.Check size={10} />}>{s}</Chip>)}
-                    {matchResult.rationale.missingSkills.map((s) => <Chip key={s} tone="missing">+ {s}</Chip>)}
+                    {matchResult.rationale.missingSkills.map((s) => (
+                      <Chip key={s} tone="missing" onClick={() => setSkillToAdd(s)} title="Have this skill? Add it to your resume">+ {s}</Chip>
+                    ))}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {FIT_LABEL[matchResult.rationale.locationFit]} · {FIT_LABEL[matchResult.rationale.salaryFit]}
                   </div>
+                  {matchResult.rationale.skillCoverage !== undefined && matchResult.rationale.preferenceFit !== undefined && (
+                    <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid var(--line-2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Score breakdown</div>
+                      {[
+                        { label: 'Skill coverage', value: matchResult.rationale.skillCoverage, weight: 2 / 3 },
+                        { label: 'Preference fit', value: matchResult.rationale.preferenceFit, weight: 1 / 3 },
+                      ].map((row) => (
+                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)' }}>
+                          <span>{row.label} <span style={{ color: 'var(--text-muted)' }}>({Math.round(row.weight * 100)}% weight)</span></span>
+                          <span className="mono">{Math.round(row.value * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -249,13 +359,34 @@ export default function JobDetailPage() {
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Real gaps</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                     {skillGap.gaps.length > 0
-                      ? skillGap.gaps.map((s) => <Chip key={s} tone="missing">+ {s}</Chip>)
+                      ? skillGap.gaps.map((s) => (
+                          <Chip key={s} tone="missing" onClick={() => setSkillToAdd(s)} title="Have this skill? Add it to your resume">+ {s}</Chip>
+                        ))
                       : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No gaps found</span>}
                   </div>
                 </div>
               </div>
             ) : (
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Not checked yet. Requires a master resume.</div>
+            )}
+            {matchResult && (
+              <div style={{ marginTop: skillGap ? 4 : 0, paddingTop: skillGap ? 8 : 0, borderTop: skillGap ? '1px solid var(--line-2)' : 'none' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Preferences</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  <Chip
+                    tone={FIT_MATCHES[matchResult.rationale.locationFit] === true ? 'match' : FIT_MATCHES[matchResult.rationale.locationFit] === false ? 'missing' : 'default'}
+                    icon={FIT_MATCHES[matchResult.rationale.locationFit] === true ? <Icon.Check size={10} /> : undefined}
+                  >
+                    {FIT_LABEL[matchResult.rationale.locationFit]}
+                  </Chip>
+                  <Chip
+                    tone={FIT_MATCHES[matchResult.rationale.salaryFit] === true ? 'match' : FIT_MATCHES[matchResult.rationale.salaryFit] === false ? 'missing' : 'default'}
+                    icon={FIT_MATCHES[matchResult.rationale.salaryFit] === true ? <Icon.Check size={10} /> : undefined}
+                  >
+                    {FIT_LABEL[matchResult.rationale.salaryFit]}
+                  </Chip>
+                </div>
+              </div>
             )}
           </Section>
 
@@ -324,6 +455,28 @@ export default function JobDetailPage() {
           </Section>
         </div>
       </div>
+
+      {skillToAdd && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'oklch(0.2 0.02 262 / 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+          onClick={() => !addingSkill && setSkillToAdd(null)}
+        >
+          <div className="card" style={{ padding: 22, maxWidth: 360, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>Missing skill</div>
+            <div className="serif" style={{ fontSize: 18, marginBottom: 8 }}>Add &ldquo;{skillToAdd}&rdquo; to your resume?</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 16 }}>
+              If you already have this skill and just forgot to list it, adding it here updates your master resume — this job&rsquo;s match and skill gap will refresh right away.
+            </div>
+            {addSkillError && <div style={{ fontSize: 12, color: 'var(--error)', marginBottom: 12 }}>{addSkillError}</div>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSkillToAdd(null)} disabled={addingSkill}>Cancel</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => handleAddSkillToResume(skillToAdd)} disabled={addingSkill}>
+                {addingSkill ? 'Adding…' : 'Add to resume'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

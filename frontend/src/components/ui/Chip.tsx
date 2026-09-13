@@ -6,6 +6,8 @@ interface ChipProps {
   children: React.ReactNode
   tone?: ChipTone
   icon?: React.ReactNode
+  onClick?: () => void
+  title?: string
 }
 
 const CLASSES: Record<ChipTone, string> = {
@@ -15,9 +17,23 @@ const CLASSES: Record<ChipTone, string> = {
   ink:     'chip chip-ink',
 }
 
-export function Chip({ children, tone = 'default', icon }: ChipProps) {
+export function Chip({ children, tone = 'default', icon, onClick, title }: ChipProps) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={CLASSES[tone]}
+        onClick={onClick}
+        title={title}
+        style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
+      >
+        {icon}
+        {children}
+      </button>
+    )
+  }
   return (
-    <span className={CLASSES[tone]}>
+    <span className={CLASSES[tone]} title={title}>
       {icon}
       {children}
     </span>

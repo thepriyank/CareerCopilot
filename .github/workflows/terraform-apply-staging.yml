@@ -37,6 +37,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fixes a real bug hit live (2026-09-09): this run is pinned to the
+      # commit that triggered it. If deploy-backend.yml/deploy-frontend.yml
+      # ran first in the same terraform-staging concurrency queue (e.g. one
+      # push touching both backend/** and infra/terraform/**), their bot
+      # commit updating image_tags.tfvars already landed *after* this run's
+      # pinned SHA — applying with the stale checkout would silently revert
+      # the just-deployed image back to whatever this SHA had. Pulling the
+      # branch tip first means each queued apply always builds on whatever
+      # the previous one in the queue actually committed.
+      - run: git pull --ff-only origin main
+
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.15.8'

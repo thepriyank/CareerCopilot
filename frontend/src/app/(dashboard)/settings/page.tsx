@@ -123,6 +123,7 @@ function ProfileTab() {
   const [urgency, setUrgency] = useState<SearchUrgency>('ACTIVELY_LOOKING')
   const [noticePeriod, setNoticePeriod] = useState('')
   const [visaStatus, setVisaStatus] = useState('')
+  const [avoidTechnologies, setAvoidTechnologies] = useState('')
 
   useEffect(() => {
     profileApi
@@ -139,6 +140,7 @@ function ProfileTab() {
           setUrgency(res.profile.urgency)
           setNoticePeriod(res.profile.noticePeriod ?? '')
           setVisaStatus(res.profile.visaStatus ?? '')
+          setAvoidTechnologies((res.profile.avoidTechnologies ?? []).join(', '))
         }
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load your profile'))
@@ -160,6 +162,7 @@ function ProfileTab() {
         urgency,
         noticePeriod: noticePeriod || undefined,
         visaStatus: visaStatus || undefined,
+        avoidTechnologies: avoidTechnologies.split(',').map((s) => s.trim()).filter(Boolean),
       })
       setProfile(res.profile)
       setSaveMsg('Saved!')
@@ -197,7 +200,7 @@ function ProfileTab() {
           <label style={labelStyle}>Locations</label>
           <input style={inputStyle} value={locations} onChange={(e) => setLocations(e.target.value)} placeholder="Bengaluru, Remote" />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={labelStyle}>Remote preference</label>
             <select style={inputStyle} value={remotePreference} onChange={(e) => setRemotePreference(e.target.value as RemotePreference)}>
@@ -216,7 +219,7 @@ function ProfileTab() {
             </select>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={labelStyle}>Salary min</label>
             <input style={inputStyle} type="number" value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} />
@@ -233,6 +236,13 @@ function ProfileTab() {
         <div>
           <label style={labelStyle}>Visa / work authorization</label>
           <input style={inputStyle} value={visaStatus} onChange={(e) => setVisaStatus(e.target.value)} placeholder="No constraints" />
+        </div>
+        <div>
+          <label style={labelStyle}>Technologies to avoid</label>
+          <input style={inputStyle} value={avoidTechnologies} onChange={(e) => setAvoidTechnologies(e.target.value)} placeholder="e.g. PHP, jQuery — from older experience you'd rather not repeat" />
+          <p style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text-muted)' }}>
+            Jobs that require any of these as a must-have skill are filtered out of your board entirely.
+          </p>
         </div>
       </div>
 
@@ -354,6 +364,12 @@ const TAB_TITLES: Record<string, string> = {
 
 export default function SettingsPage() {
   const [activeNav, setActiveNav] = useState('API keys')
+  const router = useRouter()
+
+  function handleSignOut() {
+    clearToken()
+    router.push('/login')
+  }
 
   return (
     <>
@@ -361,9 +377,9 @@ export default function SettingsPage() {
         eyebrow="Settings"
         title={TAB_TITLES[activeNav]}
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr', overflow: 'hidden' }}>
+      <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr', overflow: 'hidden' }}>
         {/* Sub-nav */}
-        <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)' }}>
+        <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', display: 'flex', flexDirection: 'column' }}>
           {SUB_NAV.map(n => (
             <div
               key={n}
@@ -373,6 +389,14 @@ export default function SettingsPage() {
               {n}
             </div>
           ))}
+          <div style={{ flex: 1 }} />
+          <div
+            onClick={handleSignOut}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', marginTop: 12, borderTop: '1px solid var(--line-2)', paddingTop: 16 }}
+          >
+            <Icon.LogOut size={14} />
+            Sign out
+          </div>
         </div>
 
         {/* Form */}

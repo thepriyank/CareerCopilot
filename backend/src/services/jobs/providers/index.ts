@@ -35,8 +35,23 @@ export const remoteBoardProviders: Provider[] = [remoteok, weworkremotely, himal
  * meaningful skill-gap/match extraction on 8 of 10 real postings. Approved
  * for live use; still a no-op until JSEARCH_API_KEY is set, same as the
  * other aggregators here.
+ *
+ * adzuna and jooble deliberately excluded (2026-09-12): both hard-truncate
+ * `description` to a short snippet by design — Adzuna's `/search` endpoint
+ * caps it at 500 chars (confirmed against Adzuna's own docs and a live
+ * pull — no paid tier or param lifts this); Jooble's API is documented as
+ * snippet-only too (it literally calls the field `snippet`, not
+ * `description`). Both leave skill extraction and match scoring running on
+ * a fragment, not the real JD — the app's core matching feature. The only
+ * way to get full text from either is following their redirect/link field
+ * to whatever site they aggregated it from — unresolvable in advance, and
+ * ARCHITECTURE.md's job-source policy already rules out scraping several of
+ * the platforms that could be. Modules kept (adzuna.ts, jooble.ts) in case
+ * a from-approved-ATS-only redirect resolution is built later; not wired
+ * into discovery until then. Replaced by the local JobSpy scraper (see
+ * scripts/jobspy-ingest/) for full-text India postings in the meantime.
  */
-export const aggregatorProviders: Provider[] = [theirstack, adzuna, jooble, jsearch]
+export const aggregatorProviders: Provider[] = [theirstack, jsearch]
 
 export const allProviders: Provider[] = [...atsProviders, ...remoteBoardProviders, ...aggregatorProviders]
 

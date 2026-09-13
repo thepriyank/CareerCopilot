@@ -16,5 +16,5 @@
 # Keep this in sync with reality — infra/terraform/INFRASTRUCTURE.md's
 # "Deploy history" is the narrative; this file is the machine-read value.
 
-backend_image  = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/backend:08b1e3a3e166d5d55bdb8bdc2fbb8ad847821718"
-frontend_image = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend:0384133f01ca379d5acc28243c6347c1b4498c84"
+backend_image  = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/backend:612aebc82dffa9ced899fb3fdd359af116939ef2"
+frontend_image = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend:c3b88493cbc42c12605b293e6f6558ac4e9af4de"

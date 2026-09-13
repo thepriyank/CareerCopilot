@@ -64,13 +64,30 @@ describe('jsearch provider — single RapidAPI credential (legacy JSEARCH_API_KE
     expect(calls[0].headers).toMatchObject({ 'X-RapidAPI-Key': 'legacy-rapid-key', 'X-RapidAPI-Host': 'jsearch.p.rapidapi.com' })
   })
 
-  it('issues one request per title, capped at 3', async () => {
+  it('issues one request per title, capped at MAX_TITLE_QUERIES (6) — rotated, not a static first-N slice', async () => {
+    const urls: string[] = []
+    await jsearch.fetch(
+      { name: 'x', query: { countryCodes: ['IN'], titles: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] } } as never,
+      { fetchJson: async (url) => { urls.push(url); return { data: [] } }, fetchText: async () => '' }
+    )
+    // Exactly which 6 of the 8 get chosen depends on today's date (see
+    // titleRotation.test.ts for that logic in isolation) — what matters
+    // here is the cap itself, and that every request has a DIFFERENT
+    // title's query, not the same one repeated (i.e. rotation actually
+    // varies the selection rather than being a no-op like the old
+    // static .slice(0, 3) was).
+    expect(urls).toHaveLength(6)
+    const queried = new Set(urls.map((u) => decodeURIComponent(u.split('query=')[1].split('&')[0])))
+    expect(queried.size).toBe(6)
+  })
+
+  it('does not cap below the full list when there are fewer titles than the cap', async () => {
     const urls: string[] = []
     await jsearch.fetch(
       { name: 'x', query: { countryCodes: ['IN'], titles: ['A', 'B', 'C', 'D'] } } as never,
       { fetchJson: async (url) => { urls.push(url); return { data: [] } }, fetchText: async () => '' }
     )
-    expect(urls).toHaveLength(3) // capped at MAX_TITLE_QUERIES, one fetch attempt per term
+    expect(urls).toHaveLength(4)
   })
 })
 

@@ -31,8 +31,9 @@ export default function JobBoardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [sourceFilter, setSourceFilter] = useState<string | null>(null)
   const [tierFilter, setTierFilter] = useState<ExperienceLevel | null>(null)
+  const [appliedFilter, setAppliedFilter] = useState<'all' | 'applied' | 'not-applied'>('all')
+  const [showFilters, setShowFilters] = useState(false)
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [form, setForm] = useState<NewJobForm>(EMPTY_FORM)
@@ -58,14 +59,15 @@ export default function JobBoardPage() {
     fetchJobs()
   }, [])
 
-  const sources = useMemo(() => [...new Set(jobList.map((j) => j.source))].sort(), [jobList])
   const tiers = useMemo(
     () => [...new Set(jobList.map((j) => j.experienceLevel).filter((t): t is ExperienceLevel => !!t))],
     [jobList]
   )
 
   const filtered = jobList.filter(
-    (j) => (!sourceFilter || j.source === sourceFilter) && (!tierFilter || j.experienceLevel === tierFilter)
+    (j) =>
+      (!tierFilter || j.experienceLevel === tierFilter) &&
+      (appliedFilter === 'all' || (appliedFilter === 'applied') === !!j.appliedAt)
   )
 
   async function handleAddJob(e: React.FormEvent) {
@@ -91,6 +93,57 @@ export default function JobBoardPage() {
     }
   }
 
+  // Shared between the always-visible desktop sidebar and the closable
+  // mobile dropdown (see the Topbar's filter toggle below) — same state,
+  // same handlers either way. `closeOnSelect` auto-dismisses the mobile
+  // dropdown after a pick, which is a no-op on desktop (it's never open).
+  function renderFilterList(closeOnSelect: boolean) {
+    const pick = (fn: () => void) => () => {
+      fn()
+      if (closeOnSelect) setShowFilters(false)
+    }
+    const appliedOptions: { value: 'all' | 'applied' | 'not-applied'; label: string }[] = [
+      { value: 'all', label: 'All' },
+      { value: 'applied', label: 'Applied' },
+      { value: 'not-applied', label: 'Not applied' },
+    ]
+    return (
+      <>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>Applied</div>
+        {appliedOptions.map((opt) => (
+          <div
+            key={opt.value}
+            onClick={pick(() => setAppliedFilter(opt.value))}
+            style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: appliedFilter === opt.value ? 'var(--accent-subtle)' : 'transparent', color: appliedFilter === opt.value ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: appliedFilter === opt.value ? 500 : 400, cursor: 'pointer' }}
+          >
+            {opt.label}
+          </div>
+        ))}
+
+        {tiers.length > 0 && (
+          <>
+            <div className="eyebrow" style={{ marginTop: 18, marginBottom: 10 }}>Level</div>
+            <div
+              onClick={pick(() => setTierFilter(null))}
+              style={{ padding: '6px 10px', fontSize: 13, marginBottom: 2, color: !tierFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !tierFilter ? 500 : 400, cursor: 'pointer' }}
+            >
+              All levels
+            </div>
+            {tiers.map((t) => (
+              <div
+                key={t}
+                onClick={pick(() => setTierFilter(t))}
+                style={{ padding: '6px 10px', fontSize: 13, color: tierFilter === t ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: tierFilter === t ? 500 : 400, cursor: 'pointer' }}
+              >
+                {TIER_LABEL[t]}
+              </div>
+            ))}
+          </>
+        )}
+      </>
+    )
+  }
+
   return (
     <>
       <Topbar
@@ -98,6 +151,17 @@ export default function JobBoardPage() {
         title="Your jobs"
         right={
           <>
+            <button
+              className="jobs-filter-toggle btn btn-secondary btn-sm"
+              onClick={() => setShowFilters((s) => !s)}
+              aria-label={showFilters ? 'Close filters' : 'Open filters'}
+              aria-expanded={showFilters}
+            >
+              {showFilters ? <Icon.X size={13} /> : <Icon.Filter size={13} />}
+              {!showFilters && (tierFilter || appliedFilter !== 'all') && (
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--accent)' }} />
+              )}
+            </button>
             <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{filtered.length} job{filtered.length === 1 ? '' : 's'}</div>
             <button className="btn btn-primary btn-sm" onClick={() => setShowAddForm((s) => !s)}>
               <Icon.Plus size={13} /> Add job
@@ -105,55 +169,49 @@ export default function JobBoardPage() {
           </>
         }
       />
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '240px 1fr', overflow: 'hidden' }}>
-        {/* Filters */}
-        <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', overflow: 'auto' }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Source</div>
-          <div
-            onClick={() => setSourceFilter(null)}
-            style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: !sourceFilter ? 'var(--accent-subtle)' : 'transparent', color: !sourceFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !sourceFilter ? 500 : 400, cursor: 'pointer' }}
-          >
-            All · {jobList.length}
-          </div>
-          {sources.map((s) => (
-            <div
-              key={s}
-              onClick={() => setSourceFilter(s)}
-              style={{ padding: '8px 10px', borderRadius: 6, fontSize: 13, marginBottom: 2, background: sourceFilter === s ? 'var(--accent-subtle)' : 'transparent', color: sourceFilter === s ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: sourceFilter === s ? 500 : 400, cursor: 'pointer', textTransform: 'capitalize' }}
-            >
-              {s} · {jobList.filter((j) => j.source === s).length}
-            </div>
-          ))}
 
-          {tiers.length > 0 && (
-            <>
-              <div className="eyebrow" style={{ marginTop: 18, marginBottom: 10 }}>Level</div>
-              <div
-                onClick={() => setTierFilter(null)}
-                style={{ padding: '6px 10px', fontSize: 13, marginBottom: 2, color: !tierFilter ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: !tierFilter ? 500 : 400, cursor: 'pointer' }}
-              >
-                All levels
-              </div>
-              {tiers.map((t) => (
-                <div
-                  key={t}
-                  onClick={() => setTierFilter(t)}
-                  style={{ padding: '6px 10px', fontSize: 13, color: tierFilter === t ? 'var(--accent-text)' : 'var(--text-soft)', fontWeight: tierFilter === t ? 500 : 400, cursor: 'pointer' }}
-                >
-                  {TIER_LABEL[t]}
-                </div>
-              ))}
-            </>
-          )}
+      {/* Mobile filter dropdown — closable, only ever shown below 768px
+          (see .jobs-filter-toggle / .jobs-filter-dropdown in globals.css).
+          On desktop the sidebar below is always visible instead. */}
+      {showFilters && (
+        <div className="jobs-filter-dropdown card" style={{ margin: '10px 16px 0', padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className="eyebrow" style={{ margin: 0 }}>Filters</div>
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              aria-label="Close"
+              style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+            >
+              <Icon.X size={14} />
+            </button>
+          </div>
+          {renderFilterList(true)}
+        </div>
+      )}
+
+      <div className="jobs-shell" style={{ flex: 1, display: 'grid', gridTemplateColumns: '240px 1fr', overflow: 'hidden' }}>
+        {/* Filters — always visible on desktop; hidden on mobile in favor of the dropdown above */}
+        <div className="jobs-filters-desktop" style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', overflow: 'auto' }}>
+          {renderFilterList(false)}
         </div>
 
         {/* Job grid */}
         <div style={{ overflow: 'auto', padding: 24, background: 'var(--paper-2)' }}>
           {showAddForm && (
             <form onSubmit={handleAddJob} className="card" style={{ padding: 18, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div className="eyebrow">Paste a job description</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="eyebrow">Paste a job description</div>
+                {/* A close affordance that doesn't depend on scrolling
+                    past the whole form first — on a phone, the Cancel
+                    button below can end up hidden behind the on-screen
+                    keyboard once a field is focused. */}
+                <button type="button" onClick={() => setShowAddForm(false)} aria-label="Close" style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>
+                  <Icon.X size={14} />
+                </button>
+              </div>
               {addError && <div style={{ fontSize: 12, color: 'var(--error)' }}>{addError}</div>}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <input placeholder="Job title *" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line-2)', fontSize: 13 }} />
                 <input placeholder="Company" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line-2)', fontSize: 13 }} />
                 <input placeholder="Location" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line-2)', fontSize: 13 }} />
@@ -198,7 +256,7 @@ export default function JobBoardPage() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+            <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
               {filtered.map((job) => (
                 <div key={job.id} className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
@@ -221,7 +279,7 @@ export default function JobBoardPage() {
                     )}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    <Chip tone="ink">{job.source}</Chip>
+                    {job.appliedAt && <Chip tone="match" icon={<Icon.CheckCircle size={10} />}>Applied</Chip>}
                     {job.experienceLevel && <Chip tone="default">{TIER_LABEL[job.experienceLevel]}</Chip>}
                     {job.isRemote && <Chip tone="match" icon={<Icon.Check size={10} />}>Remote</Chip>}
                   </div>

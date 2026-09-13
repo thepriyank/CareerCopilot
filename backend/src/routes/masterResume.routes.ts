@@ -9,6 +9,7 @@ import { requireAuth } from '../middleware/auth'
 import { llmRateLimit } from '../middleware/rateLimit'
 import { createError } from '../middleware/errorHandler'
 import { enhanceResume } from '../services/ai/resumeEnhancer'
+import { recomputeMatchesForCandidate } from '../services/matching/surfaceJobs'
 import { buildResumeHtml } from '../services/documents/resumeTemplate'
 import { renderHtmlToPdf } from '../services/documents/renderPdf'
 import { AuthRequest } from '../types'
@@ -113,10 +114,21 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       throw createError(404, 'NOT_FOUND', 'Master resume not found')
     }
 
-    if (data.content !== undefined) existing.content = data.content as Record<string, unknown>
+    const contentChanged = data.content !== undefined
+    if (contentChanged) existing.content = data.content as Record<string, unknown>
     if (data.status !== undefined) existing.status = data.status as ArtifactStatus
 
     await generatedResumeRepo.save(existing)
+
+    // Skills (or anything else scored) may have just changed — refresh
+    // every already-matched job's score, not just whichever one the
+    // candidate happens to be viewing (see recomputeMatchesForCandidate's
+    // header for why this used to silently go stale).
+    if (contentChanged) {
+      const profileRepo = AppDataSource.getRepository(CandidateProfile)
+      const profile = await profileRepo.findOneBy({ userId })
+      await recomputeMatchesForCandidate(userId, profile, existing)
+    }
 
     // Reload with the source relation — the editor diffs enhanced content
     // against the original parsed resume, and dropping `source` here (as a

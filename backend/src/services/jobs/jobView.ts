@@ -36,6 +36,7 @@ export interface JobView {
   isRemote: boolean | null
   createdAt: Date // when THIS user got this job — UserJob's own createdAt, not the listing's
   matchScore: number | null // latest computed MatchResult.score, if one exists yet
+  appliedAt: Date | null // when the candidate marked this job as applied, if they have
 }
 
 export function toJobView(userJob: UserJob, listing: JobListing, matchScore: number | null = null): JobView {
@@ -56,6 +57,7 @@ export function toJobView(userJob: UserJob, listing: JobListing, matchScore: num
     isRemote: listing.isRemote,
     createdAt: userJob.createdAt,
     matchScore,
+    appliedAt: userJob.appliedAt,
   }
 }
 

@@ -1,0 +1,16 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 640, "h": 420 },
+    { "file": "MobileShell.dc.html", "x": 0, "y": 500, "w": 390, "h": 844 },
+    { "file": "MobileDashboard.dc.html", "x": 470, "y": 500, "w": 390, "h": 844 },
+    { "file": "MobileJobs.dc.html", "x": 940, "y": 500, "w": 390, "h": 844 },
+    { "file": "MobileJobDetail.dc.html", "x": 1410, "y": 500, "w": 390, "h": 844 }
+  ],
+  "annotations": [
+    { "id": "note-1", "x": 0, "y": 460, "w": 300, "text": "Nav pattern that replaces the sidebar below 768px" },
+    { "id": "note-2", "x": 470, "y": 460, "w": 300, "text": "Home screen — grids stacked, cards full-width" },
+    { "id": "note-3", "x": 940, "y": 460, "w": 300, "text": "Sidebar filters become horizontal-scroll chips" },
+    { "id": "note-4", "x": 1410, "y": 460, "w": 300, "text": "1fr/1.1fr split stacks; primary action pinned to thumb reach" }
+  ],
+  "launch": { "view": "canvas" }
+}

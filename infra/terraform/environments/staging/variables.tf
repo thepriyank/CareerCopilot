@@ -54,6 +54,11 @@ variable "enabled_secrets" {
     "CEREBRAS_API_KEY",
     "OLLAMA_API_KEY",
     "OPENROUTER_API_KEY",
+    # Job aggregator — real free-tier key signed up 2026-09-12, India-scoped
+    # (discoverJobsGlobally already queries Adzuna's /jobs/in/ endpoint via
+    # providers/adzuna.ts; this was the only missing piece).
+    "ADZUNA_APP_ID",
+    "ADZUNA_APP_KEY",
   ]
 }
 

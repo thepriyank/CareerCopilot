@@ -49,7 +49,7 @@ export default function ResumePage() {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+          <div className="grid-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
             {files.map(f => (
               <Link key={f.id} href={`/resume/${f.id}`} style={{ textDecoration: 'none' }}>
                 <div className="card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}>

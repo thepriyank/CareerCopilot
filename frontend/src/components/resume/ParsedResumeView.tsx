@@ -132,7 +132,7 @@ export default function ParsedResumeView({ parsedResume, onUpdate }: ParsedResum
 
       {/* Contact info */}
       <Card title="Contact Information">
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           {['name', 'email', 'phone', 'location', 'linkedin', 'website'].map((field) => (
             <div key={field}>
               <label className="block text-slate-500 font-medium capitalize mb-1">{field}</label>

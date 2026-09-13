@@ -32,7 +32,7 @@ import { GeneratedResumeVersion } from '../../entities/GeneratedResumeVersion'
 import { JobOrigin } from '../../entities/enums'
 import { config } from '../../config'
 import { computeMatchScore } from './matchScore'
-import { flattenResumeText } from '../skills/resumeText'
+import { hasAvoidedRequiredTech } from './avoidedTechFilter'
 import { ExtractedEntities } from '../../types'
 
 /**
@@ -52,7 +52,6 @@ export async function ensureMatchedJobsForCandidate(
   const matchRepo = AppDataSource.getRepository(MatchResult)
 
   const entities = masterResume.content as unknown as ExtractedEntities
-  const resumeText = flattenResumeText(entities)
   const resumeSkills = (entities.skills ?? []).map((s) => s.name).filter(Boolean)
 
   const existingUserJobs = await userJobRepo.find({ where: { userId } })
@@ -65,10 +64,17 @@ export async function ensureMatchedJobsForCandidate(
 
   let newlyMatched = 0
 
+  const avoidTechnologies = profile?.avoidTechnologies ?? []
+
   for (const listing of listings) {
     if (attachedListingIds.has(listing.id)) continue // already in their list, however it got there
 
-    const result = computeMatchScore(resumeText, resumeSkills, listing, profile)
+    // Hard exclusion (2026-09-09), checked before scoring: a listing that
+    // *requires* a technology the candidate has avoided is never surfaced
+    // at all, not merely scored lower. See avoidedTechFilter.ts's header.
+    if (hasAvoidedRequiredTech(listing.normalizedFields, avoidTechnologies)) continue
+
+    const result = computeMatchScore(resumeSkills, listing, profile)
     if (result.score < config.matching.minScoreToSurface) continue
 
     const userJob = await userJobRepo.save(
@@ -87,4 +93,48 @@ export async function ensureMatchedJobsForCandidate(
   }
 
   return { newlyMatched }
+}
+
+/**
+ * Recomputes and persists a fresh MatchResult for every job already on
+ * this candidate's list, against their current résumé/profile. Without
+ * this, editing the résumé (e.g. adding a "missing" skill from a job's
+ * Match/Skill-gap section — see jobs/[id]/page.tsx's handleAddSkillToResume)
+ * only ever refreshed the one job being viewed; every other already-
+ * matched job kept showing a score computed against the résumé's old
+ * skill set until a candidate happened to reopen it individually. Called
+ * from routes/masterResume.routes.ts's PUT handler whenever `content`
+ * actually changes. No LLM call happens here (see this file's header) —
+ * fine to run synchronously even across a candidate's whole list.
+ */
+export async function recomputeMatchesForCandidate(
+  userId: string,
+  profile: CandidateProfile | null,
+  masterResume: Pick<GeneratedResumeVersion, 'content'>
+): Promise<{ recomputed: number }> {
+  const userJobRepo = AppDataSource.getRepository(UserJob)
+  const matchRepo = AppDataSource.getRepository(MatchResult)
+
+  const entities = masterResume.content as unknown as ExtractedEntities
+  const resumeSkills = (entities.skills ?? []).map((s) => s.name).filter(Boolean)
+
+  const userJobs = await userJobRepo.find({ where: { userId }, relations: ['jobListing'] })
+
+  let recomputed = 0
+  for (const userJob of userJobs) {
+    if (!userJob.jobListing) continue
+    const result = computeMatchScore(resumeSkills, userJob.jobListing, profile)
+    await matchRepo.save(
+      matchRepo.create({
+        userId,
+        jobId: userJob.id,
+        score: result.score,
+        rationale: result.rationale as unknown as Record<string, unknown>,
+        gaps: result.gaps,
+      })
+    )
+    recomputed++
+  }
+
+  return { recomputed }
 }

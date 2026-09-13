@@ -59,7 +59,14 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
 - Per-job cover letter generation.
 - Candidate review and approval flow for all AI output.
 - Skill-gap analysis with topic and course suggestions (Udemy and similar).
-- LinkedIn profile review feedback only (no automation).
+- LinkedIn profile review feedback only (no automation) — content reaches the
+  AI by the candidate manually pasting each section, or by uploading
+  LinkedIn's own "Save to PDF" export of their profile (a file the user
+  downloaded themselves, parsed the same way a resume upload is). Fetching a
+  profile URL server-side is not implemented and must not be: it would be
+  automated access to LinkedIn's live site, which its Terms of Service
+  prohibit regardless of a profile's public visibility — see §9's
+  platform-policy risk note.
 
 ### 7.2 Post-MVP (out of scope for first release)
 

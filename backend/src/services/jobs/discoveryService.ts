@@ -33,6 +33,7 @@ import { atsProviders, remoteBoardProviders, aggregatorProviders, NormalizedJob 
 import { makeHttpContext } from './providers/http'
 import indiaCompaniesSeed from './providers/seeds/india-companies.json'
 import targetJobTitlesSeed from './providers/seeds/target-job-titles.json'
+import { isSoftwareEngineeringRole } from './isSoftwareEngineeringRole'
 import { logger } from '../../utils/logger'
 
 const REMOTE_BOARD_SOURCE_IDS = new Set(remoteBoardProviders.map((p) => p.id))
@@ -121,6 +122,12 @@ export interface JobInput {
   isRemote: boolean | null
   postedAt: Date | null
   source: string
+  // Some sources (e.g. Naukri, via the local JobSpy ingest pipeline — see
+  // scripts/jobspy-ingest/) already return a structured skills list. When
+  // present and non-empty, upsertJobListing uses it directly instead of
+  // paying for an LLM extraction call that would likely do worse than the
+  // source's own structured data.
+  preExtractedSkills?: string[]
 }
 
 function toJobInput(job: NormalizedJob, source: string): JobInput {
@@ -191,7 +198,12 @@ export async function upsertJobListing(input: JobInput): Promise<{ listing: JobL
     })
   )
 
-  if (input.description) {
+  if (input.preExtractedSkills && input.preExtractedSkills.length > 0) {
+    const extraction = { requiredSkills: input.preExtractedSkills, niceToHaveSkills: [], seniorityLevel: null }
+    listing.skills = flattenJobSkills(extraction)
+    listing.normalizedFields = { ...extraction }
+    listing = await listingRepo.save(listing)
+  } else if (input.description) {
     try {
       const extraction = await extractJobSkills(input.description)
       listing.skills = flattenJobSkills(extraction)
@@ -232,10 +244,50 @@ export async function ensureUserHasJob(
   let isNewToUser = false
   if (!userJob) {
     isNewToUser = true
-    userJob = await userJobRepo.save(userJobRepo.create({ userId, jobListingId: listing.id, origin }))
+    userJob = await userJobRepo.save(userJobRepo.create({ userId, jobListingId: listing.id, origin, appliedAt: null }))
   }
 
   return { jobView: toJobView(userJob, listing), isNewListing, isNewToUser }
+}
+
+export interface ExternalIngestResult {
+  newListings: number
+  seen: number
+  filteredOut: number
+}
+
+/**
+ * Entry point for the local JobSpy ingest pipeline (see
+ * scripts/jobspy-ingest/) — jobs are scraped and normalized entirely outside
+ * this process (a separate Python script, run locally or on any machine that
+ * has cloned this repo) and POSTed here as already-shaped `JobInput`s. Same
+ * title filter + dedup + upsert path `discoverJobsGlobally` uses for every
+ * other source, so a JobSpy-sourced listing is indistinguishable from any
+ * other provider's once it's in the pool.
+ */
+export async function ingestExternalJobs(jobs: JobInput[]): Promise<ExternalIngestResult> {
+  const seenThisRun = new Set<string>()
+  let newListings = 0
+  let seen = 0
+  let filteredOut = 0
+
+  for (const job of jobs) {
+    if (!isSoftwareEngineeringRole(job.title)) {
+      filteredOut++
+      continue
+    }
+    if (!job.url || seenThisRun.has(job.url)) {
+      seen++
+      continue
+    }
+    seenThisRun.add(job.url)
+
+    const { isNew } = await upsertJobListing(job)
+    if (isNew) newListings++
+    else seen++
+  }
+
+  return { newListings, seen, filteredOut }
 }
 
 /**
@@ -250,8 +302,18 @@ export async function discoverJobsGlobally(): Promise<GlobalDiscoveryResult> {
   const seenThisRun = new Set<string>()
   let newListings = 0
   let seen = 0
+  let filteredOut = 0
 
   for (const { job, source } of discovered) {
+    // `titles` only bounds what the keyword-search aggregators ask for —
+    // the remote-board/ATS providers return their entire feed unfiltered.
+    // This is the actual software-engineering-domain gate, applied
+    // regardless of source. See isSoftwareEngineeringRole.ts's header.
+    if (!isSoftwareEngineeringRole(job.title)) {
+      filteredOut++
+      continue
+    }
+
     if (!job.url || seenThisRun.has(job.url)) {
       seen++
       continue
@@ -261,6 +323,10 @@ export async function discoverJobsGlobally(): Promise<GlobalDiscoveryResult> {
     const { isNew } = await upsertJobListing(toJobInput(job, source))
     if (isNew) newListings++
     else seen++
+  }
+
+  if (filteredOut > 0) {
+    logger.info(`discoverJobsGlobally: filtered out ${filteredOut} non-software-engineering listing(s)`)
   }
 
   return { newListings, seen, errors }

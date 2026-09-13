@@ -109,7 +109,7 @@ module "backend_service" {
     LLM_PROVIDER_ORDER              = var.llm_provider_order
     LLM_ALLOW_PAID                  = "false"
     LLM_COOLDOWN_MS                 = "900000"
-    JOB_MATCH_MIN_SCORE             = "32"
+    JOB_MATCH_MIN_SCORE             = "38"
     JOB_MATCH_MAX_LISTINGS_TO_SCORE = "500"
     UPLOAD_DIR                      = "uploads"
     MAX_FILE_SIZE                   = "10485760"

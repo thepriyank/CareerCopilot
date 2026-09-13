@@ -17,7 +17,13 @@ import { NormalizedJob, Provider, ProviderContext, ProviderEntry } from './types
 import { stripHtml } from './text'
 
 const JOOBLE_HOST = 'jooble.org'
-const MAX_KEYWORDS = 6
+// Unlike jsearch.ts/adzuna.ts, Jooble ORs every keyword into a single
+// request (see the join(', ') below) — the call count is always 1
+// regardless of how many titles are included, so there's no quota
+// tradeoff to a higher cap here at all. 2026-09-09: raised from a static
+// 6 that was arbitrarily leaving 7 of 13 target categories out of Jooble's
+// one query for zero benefit.
+const MAX_KEYWORDS = 20
 
 interface AggregatorQuery {
   countryCodes?: string[]
