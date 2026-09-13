@@ -13,7 +13,9 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
 
   cors: {
-    origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    // Comma-separated so a custom domain and the Cloud Run *.run.app URL
+    // can both be allowed at once (see infra/terraform/environments/*/main.tf).
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(',').map((o) => o.trim()),
   },
 
   jwt: {
