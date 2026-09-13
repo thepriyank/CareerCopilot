@@ -155,6 +155,57 @@ LLM — only the shape of the form is — and because the cache is global, each
 distinct form costs one LLM call *ever*, across all users, not one per user.
 Same economics as the crash-course caching idea.
 
+### Which résumé and cover letter get used
+
+The extension should always attach **the best artifact the user already has
+for that specific job**, never blindly the master résumé. Resolution order,
+per artifact:
+
+**Résumé** — first match wins:
+1. **Approved tailored résumé** for this job (`GeneratedResumeVersion`,
+   `ResumeVersionType.TAILORED`, `ArtifactStatus.APPROVED`)
+2. Approved master résumé (`ResumeVersionType.MASTER`)
+3. The originally uploaded résumé file
+
+**Cover letter** — only if the form has a place for one:
+1. **Approved tailored cover letter** for this job (`GeneratedCoverLetter`,
+   `ArtifactStatus.APPROVED`)
+2. Nothing — leave the field alone. Never substitute a generic letter for a
+   tailored one; a wrong-company cover letter is worse than an empty field.
+
+**Approved-only is not negotiable.** A `DRAFT` or `IN_REVIEW` artifact must
+never be attached to a real application — that would route around the F6
+human-approval workflow, which is the product's core promise (`CLAUDE.md`
+§4). If a tailored résumé exists but hasn't been approved, the extension
+falls back to the master *and* surfaces a nudge: *"You have an unapproved
+tailored résumé for this job — review it in JobMagnate."* That nudge is a
+genuinely useful re-engagement hook back into the web app.
+
+Cover letters need two delivery paths, chosen per adapter: paste plain text
+into a `<textarea>` (using the native-setter trick below), or fetch the PDF
+and attach it to a file input.
+
+### Job identification — the prerequisite nobody notices
+
+Everything above depends on the extension knowing *which* job the open form
+belongs to. The form is on `boards.greenhouse.io`; JobMagnate knows the job
+by `JobListing.url`. Matching strategy, in order:
+
+1. **Exact URL match** against the user's `UserJob` rows.
+2. **Normalized match** — strip tracking params (`utm_*`, `gh_src`, `ref`),
+   trailing slashes, and fragments. This catches most real cases, since
+   users arrive via links that pick up tracking junk.
+3. **Adapter-extracted job ID** — each adapter knows how to pull the ATS's
+   own job id out of its URL, which survives most rewriting.
+4. **Ask.** If nothing matches, the popup shows a searchable list of the
+   user's saved jobs: *"Which job is this?"* One click, and the choice is
+   remembered for that URL.
+
+If the user declines to pick, the extension still fills profile fields with
+the master résumé — job identification failing must degrade the fill, never
+block it. Worth noting this also answers open question 4 below: a posting the
+user found entirely outside JobMagnate still gets a useful autofill.
+
 ### Two implementation details that will otherwise cost a day each
 
 - **React-controlled inputs ignore naive assignment.** Most modern ATS forms
@@ -192,10 +243,13 @@ The "never submits" property must be structural, not a matter of discipline:
 | `POST /api/extension/tokens` | Mint (session-authed). Returns plaintext once. |
 | `DELETE /api/extension/tokens/:id` | Revoke |
 | `GET /api/extension/tokens` | List, for the Settings UI |
-| `GET /api/extension/profile` | The fill payload — profile fields only, extension-token-authed |
+| `GET /api/extension/profile` | Profile fields + `plan` + remaining credits, for display. Consumes nothing. |
+| `POST /api/extension/fills` | **The one that matters.** Takes the form URL; atomically consumes a credit and returns the full fill payload — profile fields plus the resolved résumé/cover-letter references. `402` when out of credits. Idempotent per (user, normalized URL) for 24h. |
+| `GET /api/extension/jobs/resolve?url=` | Job identification — returns the matching `UserJob`, or candidates for the "which job is this?" picker |
 | `GET /api/extension/jobs/:id/artifacts` | Approved tailored résumé + cover letter for a job (**`ArtifactStatus.APPROVED` only** — reuse the F6 check) |
 | `POST /api/extension/field-map` | Tier-2 mapping, globally cached by schema hash |
 | `POST /api/extension/applications` | Log a fill/apply event |
+| `ExtensionFill` entity | `id`, `userId`, `normalizedUrl`, `jobId?`, `createdAt` — the quota ledger and the idempotency key in one table |
 
 Application logging can use the existing `UserJob.appliedAt` on day one. If
 F4 §D's richer `JobApplication` entity lands first, use that instead — the
@@ -227,25 +281,78 @@ Each phase is independently shippable and independently useful.
 
 | Phase | Scope | Estimate |
 |---|---|---|
-| **0 — Backend** | `ExtensionToken`, the `/api/extension/*` endpoints, Settings revoke UI. No extension code yet; fully testable on its own. | ~3–4 days |
+| **0 — Backend** | `ExtensionToken`, `ExtensionFill`, the `/api/extension/*` endpoints including atomic `POST /fills`, job URL resolution, Settings revoke UI. No extension code yet; fully testable on its own. | ~4–5 days |
 | **1 — Skeleton + first adapters** | MV3 scaffold, connect/consent flow, top-3 ATS adapters (chosen from pool data), manual "Fill" button. Text fields only. | ~1 week |
-| **2 — Real usability** | Auto-detect + badge, résumé file attach, filled-field highlighting, "mark as applied" logging. This is the first genuinely delightful version. | ~1 week |
+| **2 — Real usability** | Auto-detect + badge, job identification + picker fallback, **tailored résumé/cover-letter resolution and attach**, filled-field highlighting, "mark as applied" logging. This is the first genuinely delightful version. | ~1.5 weeks |
 | **3 — Coverage** | Tier-2 generic mapping + global cache, additional adapters, fill-rate telemetry. | ~1 week |
-| **4 — Ship + monetize** | Paid gating for tailored-artifact attach, Edge + Firefox builds, store listings, privacy policy. | ~3–4 days |
+| **4 — Ship** | Edge + Firefox builds, store listings, privacy policy, "unlimited during early access" messaging. | ~3–4 days |
+| **5 — Activate quota** | Turn on the 5-fill free cap, remaining-credits UI, upgrade prompt. **Ships with billing, not before** — see the sequencing note above. | ~2 days |
 
 Roughly **4–5 weeks** of focused work to a polished public release; a useful
 internal dogfood build exists at the end of Phase 2.
 
-## Monetization hook
+## Availability and quota
 
-The natural, non-hostile split — consistent with `monetization_plan.md`:
+**The extension ships to every user, subscribed or not.** It is not a
+premium-only surface. A free user installs the same extension, connects the
+same way, and gets the same full-quality autofill — including tailored
+artifacts. The paid tier buys **volume, not capability**.
 
-- **Free:** fill standard profile fields, attach the **master** résumé.
-- **Paid:** attach the **tailored** résumé and cover letter for that specific
-  job.
+| | Free | Paid |
+|---|---|---|
+| Autofills | **5** | Unlimited |
+| Tailored résumé + cover letter used when available | Yes | Yes |
+| Everything else | Same | Same |
 
-The free tier is genuinely useful on its own, and the paid tier is the thing
-that actually differentiates an application. Nobody is blocked from applying.
+This is a better split than gating tailored artifacts behind the paywall: a
+free user gets to feel the product work *properly* — the best version of it,
+on a real application — which is what actually sells a subscription. A
+degraded free tier just teaches people the product is mediocre.
+
+### Quota enforcement — server-side, always
+
+**The count must live on the backend and never in the extension.** An
+extension's storage and source are fully readable and editable by the user;
+a client-side counter is decoration, not enforcement. So:
+
+- `POST /api/extension/fills` **atomically consumes one credit and returns
+  the fill payload in the same call.** There is no separate "check quota"
+  endpoint the client could skip — if you got a payload, you were charged
+  for it, and if you're out, you get `402` and no payload.
+- The extension reads `user.plan` (`Plan.FREE` / `Plan.PREMIUM`, already in
+  `entities/enums.ts`) only to *display* remaining credits. It never decides
+  entitlement.
+
+### What counts as one fill
+
+This needs pinning down or it becomes a support burden. Recommended:
+**idempotent per (user, job or form URL) for 24 hours.** Re-filling the same
+form after a page reload, a validation error, or a mistake must not burn a
+second credit — a user who loses a credit to a page refresh will (fairly)
+consider it broken. The fill record is keyed on the normalized form URL, and
+a repeat within the window returns the payload without charging again.
+
+### Open decision: 5 lifetime, or 5 per month?
+
+The brief says "5 auto-fills" without a period. Recommendation: **5 per
+month.** A lifetime allowance means the extension becomes dead weight in the
+browser about a week after install, and a dead extension gets uninstalled —
+losing not just the user but the most persistent upgrade-prompt surface the
+product has. A monthly refill keeps it installed, keeps it useful, and keeps
+quietly demonstrating what the paid tier is for. Lifetime creates sharper
+urgency, so this is a genuine trade-off; flagging it rather than silently
+choosing.
+
+### Sequencing note
+
+Paid plans are post-MVP in their entirety (`BRD.md` §7.2), so when the
+extension first ships there is no billing and therefore no way to buy your
+way past a cap. Shipping a 5-fill limit before anyone *can* upgrade would be
+pointlessly hostile. So: the quota is designed in now and **activates with
+billing**; until then every user is effectively unlimited, and the extension
+UI says so explicitly — *"Unlimited during early access; the free plan will
+include 5 autofills per month."* Same discipline as the "Free for now"
+badge: pre-announce, never take away silently.
 
 ## Verification
 

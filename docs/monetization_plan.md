@@ -22,6 +22,11 @@ What can eventually carry a price is the **output artifacts and the
 leverage** — the things that save a candidate an hour of writing per
 application, not the things that tell them the job exists.
 
+Where a feature is metered rather than gated, prefer **capping volume over
+degrading capability**. A free user should experience the product at full
+quality and simply run out, rather than being handed a deliberately worse
+version of it — the good version is what sells the subscription.
+
 ## Tiering
 
 | Feature | Today | Eventually |
@@ -34,7 +39,7 @@ application, not the things that tell them the job exists.
 | Master résumé PDF download | Free | **Free permanently** — it is the user's own data; gating it reads as hostile and invites justified bad word-of-mouth |
 | **Per-job tailored résumé** | Free ("free for now") | Paid |
 | **Per-job cover letter** | Free ("free for now") | Paid |
-| **Assisted Apply extension — tailored-artifact attach** | Not built | Paid (see `assisted_apply_extension_plan.md`) |
+| **Assisted Apply extension** | Not built | **Free for everyone, capped at 5 autofills; unlimited when paid.** The extension is not a premium-only surface — free users get the same full-quality fill, tailored résumé and cover letter included. The paywall is volume, not capability (see `assisted_apply_extension_plan.md`) |
 | **AI crash courses on skill gaps** | Not built | Undecided — lean free, as a retention/differentiation play |
 
 ### "Free for now" labelling
