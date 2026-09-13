@@ -77,12 +77,13 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
   code path, so it is a different mechanism from the auto-apply gated in §11
   (which it does not replace). See
   `docs/assisted_apply_extension_plan.md`.
-- **Paid subscription plans and every feature inside them.** The MVP ships
-  entirely free and stays that way through launch and initial marketing.
-  Per-job tailored resumes and cover letters are the only features intended
-  to become paid, and they ship labelled "Free during early access"; job
-  discovery, matching, and the master resume remain free permanently. Billing,
-  entitlement enforcement, and pricing are all post-MVP work — see
+- **Billing, pricing and real subscriptions.** Deferred to the phase after
+  the extension, but with a hard deadline rather than an open one: every user
+  is granted a **one-month full-access pass** on signup (granted, never
+  purchased — no payment integration involved), and billing must be live
+  before the first pass expires. Per-job tailored resumes and cover letters
+  are the only existing features intended to become paid; job discovery,
+  matching, and the master resume remain free permanently. See
   `docs/monetization_plan.md`.
 - LinkedIn content generation and scheduling.
 - Recruiter discovery and outreach recommendations.

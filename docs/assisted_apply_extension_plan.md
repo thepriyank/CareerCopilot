@@ -235,6 +235,35 @@ The "never submits" property must be structural, not a matter of discipline:
   nothing else — no values, no PII. Aggregate fill-rate is how adapter rot
   gets detected before users report it.
 
+## Discovery — the job detail page info bar
+
+Nobody installs an extension they don't know exists. The single highest-value
+placement is **the job detail page, above the Apply button** — the exact
+moment a user is about to go and re-type twenty fields by hand.
+
+`frontend/src/app/(dashboard)/jobs/[id]/page.tsx`, above the apply panel:
+
+> **Applying to this job?** JobMagnate can fill the application form for you
+> — with your tailored résumé and cover letter for *this* role.
+> **[Add to Chrome]**
+
+Rules that keep it from becoming noise:
+
+- **Hidden once the extension is installed.** The extension's content script
+  runs on jobmagnate.com anyway (that's how the connect handshake works), so
+  it can set a marker — a `data-*` attribute on `<html>` or a `postMessage`
+  handshake — that the page checks before rendering the bar. Do not show an
+  install prompt to someone who already installed it.
+- **Dismissible, and the dismissal sticks** (persisted per user, not
+  `localStorage` alone — it should follow them across devices).
+- **Browser-aware.** Don't offer "Add to Chrome" to a Safari user; show
+  nothing, or a "coming soon" line, rather than a dead link.
+- Never blocks or delays the Apply button. It sits above it; it does not
+  wrap, gate, or intercept it.
+
+Worth measuring impression → install conversion from day one, since this bar
+is likely to be the extension's primary acquisition channel.
+
 ## Backend additions
 
 | Item | Detail |
@@ -281,12 +310,16 @@ Each phase is independently shippable and independently useful.
 
 | Phase | Scope | Estimate |
 |---|---|---|
-| **0 — Backend** | `ExtensionToken`, `ExtensionFill`, the `/api/extension/*` endpoints including atomic `POST /fills`, job URL resolution, Settings revoke UI. No extension code yet; fully testable on its own. | ~4–5 days |
+| **0a — One-month pass** | `User.planExpiresAt` + migration + existing-user backfill, `resolveEffectivePlan()`, pass state in the UI. Independent of everything below and shippable on its own. See `monetization_plan.md`. | ~2–3 days |
+| **0b — Backend** | `ExtensionToken`, `ExtensionFill`, the `/api/extension/*` endpoints including atomic `POST /fills` (honouring the pass), job URL resolution, Settings revoke UI. No extension code yet; fully testable on its own. | ~4–5 days |
 | **1 — Skeleton + first adapters** | MV3 scaffold, connect/consent flow, top-3 ATS adapters (chosen from pool data), manual "Fill" button. Text fields only. | ~1 week |
 | **2 — Real usability** | Auto-detect + badge, job identification + picker fallback, **tailored résumé/cover-letter resolution and attach**, filled-field highlighting, "mark as applied" logging. This is the first genuinely delightful version. | ~1.5 weeks |
 | **3 — Coverage** | Tier-2 generic mapping + global cache, additional adapters, fill-rate telemetry. | ~1 week |
-| **4 — Quota + upgrade path** | 5/month cap live, remaining-credits UI, upgrade prompt pointing at the (by then existing) paid tier. | ~2 days |
+| **4 — Discovery + quota** | Job detail page info bar, remaining-credits UI, quota code live (dormant while passes are active). | ~3 days |
 | **5 — Ship** | Edge + Firefox builds, store listings, privacy policy. | ~3–4 days |
+
+The **upgrade prompt** shown when a free user hits the cap belongs to Phase B
+(billing) — until there is something to buy, there is nothing to link to.
 
 Roughly **4–5 weeks** of focused work to a polished public release; a useful
 internal dogfood build exists at the end of Phase 2.
@@ -298,11 +331,11 @@ premium-only surface. A free user installs the same extension, connects the
 same way, and gets the same full-quality autofill — including tailored
 artifacts. The paid tier buys **volume, not capability**.
 
-| | Free | Paid |
-|---|---|---|
-| Autofills | **5 per month** | Unlimited |
-| Tailored résumé + cover letter used when available | Yes | Yes |
-| Everything else | Same | Same |
+| | One-month pass | Free (after it expires) | Paid |
+|---|---|---|---|
+| Autofills | **Unlimited** | **5 per month** | Unlimited |
+| Tailored résumé + cover letter used when available | Yes | Yes | Yes |
+| Everything else | Same | Same | Same |
 
 This is a better split than gating tailored artifacts behind the paywall: a
 free user gets to feel the product work *properly* — the best version of it,
@@ -344,41 +377,36 @@ Credits reset on a rolling monthly window per user (anniversary of signup),
 not on calendar month boundaries — a user who signs up on the 28th should
 not get a fresh allowance three days later.
 
-### Sequencing — the extension should launch *after* billing, not before
+### Sequencing — extension ships with the one-month pass, before billing
 
-An earlier draft of this plan assumed the extension would ship first, into a
-world with no billing, and therefore had to launch uncapped with
-"unlimited during early access" messaging. **That is now the less likely and
-the worse ordering**, for two reasons:
+The extension and the **one-month full-access pass** ship together, as one
+phase; billing follows in the next (see `monetization_plan.md`).
 
-1. **The timelines don't line up.** Subscriptions are planned for the next
-   release; this extension is ~4–5 weeks of work plus an unpredictable
-   Chrome Web Store review. It is not a fast build, and it should not be
-   rushed to beat the billing release — the store review latency alone is
-   outside our control.
-2. **An extension that launches before billing wastes its best conversion
-   moment.** A user hits the cap, wants more, and there is nothing to sell
-   them. By the time billing exists, that moment has passed and they have
-   settled into whatever workaround they found.
+An earlier draft argued for building billing first, on the grounds that an
+extension launching without a paid tier wastes its best conversion moment —
+a user hits the cap, wants more, and there is nothing to sell them. **The
+one-month pass dissolves that objection**: during the pass nobody hits a cap
+at all, because every user has unlimited fills. The cap only becomes reachable
+once passes start expiring, and by then billing exists by definition — that
+is the deadline the pass creates.
 
-**So: build billing first, ship the extension into a world that already has
-a paid tier, with the 5/month cap live from day one.** This also removes the
-takeaway problem entirely — the cap was never absent, so it is never
-withdrawn, and no "unlimited during early access" messaging is needed in the
-extension at all.
+So the quota code is written now and simply never triggers for a user with an
+active pass:
 
-If the ordering does end up inverted — the extension is ready and billing
-slips — then fall back to launching uncapped with explicit *"Unlimited
-during early access; the free plan will include 5 autofills per month"*
-messaging, on the same pre-announce discipline as the web app's "Free during
-early access" badge. Never introduce a cap silently.
+```
+resolveEffectivePlan(user) === PREMIUM  → unlimited
+resolveEffectivePlan(user) === FREE     → 5 per rolling month
+```
 
-**If the extension genuinely needs to ship sooner**, the honest way to do it
-is to cut scope, not to rush the whole plan: Phases 0–2 restricted to a
-*single* ATS adapter (whichever dominates the live pool), profile fields plus
-the master résumé, no tailored artifacts and no generic Tier-2 mapping. That
-is roughly 2 weeks and still genuinely useful. Everything else lands
-incrementally afterwards.
+No "early access" messaging is needed in the extension. A user with an active
+pass sees *"Unlimited — full access for 23 more days"*; the 5/month number
+only ever appears once it actually applies to them.
+
+**If the extension needs to ship sooner than 4–5 weeks**, cut scope rather
+than rushing: Phases 0–2 restricted to a *single* ATS adapter (whichever
+dominates the live pool), profile fields plus the master résumé, no tailored
+artifacts and no generic Tier-2 mapping. Roughly 2 weeks, still genuinely
+useful, everything else lands incrementally.
 
 ## Verification
 

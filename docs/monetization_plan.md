@@ -1,14 +1,15 @@
 # Monetization — packaging decision and staging
 
-**Status:** decided 2026-09-13. **Post-MVP in its entirety** — paid plans and
-every feature inside them are out of scope for the current release
-(`BRD.md` §7.2). The MVP is live and being marketed as a wholly free
-product, and stays that way until this work is deliberately scheduled.
+**Status:** decided 2026-09-13, split across two phases.
 
-This document records *what will eventually be paid*, *what stays free
-permanently*, and deliberately, *what not to build yet*. The only thing it
-asks for in the near term is a UI label and some usage measurement; no
-billing, entitlement or pricing work should begin off the back of it.
+| Phase | Contents | State |
+|---|---|---|
+| **A — now** | The one-month full-access pass, shipped alongside the Assisted Apply extension | Planned, not started |
+| **B — before the first pass expires** | Billing (Razorpay, one-time passes), usage measurement, real subscriptions, expiry UX | Next phase, hard deadline |
+
+No money moves in Phase A. The pass is *granted* on signup, not purchased,
+so it needs no payment integration — two columns and a helper. Everything
+that touches money is Phase B.
 
 ## The governing principle
 
@@ -37,53 +38,92 @@ version of it — the good version is what sells the subscription.
 | LinkedIn review | Free | **Free permanently** |
 | Application tracking | Free | **Free permanently** |
 | Master résumé PDF download | Free | **Free permanently** — it is the user's own data; gating it reads as hostile and invites justified bad word-of-mouth |
-| **Per-job tailored résumé** | Free ("Free during early access") | Paid |
-| **Per-job cover letter** | Free ("Free during early access") | Paid |
+| **Per-job tailored résumé** | Unlimited during the one-month pass | Paid |
+| **Per-job cover letter** | Unlimited during the one-month pass | Paid |
 | **Assisted Apply extension** | Not built | **Free for everyone, capped at 5 autofills; unlimited when paid.** The extension is not a premium-only surface — free users get the same full-quality fill, tailored résumé and cover letter included. The paywall is volume, not capability (see `assisted_apply_extension_plan.md`) |
 | **AI crash courses on skill gaps** | Not built | Undecided — lean free, as a retention/differentiation play |
 
-### "Free during early access" labelling
+## The one-month full-access pass (decided 2026-09-13)
 
-The two eventually-paid features ship a small **"Free during early access"**
-badge in the UI from today. This is the cheapest possible piece of work and
-it buys three things:
+**Every user gets 30 days of everything, automatically, on signup.** No card,
+no checkout, no purchase — the pass is granted, not bought. During it, the
+tailored résumé, cover letter and the Assisted Apply extension are all
+unlimited, exactly as a paid subscriber will have them.
 
-1. It sets the expectation early, so introducing a price later is a
-   pre-announced change rather than a betrayal.
-2. It is a live demand signal — people notice and react to the badge.
-3. It costs nothing to remove if the plan changes.
+This supersedes the vaguer "Free during early access" badge: a dated pass is
+both more honest and more motivating than an open-ended "free for now."
+Users see *"Full access — 23 days left"*, which sets a real expectation and
+makes the eventual price a scheduled event rather than a surprise.
 
-Nothing else about these features changes. No limits, no metering, no
-degraded output.
+### Mechanism — deliberately two columns, not a billing system
 
-## What NOT to build yet
+`User.plan` already exists. Add **one** column beside it:
 
-`User.plan` (`Plan.FREE` / `Plan.PREMIUM`, `entities/enums.ts`) **already
-exists** and is already defaulted correctly on every user. That is enough.
+- `User.planExpiresAt: timestamp | null`
 
-Do **not** now build: entitlement middleware, a billing integration, plan
-upgrade/downgrade flows, a pricing page, or per-feature quota counters. Every
-one of those is dead weight while the answer is always "allow", and none of
-them get materially harder to add later. A `requireEntitlement()` that always
-returns true is not preparation, it is unused code with a maintenance cost.
+and one helper, `resolveEffectivePlan(user)`, returning `FREE` when
+`planExpiresAt` is in the past. Every entitlement check goes through that
+helper and nothing reads `user.plan` directly.
 
-The retrofit, when it comes, is roughly: a payment webhook that flips
-`user.plan`, one guard on two route handlers, and an upgrade screen. That is
-days of work, not weeks, and it is not made cheaper by starting now.
+Two properties worth being deliberate about:
 
-## What to build *before* charging (in this order)
+- **Expiry is computed on read, never by a cron.** There is no scheduled job
+  downgrading anyone. This is simpler, cannot drift, and avoids the
+  scale-to-zero cron unreliability this project already hit once with job
+  discovery (see `INFRASTRUCTURE.md`).
+- **Extending everyone is a single `UPDATE`.** That matters: if billing
+  slips, nobody has to lose access — you move the dates and buy time. Keep
+  that escape hatch in mind rather than engineering for it.
 
-1. **Usage measurement.** `ModelUsageRecord` already exists. Add a simple
-   aggregate — tailored résumés and cover letters generated, per user, per
-   month. Without this there is no basis for choosing a price or knowing
-   whether the paywall is even viable. This is the one piece of billing
-   groundwork worth doing early, and it is worth doing *before* marketing
-   drives traffic, so the launch cohort is measured too.
-2. **Unit-cost visibility.** Cost per tailored résumé in LLM spend (free-tier
-   providers today, so ~₹0, but that changes the moment `LLM_ALLOW_PAID`
-   flips or free quotas run out). A price set without knowing the marginal
-   cost is a guess.
-3. Only then: pricing, billing, entitlements.
+No `Subscription` entity, no webhooks, no entitlement middleware framework.
+Those arrive with billing.
+
+### The deadline this creates
+
+**The day this ships, a 30-day clock starts on the first user who signs up.**
+Billing must be live before that clock runs out, or the only options are
+extending everyone's pass or degrading users who were explicitly promised a
+month of everything.
+
+That is a *useful* forcing function, not a problem — but it must be stated
+plainly, because it converts billing from "next phase, sometime" into work
+with a hard date attached. Razorpay KYC (calendar time, not engineering) is
+the long pole and should already be in progress.
+
+## Phase A scope — what actually gets built now
+
+1. `User.planExpiresAt` + migration; new signups get `now + 30 days`.
+2. `resolveEffectivePlan(user)` — the single source of truth for entitlement.
+   Nothing reads `user.plan` directly.
+3. **Backfill for existing users** — see the open question below.
+4. Pass state surfaced in the UI: days remaining, and what happens after.
+5. The extension's fill endpoint honours the pass (unlimited while active).
+
+Deliberately **not** in Phase A: any payment integration, `Subscription`
+entity, webhooks, upgrade/downgrade flows, pricing page, or a general
+entitlement-middleware framework. A guard is two `if`s calling one helper;
+that is not a framework and does not need to become one.
+
+## Phase B — before the first pass expires
+
+1. **Usage measurement.** Note the counts you need for pricing are *already
+   queryable*: `GeneratedResumeVersion` (`TAILORED`) and
+   `GeneratedCoverLetter` both carry `createdAt` and resolve to a user, so
+   "artifacts per user per month" is SQL over existing rows, not new
+   instrumentation.
+   The real gap is **cost**: `ModelUsageRecord` is only written by
+   `anthropicClient.ts`, and production runs `LLM_ALLOW_PAID=false` on the
+   free provider chain — so that table is effectively empty. Recording usage
+   in `providerChain.generate()` instead fixes it for all providers.
+2. **Billing** — Razorpay, one-time 1-month/3-month passes (no recurring
+   mandates in v1; see pricing notes). Order creation, webhook with
+   signature verification and idempotency, extend `planExpiresAt` on
+   success.
+3. **Expiry UX** — in-app and email warning before a pass lapses, and a
+   clear, non-punitive downgrade state. A user must never discover they lost
+   access by clicking a button that silently fails.
+4. T&C, refund policy, pricing disclosure — Razorpay requires these live to
+   activate the account.
 
 ## Pricing notes (for when the time comes)
 
@@ -97,6 +137,22 @@ days of work, not weeks, and it is not made cheaper by starting now.
   route. Budget real time for this, or sidestep it entirely at first by
   selling non-recurring passes.
 - A refund policy and terms of service become mandatory the day money moves.
+
+## Open question: users who signed up before the pass exists
+
+The MVP is already live, so there is a cohort with no `planExpiresAt`. Three
+options, and this needs an answer before the migration is written:
+
+| Option | Effect |
+|---|---|
+| **Grant the same 30 days from ship date** (recommended) | Fair, simple, one-line migration. Everyone gets the same promise; early users are not punished for arriving first. |
+| Grandfather permanently free | Generous, but creates a permanent two-tier user base you must support and explain forever. |
+| Treat as free tier immediately | Cheapest, and the worst — it silently takes away capability from your earliest, most engaged users. |
+
+Recommendation is the first: `UPDATE users SET planExpiresAt = now() + 30d
+WHERE planExpiresAt IS NULL`. It also has the useful property of putting
+every current user's expiry on roughly the same date, which makes the billing
+deadline a single visible cliff rather than a slow trickle.
 
 ## Related documents
 
