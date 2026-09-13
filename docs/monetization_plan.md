@@ -37,16 +37,16 @@ version of it — the good version is what sells the subscription.
 | LinkedIn review | Free | **Free permanently** |
 | Application tracking | Free | **Free permanently** |
 | Master résumé PDF download | Free | **Free permanently** — it is the user's own data; gating it reads as hostile and invites justified bad word-of-mouth |
-| **Per-job tailored résumé** | Free ("free for now") | Paid |
-| **Per-job cover letter** | Free ("free for now") | Paid |
+| **Per-job tailored résumé** | Free ("Free during early access") | Paid |
+| **Per-job cover letter** | Free ("Free during early access") | Paid |
 | **Assisted Apply extension** | Not built | **Free for everyone, capped at 5 autofills; unlimited when paid.** The extension is not a premium-only surface — free users get the same full-quality fill, tailored résumé and cover letter included. The paywall is volume, not capability (see `assisted_apply_extension_plan.md`) |
 | **AI crash courses on skill gaps** | Not built | Undecided — lean free, as a retention/differentiation play |
 
-### "Free for now" labelling
+### "Free during early access" labelling
 
-The two eventually-paid features ship a small **"Free for now"** badge in the
-UI from today. This is the cheapest possible piece of work and it buys three
-things:
+The two eventually-paid features ship a small **"Free during early access"**
+badge in the UI from today. This is the cheapest possible piece of work and
+it buys three things:
 
 1. It sets the expectation early, so introducing a price later is a
    pre-announced change rather than a betrayal.

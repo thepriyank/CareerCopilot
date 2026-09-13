@@ -80,8 +80,8 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
 - **Paid subscription plans and every feature inside them.** The MVP ships
   entirely free and stays that way through launch and initial marketing.
   Per-job tailored resumes and cover letters are the only features intended
-  to become paid, and they ship labelled "Free for now"; job discovery,
-  matching, and the master resume remain free permanently. Billing,
+  to become paid, and they ship labelled "Free during early access"; job
+  discovery, matching, and the master resume remain free permanently. Billing,
   entitlement enforcement, and pricing are all post-MVP work — see
   `docs/monetization_plan.md`.
 - LinkedIn content generation and scheduling.

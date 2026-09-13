@@ -285,8 +285,8 @@ Each phase is independently shippable and independently useful.
 | **1 — Skeleton + first adapters** | MV3 scaffold, connect/consent flow, top-3 ATS adapters (chosen from pool data), manual "Fill" button. Text fields only. | ~1 week |
 | **2 — Real usability** | Auto-detect + badge, job identification + picker fallback, **tailored résumé/cover-letter resolution and attach**, filled-field highlighting, "mark as applied" logging. This is the first genuinely delightful version. | ~1.5 weeks |
 | **3 — Coverage** | Tier-2 generic mapping + global cache, additional adapters, fill-rate telemetry. | ~1 week |
-| **4 — Ship** | Edge + Firefox builds, store listings, privacy policy, "unlimited during early access" messaging. | ~3–4 days |
-| **5 — Activate quota** | Turn on the 5-fill free cap, remaining-credits UI, upgrade prompt. **Ships with billing, not before** — see the sequencing note above. | ~2 days |
+| **4 — Quota + upgrade path** | 5/month cap live, remaining-credits UI, upgrade prompt pointing at the (by then existing) paid tier. | ~2 days |
+| **5 — Ship** | Edge + Firefox builds, store listings, privacy policy. | ~3–4 days |
 
 Roughly **4–5 weeks** of focused work to a polished public release; a useful
 internal dogfood build exists at the end of Phase 2.
@@ -300,7 +300,7 @@ artifacts. The paid tier buys **volume, not capability**.
 
 | | Free | Paid |
 |---|---|---|
-| Autofills | **5** | Unlimited |
+| Autofills | **5 per month** | Unlimited |
 | Tailored résumé + cover letter used when available | Yes | Yes |
 | Everything else | Same | Same |
 
@@ -332,27 +332,53 @@ second credit — a user who loses a credit to a page refresh will (fairly)
 consider it broken. The fill record is keyed on the normalized form URL, and
 a repeat within the window returns the payload without charging again.
 
-### Open decision: 5 lifetime, or 5 per month?
+### The period: 5 per month (decided 2026-09-13)
 
-The brief says "5 auto-fills" without a period. Recommendation: **5 per
-month.** A lifetime allowance means the extension becomes dead weight in the
-browser about a week after install, and a dead extension gets uninstalled —
-losing not just the user but the most persistent upgrade-prompt surface the
-product has. A monthly refill keeps it installed, keeps it useful, and keeps
-quietly demonstrating what the paid tier is for. Lifetime creates sharper
-urgency, so this is a genuine trade-off; flagging it rather than silently
-choosing.
+Not 5 lifetime. A lifetime allowance means the extension becomes dead weight
+in the browser about a week after install, and a dead extension gets
+uninstalled — losing not just the user but the most persistent
+upgrade-prompt surface the product has. A monthly refill keeps it installed,
+keeps it useful, and keeps quietly demonstrating what the paid tier is for.
 
-### Sequencing note
+Credits reset on a rolling monthly window per user (anniversary of signup),
+not on calendar month boundaries — a user who signs up on the 28th should
+not get a fresh allowance three days later.
 
-Paid plans are post-MVP in their entirety (`BRD.md` §7.2), so when the
-extension first ships there is no billing and therefore no way to buy your
-way past a cap. Shipping a 5-fill limit before anyone *can* upgrade would be
-pointlessly hostile. So: the quota is designed in now and **activates with
-billing**; until then every user is effectively unlimited, and the extension
-UI says so explicitly — *"Unlimited during early access; the free plan will
-include 5 autofills per month."* Same discipline as the "Free for now"
-badge: pre-announce, never take away silently.
+### Sequencing — the extension should launch *after* billing, not before
+
+An earlier draft of this plan assumed the extension would ship first, into a
+world with no billing, and therefore had to launch uncapped with
+"unlimited during early access" messaging. **That is now the less likely and
+the worse ordering**, for two reasons:
+
+1. **The timelines don't line up.** Subscriptions are planned for the next
+   release; this extension is ~4–5 weeks of work plus an unpredictable
+   Chrome Web Store review. It is not a fast build, and it should not be
+   rushed to beat the billing release — the store review latency alone is
+   outside our control.
+2. **An extension that launches before billing wastes its best conversion
+   moment.** A user hits the cap, wants more, and there is nothing to sell
+   them. By the time billing exists, that moment has passed and they have
+   settled into whatever workaround they found.
+
+**So: build billing first, ship the extension into a world that already has
+a paid tier, with the 5/month cap live from day one.** This also removes the
+takeaway problem entirely — the cap was never absent, so it is never
+withdrawn, and no "unlimited during early access" messaging is needed in the
+extension at all.
+
+If the ordering does end up inverted — the extension is ready and billing
+slips — then fall back to launching uncapped with explicit *"Unlimited
+during early access; the free plan will include 5 autofills per month"*
+messaging, on the same pre-announce discipline as the web app's "Free during
+early access" badge. Never introduce a cap silently.
+
+**If the extension genuinely needs to ship sooner**, the honest way to do it
+is to cut scope, not to rush the whole plan: Phases 0–2 restricted to a
+*single* ATS adapter (whichever dominates the live pool), profile fields plus
+the master résumé, no tailored artifacts and no generic Tier-2 mapping. That
+is roughly 2 weeks and still genuinely useful. Everything else lands
+incrementally afterwards.
 
 ## Verification
 
