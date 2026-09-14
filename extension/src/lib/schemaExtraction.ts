@@ -26,7 +26,64 @@ function escapeForSelector(value: string): string {
   return value.replace(/["\\]/g, '\\$&')
 }
 
-function findLabelText(el: HTMLElement): string | null {
+/**
+ * Finds every `input`/`textarea`/`select`, piercing OPEN shadow roots —
+ * plenty of ATS design systems (SmartRecruiters' `spl-input` etc. is the
+ * one this was built against) wrap the real native field inside a custom
+ * element's shadow DOM, where a plain `querySelectorAll` from the light DOM
+ * finds nothing at all. Closed shadow roots are genuinely inaccessible from
+ * outside code (`el.shadowRoot` is null for those) — nothing to be done
+ * about that case, but it's also the rarer choice since it breaks a11y
+ * tooling too, which most design systems care about avoiding.
+ */
+function collectFillableElements(root: ParentNode): FillableElement[] {
+  const found: FillableElement[] = []
+  const queue: ParentNode[] = [root]
+
+  while (queue.length > 0) {
+    const node = queue.shift() as ParentNode
+    for (const el of node.querySelectorAll('input, textarea, select')) {
+      found.push(el as FillableElement)
+    }
+    for (const el of node.querySelectorAll('*')) {
+      if (el.shadowRoot) queue.push(el.shadowRoot)
+    }
+  }
+
+  return found
+}
+
+/**
+ * Walks up through shadow boundaries from a field that lives inside one
+ * (or more, nested) shadow root(s) looking for a hosting custom element
+ * that carries an `id` and/or a semantic `label`/`aria-label` attribute —
+ * the design-system pattern that leaves the real `<input>` with neither
+ * (see SmartRecruiters: `<spl-input id="first-name-input" label="First
+ * name">` wraps `<input id="first-name-input">` with no `name`, no
+ * `aria-label`). A no-op (both null) for a field that was never inside a
+ * shadow root to begin with.
+ */
+function findShadowHostInfo(el: Element): { id: string | null; label: string | null } {
+  let node: Node = el
+  let id: string | null = null
+  let label: string | null = null
+
+  for (let hops = 0; hops < 6 && (!id || !label); hops++) {
+    const root = node.getRootNode()
+    if (!(root instanceof ShadowRoot)) break
+    const host = root.host
+    if (!id && host.id) id = host.id
+    if (!label) {
+      const hostLabel = host.getAttribute('label') || host.getAttribute('aria-label')
+      if (hostLabel?.trim()) label = hostLabel.trim()
+    }
+    node = host
+  }
+
+  return { id, label }
+}
+
+function findLabelText(el: HTMLElement, shadowLabel: string | null): string | null {
   if (el.id) {
     const forLabel = document.querySelector(`label[for="${escapeForSelector(el.id)}"]`)
     const text = forLabel?.textContent?.trim()
@@ -50,22 +107,19 @@ function findLabelText(el: HTMLElement): string | null {
     if (text) return text
   }
 
-  return null
+  return shadowLabel
 }
 
 /**
  * Pulls every fillable field out of a form (or the whole document) — schema
  * only, never a value, per the plan doc's PII rule. Skips anything without
- * a `name` or `id` (there's no stable key to report a mapping back
- * against) and de-dupes on that key, which is also how radio-button groups
- * (many elements sharing one `name`) end up excluded rather than half-handled.
+ * a `name` or `id` (its own, or its shadow host's — there's no stable key
+ * to report a mapping back against otherwise) and de-dupes on that key,
+ * which is also how radio-button groups (many elements sharing one `name`)
+ * end up excluded rather than half-handled.
  */
 export function extractFormFields(root: ParentNode = document): ExtractedField[] {
-  const elements = Array.from(root.querySelectorAll('input, textarea, select')) as (
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | HTMLSelectElement
-  )[]
+  const elements = collectFillableElements(root)
 
   const fields: ExtractedField[] = []
   const seenKeys = new Set<string>()
@@ -79,7 +133,8 @@ export function extractFormFields(root: ParentNode = document): ExtractedField[]
     }
     if (isHiddenElement(el)) continue
 
-    const fieldKey = el.name || el.id
+    const shadowHost = findShadowHostInfo(el)
+    const fieldKey = el.name || el.id || shadowHost.id
     if (!fieldKey || seenKeys.has(fieldKey)) continue
     seenKeys.add(fieldKey)
 
@@ -89,7 +144,7 @@ export function extractFormFields(root: ParentNode = document): ExtractedField[]
     fields.push({
       fieldKey,
       element: el,
-      schema: { fieldKey, type, label: findLabelText(el), placeholder },
+      schema: { fieldKey, type, label: findLabelText(el, shadowHost.label), placeholder },
     })
   }
 

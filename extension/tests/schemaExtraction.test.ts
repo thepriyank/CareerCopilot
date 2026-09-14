@@ -99,6 +99,58 @@ describe('extractFormFields', () => {
     expect(extractFormFields()).toHaveLength(1)
   })
 
+  it('pierces an open shadow root to find the real input (SmartRecruiters spl-input pattern)', () => {
+    const host = document.createElement('spl-input')
+    host.id = 'first-name-input'
+    host.setAttribute('label', 'First name')
+    document.body.appendChild(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    shadow.innerHTML = `<input id="first-name-input" type="text" autocomplete="given-name" />`
+
+    const fields = extractFormFields()
+    expect(fields).toHaveLength(1)
+    expect(fields[0].fieldKey).toBe('first-name-input')
+    expect(fields[0].schema.label).toBe('First name')
+    expect(fields[0].element).toBe(shadow.querySelector('input'))
+  })
+
+  it('falls back to the shadow host id when the inner element has neither name nor id of its own', () => {
+    const host = document.createElement('spl-input')
+    host.id = 'email-input'
+    document.body.appendChild(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    shadow.innerHTML = `<input type="email" />` // no id, no name — matches the real SPL markup
+
+    const fields = extractFormFields()
+    expect(fields[0].fieldKey).toBe('email-input')
+  })
+
+  it('pierces nested shadow roots (a shadow host inside another shadow host)', () => {
+    const outer = document.createElement('spl-form-field')
+    document.body.appendChild(outer)
+    const outerShadow = outer.attachShadow({ mode: 'open' })
+    const inner = document.createElement('spl-input')
+    inner.id = 'city-input'
+    inner.setAttribute('label', 'City')
+    outerShadow.appendChild(inner)
+    const innerShadow = inner.attachShadow({ mode: 'open' })
+    innerShadow.innerHTML = `<input type="text" />`
+
+    const fields = extractFormFields()
+    expect(fields).toHaveLength(1)
+    expect(fields[0].fieldKey).toBe('city-input')
+    expect(fields[0].schema.label).toBe('City')
+  })
+
+  it('does not see inside a closed shadow root — nothing else can either', () => {
+    const host = document.createElement('spl-input')
+    document.body.appendChild(host)
+    const shadow = host.attachShadow({ mode: 'closed' })
+    shadow.innerHTML = `<input name="secret" type="text" />`
+
+    expect(extractFormFields()).toHaveLength(0)
+  })
+
   it('a realistic multi-field form extracts every fillable field with the right shape', () => {
     setBody(`
       <form>
