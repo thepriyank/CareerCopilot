@@ -29,6 +29,7 @@ import { classifyTier } from './classifyTier'
 import { hashJobUrl } from './jobIdentity'
 import { JobView, toJobView } from './jobView'
 import { extractJobSkills, flattenJobSkills } from '../skills/extractJobSkills'
+import { cleanMarkdownArtifacts } from './cleanJobDescription'
 import { atsProviders, remoteBoardProviders, aggregatorProviders, NormalizedJob } from './providers'
 import { makeHttpContext } from './providers/http'
 import indiaCompaniesSeed from './providers/seeds/india-companies.json'
@@ -162,6 +163,14 @@ function toJobInput(job: NormalizedJob, source: string): JobInput {
  */
 export async function upsertJobListing(input: JobInput): Promise<{ listing: JobListing; isNew: boolean }> {
   const listingRepo = AppDataSource.getRepository(JobListing)
+
+  // JobSpy's Indeed scraper hands back Markdown (backslash-escaped
+  // punctuation, **/### markers) in a field this app has only ever
+  // rendered as plain text — see cleanJobDescription.ts. Scoped to this
+  // source: every other source's description is already clean plain text.
+  if (input.description && input.source.startsWith('jobspy:')) {
+    input = { ...input, description: cleanMarkdownArtifacts(input.description) }
+  }
 
   const urlHash = hashJobUrl(input.url)
   let listing = await listingRepo.findOneBy({ urlHash })

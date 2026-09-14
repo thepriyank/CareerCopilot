@@ -46,7 +46,7 @@ jest.mock('../../src/services/jobs/providers', () => ({
 }))
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-import { ensureUserHasJob, discoverJobsGlobally, ingestExternalJobs, JobInput } from '../../src/services/jobs/discoveryService'
+import { ensureUserHasJob, discoverJobsGlobally, ingestExternalJobs, upsertJobListing, JobInput } from '../../src/services/jobs/discoveryService'
 
 const USER_A = 'user-a'
 const USER_B = 'user-b'
@@ -72,6 +72,31 @@ beforeEach(() => {
   mockExtractJobSkills.mockClear()
   fakeProviderA.fetch.mockReset().mockResolvedValue([])
   fakeBoardProvider.fetch.mockReset().mockResolvedValue([])
+})
+
+describe('upsertJobListing description cleaning', () => {
+  it('cleans a jobspy:-sourced description before storing it', async () => {
+    const { listing } = await upsertJobListing(
+      baseInput({ source: 'jobspy:indeed', description: '**Company Description**  \n\nAI\\-native start\\-up' })
+    )
+    expect(listing.description).toBe('Company Description\n\nAI-native start-up')
+  })
+
+  it('leaves a non-jobspy source untouched, even if it happens to contain markdown-like characters', async () => {
+    const { listing } = await upsertJobListing(
+      baseInput({ source: 'pasted', description: '**Company Description**  \n\nAI\\-native start\\-up' })
+    )
+    expect(listing.description).toBe('**Company Description**  \n\nAI\\-native start\\-up')
+  })
+
+  it('also cleans on the update path when a jobspy: listing is re-discovered', async () => {
+    await upsertJobListing(baseInput({ source: 'jobspy:indeed', url: 'https://example.com/jobs/2', description: 'first pass' }))
+    const { listing, isNew } = await upsertJobListing(
+      baseInput({ source: 'jobspy:indeed', url: 'https://example.com/jobs/2', description: '**Updated** \\- description' })
+    )
+    expect(isNew).toBe(false)
+    expect(listing.description).toBe('Updated - description')
+  })
 })
 
 describe('ensureUserHasJob', () => {
