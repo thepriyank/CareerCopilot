@@ -27,19 +27,25 @@ unpacked** → select `extension/dist`.
 
 ## Connecting it to an account
 
-1. Run the backend and frontend locally (`npm run dev` in each).
-2. Log in on the web app, then visit `http://localhost:3000/extension/connect`.
-3. Click **Approve**. A token is minted (`POST /api/extension/tokens`).
-   - If `NEXT_PUBLIC_EXTENSION_ID` (frontend `.env.local`) is set to this
-     unpacked extension's real id (`chrome://extensions` shows it once
-     loaded), the page hands the token to the extension automatically.
-   - Otherwise the page shows the token once — open the extension's popup,
-     and for now paste it directly into `chrome.storage.local` via the
-     service worker's DevTools console:
-     `chrome.storage.local.set({ jobmagnateExtensionToken: 'ext_…' })`
-     (a proper "paste token" field in the popup is a small follow-up, not
-     built yet — this workspace is young).
-4. Open the popup — it should show your email and remaining autofill count.
+Two ways to get a token into the extension — same underlying token either way:
+
+**A — via the connect page (nicer, needs `NEXT_PUBLIC_EXTENSION_ID` set):**
+1. Log in on the web app, visit `/extension/connect`, click **Approve**.
+2. If `NEXT_PUBLIC_EXTENSION_ID` (frontend `.env.local`) is set to this
+   unpacked extension's real id (`chrome://extensions` shows it once
+   loaded), the page hands the token to the extension automatically.
+   Otherwise it falls back to showing the token once — copy it and use B.
+
+**B — paste it directly into the popup (always works, no setup):**
+1. Mint a token from Settings → Extensions in the web app (or from the
+   connect page above) and copy it.
+2. Open the extension's popup — the "Not connected" state has a **paste a
+   token** field right there. Paste it, click **Use this token**.
+3. The popup validates it against the backend before confirming — a typo or
+   an already-revoked token fails immediately with a clear message, not a
+   silent "connected" that breaks later.
+
+Either way, the popup should now show your email and remaining autofill count.
 
 ## Using it
 

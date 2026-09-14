@@ -7,11 +7,26 @@ import type { FormFieldSchema } from '../lib/fieldSchema'
 // fill (charges a credit) + the field mapping (cached) in parallel → send
 // the combined result back for the content script to actually fill.
 
+/** Stores a token only after confirming the backend actually accepts it — a typo'd or already-revoked token fails immediately instead of silently "connecting." */
+export async function connectWithToken(token: string): Promise<{ ok: boolean; message?: string }> {
+  await setToken(token)
+  try {
+    await fetchProfile()
+    return { ok: true }
+  } catch (err) {
+    await clearToken()
+    if (err instanceof ApiError && err.status === 401) {
+      return { ok: false, message: 'That token is invalid or has been revoked.' }
+    }
+    return { ok: false, message: err instanceof Error ? err.message : 'Could not reach JobMagnate.' }
+  }
+}
+
 // Token handoff from the web app's /extension/connect page — permitted
 // only from origins listed in manifest.json's `externally_connectable`.
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'JOBMAGNATE_CONNECT' && typeof message.token === 'string') {
-    setToken(message.token).then(() => sendResponse({ ok: true }))
+    connectWithToken(message.token).then(sendResponse)
     return true
   }
   return false
@@ -110,6 +125,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ connected: false })
       }
     })
+    return true
+  }
+
+  if (message?.type === 'JOBMAGNATE_SET_TOKEN' && typeof message.token === 'string') {
+    connectWithToken(message.token).then(sendResponse)
     return true
   }
 
