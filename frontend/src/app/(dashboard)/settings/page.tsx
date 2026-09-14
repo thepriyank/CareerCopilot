@@ -482,7 +482,10 @@ function ExtensionsTab() {
   }
 
   return (
-    <div className="card" style={{ padding: 22, maxWidth: 760 }}>
+    <>
+      <GetExtensionCard />
+
+      <div className="card" style={{ padding: 22, maxWidth: 760 }}>
       <div className="eyebrow" style={{ marginBottom: 4 }}>Extensions</div>
       <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Connected extensions</div>
       <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 18 }}>
@@ -552,6 +555,36 @@ function ExtensionsTab() {
             </div>
           ))}
         </div>
+      )}
+      </div>
+    </>
+  )
+}
+
+// Chrome removed inline (one-click, no-redirect) installation years ago —
+// there's no API left that installs an extension straight from a third-
+// party page. The honest version of "add it from our site" is a link to
+// the extension's own Chrome Web Store listing, where the user clicks
+// Google's own "Add to Chrome" button. Hidden (shows a "coming soon" note
+// instead) until NEXT_PUBLIC_CHROME_WEBSTORE_URL is set, which only
+// happens once the extension is actually published there.
+function GetExtensionCard() {
+  const storeUrl = process.env.NEXT_PUBLIC_CHROME_WEBSTORE_URL
+
+  return (
+    <div className="card" style={{ padding: 22, maxWidth: 760, marginBottom: 18 }}>
+      <div className="eyebrow" style={{ marginBottom: 4 }}>Get the extension</div>
+      <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Assisted Apply for Chrome</div>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: storeUrl ? 16 : 0 }}>
+        Fills job application forms on company career sites using your JobMagnate profile — you review
+        every field and click submit yourself.
+      </div>
+      {storeUrl ? (
+        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">
+          Add to Chrome
+        </a>
+      ) : (
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Coming soon — not yet published to the Chrome Web Store.</div>
       )}
     </div>
   )
