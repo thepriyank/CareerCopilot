@@ -8,13 +8,15 @@
     "dev": "node scripts/build.mjs --watch --api=http://localhost:3001 --web=http://localhost:3000",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.280",
     "@types/node": "^26.5.1",
     "esbuild": "^0.24.0",
     "jsdom": "^25.0.1",
+    "sharp": "^0.35.4",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   },

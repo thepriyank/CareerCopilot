@@ -50,16 +50,21 @@ Either way, the popup should now show your email and remaining autofill count.
 ## Using it
 
 Open a job application form on an employer-hosted ATS (not LinkedIn, Naukri,
-Indeed, Glassdoor or Wellfound — see "What's excluded" below) and either:
-- click the extension's toolbar icon, or
-- open the popup and click **Fill this form**.
+Indeed, Glassdoor or Wellfound — see "What's excluded" below), click the
+extension's toolbar icon to open the popup, then click **Fill this form**.
 
-Both do the same thing: inject the content script, extract the form's
-schema, ask the backend to map it (cached — instant after the first time any
-form with this exact shape is seen) and resolve your fill data, then fill
-whatever matched. Screening/EEO/custom questions are deliberately left
-alone — review the popup's result message, then read the whole form before
-you submit.
+(There's deliberately no separate "click the icon to fill directly" shortcut
+— `manifest.json` sets a `default_popup`, and Chrome only ever fires
+`chrome.action.onClicked` when there's *no* popup. With one set, the icon
+click always opens the popup instead — trying to keep both is exactly the
+kind of thing that silently doesn't work; see `CHROMEWEBSTORE.md`'s known
+issues if this ever needs revisiting.)
+
+Clicking Fill injects the content script, extracts the form's schema, asks
+the backend to map it (cached — instant after the first time any form with
+this exact shape is seen) and resolves your fill data, then fills whatever
+matched. Screening/EEO/custom questions are deliberately left alone — review
+the popup's result message, then read the whole form before you submit.
 
 ## What's not here yet
 
@@ -70,16 +75,21 @@ you submit.
   download routes (`/api/resumes/file/:id`, `/api/resume/master/:id/pdf`,
   etc.) are still session-JWT-only, not extension-token-authed. `attachFile`
   in `src/lib/domFill.ts` is written and ready for when that lands.
-- **Auto-detect + badge.** Right now filling is always a manual click
-  (toolbar icon or popup button), never automatic on page load.
+- **Auto-detect + badge.** Right now filling is always a manual click on the
+  popup's Fill button, never automatic on page load.
 - **Job identification picker.** The backend already returns a candidate
   shortlist (`GET /api/extension/jobs/resolve`) when a form's URL doesn't
   match a saved job, but nothing in the UI surfaces it yet — an unresolved
   job just fills profile fields with no job-specific artifacts.
 - **"Mark as applied."** `POST /api/extension/applications` exists; nothing
   calls it yet.
-- Icons (`manifest.json` has none — Chrome shows a default). Needed before
-  a real Chrome Web Store listing, not for local dev.
+
+## Publishing to the Chrome Web Store
+
+See `CHROMEWEBSTORE.md` — the single source of truth for store-listing copy,
+permission justifications, the privacy policy, and submission status.
+Regenerate icons with `npm run icons` if the brand mark ever changes (source:
+the same `icon-512.png` the web app's own PWA manifest uses).
 
 ## What's excluded, and why
 

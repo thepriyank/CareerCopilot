@@ -5,7 +5,7 @@
 // already control by hand is simpler and has fewer moving parts to debug
 // without a live browser reload loop.
 import { build, context } from 'esbuild'
-import { mkdirSync, copyFileSync, existsSync } from 'fs'
+import { mkdirSync, copyFileSync, existsSync, readdirSync } from 'fs'
 import { fileURLToPath } from 'url'
 import path from 'path'
 
@@ -34,6 +34,15 @@ const entryPoints = {
 function copyStaticFiles() {
   copyFileSync(path.join(root, 'manifest.json'), path.join(distDir, 'manifest.json'))
   copyFileSync(path.join(root, 'src/popup/popup.html'), path.join(distDir, 'popup.html'))
+
+  const iconsSrc = path.join(root, 'icons')
+  const iconsDist = path.join(distDir, 'icons')
+  if (existsSync(iconsSrc)) {
+    mkdirSync(iconsDist, { recursive: true })
+    for (const file of readdirSync(iconsSrc)) {
+      copyFileSync(path.join(iconsSrc, file), path.join(iconsDist, file))
+    }
+  }
 }
 
 const buildOptions = {

@@ -26,7 +26,9 @@ export async function connectWithToken(token: string): Promise<{ ok: boolean; me
 // only from origins listed in manifest.json's `externally_connectable`.
 chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'JOBMAGNATE_CONNECT' && typeof message.token === 'string') {
-    connectWithToken(message.token).then(sendResponse)
+    ;(async () => {
+      sendResponse(await connectWithToken(message.token))
+    })()
     return true
   }
   return false
@@ -96,24 +98,27 @@ async function runFillFlow(tabId: number): Promise<FillFlowResult> {
   }
 }
 
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id) void runFillFlow(tab.id)
-})
+// No chrome.action.onClicked listener: manifest.json sets a default_popup,
+// and Chrome only ever fires onClicked when there is NO popup — with one
+// set, clicking the toolbar icon always opens it instead. The popup's
+// "Fill this form" button (JOBMAGNATE_POPUP_FILL below) is the only trigger.
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'JOBMAGNATE_POPUP_FILL') {
-    chrome.tabs.query({ active: true, currentWindow: true }).then(async ([tab]) => {
+    ;(async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (!tab?.id) {
         sendResponse({ ok: false, message: 'No active tab.' })
         return
       }
       sendResponse(await runFillFlow(tab.id))
-    })
+    })()
     return true
   }
 
   if (message?.type === 'JOBMAGNATE_GET_STATUS') {
-    getToken().then(async (token) => {
+    ;(async () => {
+      const token = await getToken()
       if (!token) {
         sendResponse({ connected: false })
         return
@@ -124,17 +129,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       } catch {
         sendResponse({ connected: false })
       }
-    })
+    })()
     return true
   }
 
   if (message?.type === 'JOBMAGNATE_SET_TOKEN' && typeof message.token === 'string') {
-    connectWithToken(message.token).then(sendResponse)
+    ;(async () => {
+      sendResponse(await connectWithToken(message.token))
+    })()
     return true
   }
 
   if (message?.type === 'JOBMAGNATE_DISCONNECT') {
-    clearToken().then(() => sendResponse({ ok: true }))
+    ;(async () => {
+      await clearToken()
+      sendResponse({ ok: true })
+    })()
     return true
   }
 

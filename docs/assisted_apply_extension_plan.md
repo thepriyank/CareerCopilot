@@ -376,7 +376,7 @@ needs it.
 | **2 — Real usability** | Auto-detect + badge, job identification + picker fallback, **tailored résumé/cover-letter resolution and attach**, filled-field highlighting, "mark as applied" logging. This is the first genuinely delightful version. | ~1.5 weeks |
 | **3 — Adapters, if telemetry says so** | Only if fill-rate telemetry shows Tier 2 struggling on a specific high-volume ATS — hand-build an adapter for that one, using the ranked data already gathered (see "Which three adapters first"). Not scheduled by default. | as needed |
 | **4 — Discovery + quota** | Job detail page info bar, remaining-credits UI, quota code live (dormant while passes are active). | ~3 days |
-| **5 — Ship** | Edge + Firefox builds, store listings, privacy policy. | ~3–4 days |
+| **5 — Ship** | Edge + Firefox builds, store listings, privacy policy. See `extension/CHROMEWEBSTORE.md` — the Chrome Web Store listing copy, permission justifications, and privacy policy are already drafted there (2026-09-14), reviewed against Chrome's official AI-assisted-extension guidance. | ~3–4 days |
 
 The **upgrade prompt** shown when a free user hits the cap belongs to Phase B
 (billing) — until there is something to buy, there is nothing to link to.
