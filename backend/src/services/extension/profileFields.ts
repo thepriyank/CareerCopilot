@@ -8,6 +8,12 @@ import { ExtractedEntities, ContactInfo } from '../../types'
 
 export interface ExtensionProfileFields {
   name: string | null
+  // Split from `name` (first token / remainder) — many ATS forms have
+  // separate first/last name fields; splitting once here means the field-
+  // mapping vocabulary (services/extension/fieldSchema.ts) can reference
+  // either without every caller re-deriving it.
+  firstName: string | null
+  lastName: string | null
   email: string
   phone: string | null
   location: string | null
@@ -15,6 +21,13 @@ export interface ExtensionProfileFields {
   website: string | null
   visaStatus: string | null
   noticePeriod: string | null
+}
+
+function splitName(name: string | null): { firstName: string | null; lastName: string | null } {
+  if (!name) return { firstName: null, lastName: null }
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return { firstName: parts[0] ?? null, lastName: null }
+  return { firstName: parts[0] ?? null, lastName: parts.slice(1).join(' ') || null }
 }
 
 /**
@@ -42,8 +55,11 @@ export async function buildExtensionProfileFields(userId: string): Promise<Exten
     contact = (parsed?.extractedEntities as unknown as ExtractedEntities | undefined)?.contact ?? {}
   }
 
+  const name = contact.name ?? user?.name ?? null
+
   return {
-    name: contact.name ?? user?.name ?? null,
+    name,
+    ...splitName(name),
     email: contact.email ?? user?.email ?? '',
     phone: contact.phone ?? null,
     location: contact.location ?? null,

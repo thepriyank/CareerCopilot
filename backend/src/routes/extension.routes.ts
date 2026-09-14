@@ -7,14 +7,17 @@ import { ExtensionToken } from '../entities/ExtensionToken'
 import { ExtensionFill } from '../entities/ExtensionFill'
 import { requireAuth } from '../middleware/auth'
 import { requireExtensionAuth, mintExtensionToken, hashExtensionToken } from '../middleware/extensionAuth'
+import { llmRateLimit } from '../middleware/rateLimit'
 import { createError } from '../middleware/errorHandler'
 import { resolveEffectivePlan } from '../services/plan/resolveEffectivePlan'
 import { Plan } from '../entities/enums'
-import { normalizeApplicationUrl } from '../services/extension/normalizeUrl'
+import { normalizeApplicationUrl, hostnameOf } from '../services/extension/normalizeUrl'
+import { isExcludedHost } from '../services/extension/excludedDomains'
 import { resolveJobForUrl } from '../services/extension/resolveJob'
 import { resolveArtifactsForJob } from '../services/extension/resolveArtifacts'
 import { buildExtensionProfileFields } from '../services/extension/profileFields'
 import { FREE_MONTHLY_FILL_LIMIT, currentFillWindowStart, countFillsInWindow, findRecentFill } from '../services/extension/quota'
+import { mapFormSchema } from '../services/extension/fieldMapping'
 import { AuthRequest } from '../types'
 
 const router = Router()
@@ -139,6 +142,12 @@ router.post('/fills', requireExtensionAuth, async (req: AuthRequest, res: Respon
   try {
     const { url } = fillSchema.parse(req.body)
     const userId = req.userId!
+
+    const hostname = hostnameOf(url)
+    if (hostname && isExcludedHost(hostname)) {
+      throw createError(403, 'PLATFORM_EXCLUDED', 'JobMagnate does not autofill forms on this site')
+    }
+
     const normalizedUrl = normalizeApplicationUrl(url)
 
     const userRepo = AppDataSource.getRepository(User)
@@ -176,6 +185,41 @@ router.post('/fills', requireExtensionAuth, async (req: AuthRequest, res: Respon
       ...artifacts,
       remainingFills: remaining,
     })
+  } catch (err) {
+    next(err)
+  }
+})
+
+const fieldSchemaEntrySchema = z.object({
+  fieldKey: z.string().min(1).max(200),
+  type: z.string().min(1).max(50),
+  label: z.string().max(500).nullable().optional(),
+  placeholder: z.string().max(500).nullable().optional(),
+})
+const fieldMapSchema = z.object({
+  hostname: z.string().min(1).max(255),
+  schema: z.array(fieldSchemaEntrySchema).max(150),
+})
+
+// POST /api/extension/field-map — the v1 field-mapping mechanism (2026-09-14:
+// ships alone, no per-ATS adapters — see "Field mapping" in the plan doc).
+// Schema only, never field values. Globally cached, so this is an LLM call
+// on a genuine cache miss only — rate-limited like every other LLM route.
+router.post('/field-map', requireExtensionAuth, llmRateLimit, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { hostname, schema } = fieldMapSchema.parse(req.body)
+
+    if (isExcludedHost(hostname)) {
+      throw createError(403, 'PLATFORM_EXCLUDED', 'JobMagnate does not autofill forms on this site')
+    }
+
+    const mapping = await mapFormSchema(
+      hostname,
+      schema.map((f) => ({ fieldKey: f.fieldKey, type: f.type, label: f.label ?? null, placeholder: f.placeholder ?? null })),
+      req.userId!
+    )
+
+    res.json({ mapping })
   } catch (err) {
     next(err)
   }

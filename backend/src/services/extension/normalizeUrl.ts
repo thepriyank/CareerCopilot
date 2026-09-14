@@ -11,6 +11,15 @@
 
 const TRACKING_PARAM_PATTERN = /^(utm_|gh_src$|ref$|ref_|source$|fbclid$|gclid$)/i
 
+/** The lowercased hostname of a URL, or null if it isn't a parseable absolute URL. */
+export function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url.trim()).hostname.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
 export function normalizeApplicationUrl(url: string): string {
   const trimmed = url.trim()
   let parsed: URL

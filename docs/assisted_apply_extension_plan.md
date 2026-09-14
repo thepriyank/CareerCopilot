@@ -123,10 +123,25 @@ short-lived and not scoped for this.
 
 ### Field mapping — the actual hard problem
 
-Two tiers, deliberately ordered so the cheap deterministic path handles the
-majority of real traffic.
+**v1 decision (2026-09-14): ship Tier 2 only.** Skip building per-ATS
+adapters — go straight to generic LLM mapping for every employer-hosted
+form. The original two-tier design (below) assumed Tier 1 was needed to
+keep the common case cheap and instant; the global cache (see Tier 2)
+already gives near-zero marginal cost per fill regardless of tier — one LLM
+call per *distinct form template ever seen*, not per fill, not per user —
+so the cost argument for hand-building adapters mostly evaporates. What
+Tier 1 still buys over Tier 2 is determinism (no LLM misclassification
+risk) and zero first-fill latency on a cache miss; neither was worth
+gating v1 on covering only 91 of 512 real pool listings (Greenhouse +
+Workday + SmartRecruiters) when Tier 2 covers all 256 non-aggregator
+listings — effectively every employer-hosted form — from day one.
 
-**Tier 1 — per-ATS adapters (deterministic, no LLM).** The big ATSes have
+The adapter analysis below is **kept, not deleted** — it's real, decided
+data that should drive which forms get hand-verified first if fill-rate
+telemetry (see Guardrails) shows Tier 2 struggling on a specific
+high-volume ATS. Revisit then, not now.
+
+**Tier 1 — per-ATS adapters (deterministic, no LLM) — deferred, not built for v1.** The big ATSes have
 stable, predictable form structure. An adapter is a small module: a hostname
 match, a field-selector map, and a fixture-based test. Accurate, instant,
 free.
@@ -134,14 +149,9 @@ free.
 There is useful existing leverage here: the backend already has provider
 modules for Greenhouse, Lever and SmartRecruiters, so **the ATS is usually
 already known from `JobListing.url`** — the backend can tell the extension
-which adapter to use rather than making it sniff the page.
+which adapter to use rather than making it sniff the page. Not used by v1.
 
-**Which adapters first should be decided from live data, not guessed.** Before
-writing any, run a count of the current job pool grouped by application-URL
-hostname and build the top three. The pool is real and already large enough
-to answer this.
-
-### Which three adapters first (decided 2026-09-13)
+### Which three adapters first (decided 2026-09-13, superseded by the v1 Tier-2-only decision above — kept as reference for a future adapter)
 
 Queried the live staging pool (512 listings, all with a URL) grouped by
 application-URL hostname, with known ATS tenant subdomains collapsed into
@@ -186,8 +196,7 @@ Lever/SmartRecruiters, no Workday or Keka provider at all):
 Lever stays a natural Phase 3 addition (existing discovery-provider
 coverage, real if smaller footprint) rather than one of the first three.
 
-**Tier 2 — generic mapping with a global cache (LLM, rare).** For unknown
-forms:
+**Tier 2 — generic mapping with a global cache (LLM). The only mechanism v1 ships.** For every form:
 
 1. Content script extracts a **schema only** — each field's `name`, `id`,
    `type`, label text, placeholder. **No user data, no field values.**
@@ -324,7 +333,7 @@ is likely to be the extension's primary acquisition channel.
 | `POST /api/extension/fills` | **The one that matters.** Takes the form URL; atomically consumes a credit and returns the full fill payload — profile fields plus the resolved résumé/cover-letter references. `402` when out of credits. Idempotent per (user, normalized URL) for 24h. |
 | `GET /api/extension/jobs/resolve?url=` | Job identification — returns the matching `UserJob`, or candidates for the "which job is this?" picker |
 | `GET /api/extension/jobs/:id/artifacts` | Approved tailored résumé + cover letter for a job (**`ArtifactStatus.APPROVED` only** — reuse the F6 check) |
-| `POST /api/extension/field-map` | Tier-2 mapping, globally cached by schema hash |
+| `POST /api/extension/field-map` | Generic mapping, globally cached by schema hash — **the core v1 mechanism** (2026-09-14: Tier 2 ships alone, not deferred to Phase 3 — see "Field mapping" above) |
 | `POST /api/extension/applications` | Log a fill/apply event |
 | `ExtensionFill` entity | `id`, `userId`, `normalizedUrl`, `jobId?`, `createdAt` — the quota ledger and the idempotency key in one table |
 
@@ -341,11 +350,10 @@ the backend rather than redeclaring them.
 extension/
   src/
     background/     service worker — auth, API, cache
-    content/        form detection + filling
-    adapters/       one module per ATS + a registry
+    content/        schema extraction + generic filling (no adapters/ in v1)
     popup/
   tests/
-    fixtures/       saved real form HTML, one per adapter
+    fixtures/       saved real form HTML, for content-script fill tests
 ```
 
 Build with **wxt** or Vite + `@crxjs/vite-plugin` (both handle MV3 and
@@ -354,15 +362,19 @@ this is what keeps adapters from rotting silently.
 
 ## Build phases
 
-Each phase is independently shippable and independently useful.
+Each phase is independently shippable and independently useful. **Revised
+2026-09-14** for the Tier-2-first decision — Phase 1 now includes generic
+mapping (previously Phase 3) and drops per-ATS adapters entirely; Phase 3 is
+now just telemetry-driven adapter work, and only if Tier 2's fill rate ever
+needs it.
 
 | Phase | Scope | Estimate |
 |---|---|---|
-| **0a — One-month pass** | `User.planExpiresAt` + migration + existing-user backfill, `resolveEffectivePlan()`, pass state in the UI. Independent of everything below and shippable on its own. See `monetization_plan.md`. | ~2–3 days |
-| **0b — Backend** | `ExtensionToken`, `ExtensionFill`, the `/api/extension/*` endpoints including atomic `POST /fills` (honouring the pass), job URL resolution, Settings revoke UI. No extension code yet; fully testable on its own. | ~4–5 days |
-| **1 — Skeleton + first adapters** | MV3 scaffold, connect/consent flow, top-3 ATS adapters (chosen from pool data), manual "Fill" button. Text fields only. | ~1 week |
+| **0a — One-month pass** | `User.planExpiresAt` + migration + existing-user backfill, `resolveEffectivePlan()`, pass state in the UI. Independent of everything below and shippable on its own. See `monetization_plan.md`. **Shipped 2026-09-13.** | ~2–3 days |
+| **0b — Backend** | `ExtensionToken`, `ExtensionFill`, the `/api/extension/*` endpoints including atomic `POST /fills` (honouring the pass), job URL resolution, Settings revoke UI. No extension code yet; fully testable on its own. **Shipped 2026-09-13.** | ~4–5 days |
+| **1 — Skeleton + generic fill** | MV3 scaffold, connect/consent flow, `POST /api/extension/field-map` (schema → profile-key mapping, LLM + global cache), content-script schema extraction + generic filling (native-setter trick, text fields), manual "Fill" button. Works on any employer-hosted form from day one — no adapters. | ~1 week |
 | **2 — Real usability** | Auto-detect + badge, job identification + picker fallback, **tailored résumé/cover-letter resolution and attach**, filled-field highlighting, "mark as applied" logging. This is the first genuinely delightful version. | ~1.5 weeks |
-| **3 — Coverage** | Tier-2 generic mapping + global cache, additional adapters, fill-rate telemetry. | ~1 week |
+| **3 — Adapters, if telemetry says so** | Only if fill-rate telemetry shows Tier 2 struggling on a specific high-volume ATS — hand-build an adapter for that one, using the ranked data already gathered (see "Which three adapters first"). Not scheduled by default. | as needed |
 | **4 — Discovery + quota** | Job detail page info bar, remaining-credits UI, quota code live (dormant while passes are active). | ~3 days |
 | **5 — Ship** | Edge + Firefox builds, store listings, privacy policy. | ~3–4 days |
 

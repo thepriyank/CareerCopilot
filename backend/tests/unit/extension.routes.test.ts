@@ -47,6 +47,11 @@ jest.mock('../../src/services/extension/profileFields', () => ({
   buildExtensionProfileFields: (...args: unknown[]) => mockBuildExtensionProfileFields(...args),
 }))
 
+const mockMapFormSchema = jest.fn()
+jest.mock('../../src/services/extension/fieldMapping', () => ({
+  mapFormSchema: (...args: unknown[]) => mockMapFormSchema(...args),
+}))
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import extensionRoutes from '../../src/routes/extension.routes'
 
@@ -76,6 +81,7 @@ beforeEach(() => {
   userJobRepo.rows.length = 0
   mockResolveJobForUrl.mockReset().mockResolvedValue({ job: null, candidates: [] })
   mockResolveArtifactsForJob.mockReset().mockResolvedValue({ resume: null, unapprovedTailoredResumeExists: false, coverLetter: null })
+  mockMapFormSchema.mockReset().mockResolvedValue([])
   mockBuildExtensionProfileFields.mockReset().mockResolvedValue({
     name: 'Test', email: 't@example.com', phone: null, location: null, linkedin: null, website: null, visaStatus: null, noticePeriod: null,
   })
@@ -221,6 +227,21 @@ describe('POST /api/extension/fills', () => {
     expect(fillRepo.rows).toHaveLength(5)
   })
 
+  it('403s a request for an excluded platform (e.g. LinkedIn) before any quota check, and never charges', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    userRepo.rows.push({ id: USER_ID, plan: Plan.PREMIUM, planExpiresAt: null, createdAt: new Date() } as never)
+
+    const res = await request(app)
+      .post('/api/extension/fills')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ url: 'https://www.linkedin.com/jobs/view/1234' })
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('PLATFORM_EXCLUDED')
+    expect(fillRepo.rows).toHaveLength(0)
+  })
+
   it('never charges or caps a PREMIUM user', async () => {
     const app = buildApp()
     const token = await mintToken(app)
@@ -232,6 +253,56 @@ describe('POST /api/extension/fills', () => {
       expect(res.body.remainingFills).toBeNull()
     }
     expect(fillRepo.rows).toHaveLength(7)
+  })
+})
+
+describe('POST /api/extension/field-map', () => {
+  it('rejects an excluded platform before calling the mapper', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    userRepo.rows.push({ id: USER_ID, plan: Plan.PREMIUM, planExpiresAt: null, createdAt: new Date() } as never)
+
+    const res = await request(app)
+      .post('/api/extension/field-map')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ hostname: 'www.linkedin.com', schema: [] })
+
+    expect(res.status).toBe(403)
+    expect(mockMapFormSchema).not.toHaveBeenCalled()
+  })
+
+  it('returns the mapping for a valid schema', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    userRepo.rows.push({ id: USER_ID, plan: Plan.PREMIUM, planExpiresAt: null, createdAt: new Date() } as never)
+    mockMapFormSchema.mockResolvedValue([{ fieldKey: 'email', profileKey: 'email' }])
+
+    const res = await request(app)
+      .post('/api/extension/field-map')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ hostname: 'boards.greenhouse.io', schema: [{ fieldKey: 'email', type: 'email', label: 'Email' }] })
+
+    expect(res.status).toBe(200)
+    expect(res.body.mapping).toEqual([{ fieldKey: 'email', profileKey: 'email' }])
+    expect(mockMapFormSchema).toHaveBeenCalledWith(
+      'boards.greenhouse.io',
+      [{ fieldKey: 'email', type: 'email', label: 'Email', placeholder: null }],
+      USER_ID
+    )
+  })
+
+  it('rejects a schema with more than 150 fields', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    userRepo.rows.push({ id: USER_ID, plan: Plan.PREMIUM, planExpiresAt: null, createdAt: new Date() } as never)
+
+    const schema = Array.from({ length: 151 }, (_, i) => ({ fieldKey: `f${i}`, type: 'text' }))
+    const res = await request(app)
+      .post('/api/extension/field-map')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ hostname: 'boards.greenhouse.io', schema })
+
+    expect(res.status).toBe(400)
   })
 })
 

@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "JobMagnate — Assisted Apply",
+  "version": "0.1.0",
+  "description": "Fills job application forms with your JobMagnate profile. You review and click submit — it never does.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "JobMagnate"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "externally_connectable": {
+    "matches": ["http://localhost:3000/*", "https://jobmagnate.com/*"]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@jobmagnate/extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JobMagnate Assisted Apply — Chrome extension (MV3). See docs/assisted_apply_extension_plan.md.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch --api=http://localhost:3001 --web=http://localhost:3000",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "@types/node": "^26.5.1",
+    "esbuild": "^0.24.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "allowScripts": {
+    "esbuild@0.24.2": true,
+    "esbuild@0.21.5": true
+  }
+}
