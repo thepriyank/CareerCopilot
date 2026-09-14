@@ -5,6 +5,16 @@ describe('cleanMarkdownArtifacts', () => {
     expect(cleanMarkdownArtifacts('AI\\-native start\\-up (18,000\\+ experts)')).toBe('AI-native start-up (18,000+ experts)')
   })
 
+  it('unescapes the full CommonMark punctuation set, not just a hand-picked subset (regression: "&" was missing)', () => {
+    expect(cleanMarkdownArtifacts('SecOps \\& Pipeline Engineering')).toBe('SecOps & Pipeline Engineering')
+    expect(cleanMarkdownArtifacts('5,000\\+ employees, 24,000\\+ customers')).toBe('5,000+ employees, 24,000+ customers')
+  })
+
+  it('strips a Setext-style heading underline ("Text\\n===="), a distinct syntax from "#" headings', () => {
+    expect(cleanMarkdownArtifacts('Software Engineer\n=================\n\nWe are hiring.')).toBe('Software Engineer\n\nWe are hiring.')
+    expect(cleanMarkdownArtifacts('Overview\n--------\n\nDetails here.')).toBe('Overview\n\nDetails here.')
+  })
+
   it('strips bold markers', () => {
     expect(cleanMarkdownArtifacts('**Company Description**')).toBe('Company Description')
   })

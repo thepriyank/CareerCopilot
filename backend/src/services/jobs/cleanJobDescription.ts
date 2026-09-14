@@ -20,12 +20,25 @@ export function cleanMarkdownArtifacts(text: string): string {
   let out = text
 
   // Un-escape markdownify's backslash-escaped punctuation first — by far
-  // the biggest source of visible clutter ("AI\-native", "18,000\+").
-  out = out.replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, '$1')
+  // the biggest source of visible clutter ("AI\-native", "18,000\+",
+  // "SecOps \& Pipeline Engineering"). The full CommonMark ASCII-punctuation
+  // escape set, not a hand-picked subset — an earlier, narrower version of
+  // this list missed "&" and left it in the live description (caught during
+  // the 2026-09-14 staging backfill).
+  out = out.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~\\])/g, '$1')
 
   // Heading markers ("### **Role at a Glance**" -> "**Role at a Glance**",
   // stripped further below).
   out = out.replace(/^#{1,6}[ \t]+/gm, '')
+
+  // Setext-style headings — a line of only "=" or "-" directly underlining
+  // the heading text above it ("Software Engineer\n=======") is a second,
+  // distinct Markdown heading syntax from the "#"-style one above (caught
+  // during the 2026-09-14 staging backfill). Just remove the underline
+  // line; the heading text above is left as its own paragraph line, same
+  // as the ATX case.
+  out = out.replace(/^[ \t]*={3,}[ \t]*$/gm, '')
+  out = out.replace(/^[ \t]*-{3,}[ \t]*$/gm, '')
 
   // Bullet markers ("* item" / "+ item") -> a consistent "- item", done
   // before emphasis-stripping so a leading "*" can never be misread as the
