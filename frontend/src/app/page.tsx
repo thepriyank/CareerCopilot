@@ -130,12 +130,17 @@ export default function LandingPage() {
         }}
       >
         <div>&copy; {new Date().getFullYear()} JobMagnate. All rights reserved.</div>
-        <div>
-          A{' '}
-          <a href="https://nowmagnate.com" target="_blank" rel="noreferrer" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
-            NowMagnate Innovations
-          </a>{' '}
-          company
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Link href="/privacy" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+            Privacy Policy
+          </Link>
+          <div>
+            A{' '}
+            <a href="https://nowmagnate.com" target="_blank" rel="noreferrer" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+              NowMagnate Innovations
+            </a>{' '}
+            company
+          </div>
         </div>
       </footer>
     </div>

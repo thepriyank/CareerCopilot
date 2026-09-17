@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Topbar } from '@/components/layout/Topbar'
 import { Icon } from '@/components/ui/Icon'
 import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, ApiError } from '@/lib/api'
@@ -586,6 +587,11 @@ function GetExtensionCard() {
       ) : (
         <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Coming soon — not yet published to the Chrome Web Store.</div>
       )}
+      <div style={{ marginTop: 12 }}>
+        <Link href="/privacy" target="_blank" style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'underline' }}>
+          Privacy policy
+        </Link>
+      </div>
     </div>
   )
 }

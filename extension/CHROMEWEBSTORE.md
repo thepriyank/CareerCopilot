@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — JobMagnate — Assisted Apply
 
-> Last Updated: 2026-09-14
+> Last Updated: 2026-09-17
 
 Generated per the `modern-web-guidance:chrome-extensions` skill's
 convention — the single place to copy-paste from when filling out the
@@ -43,7 +43,7 @@ PERMISSIONS
 Currently excluded: LinkedIn, Naukri, Indeed, Glassdoor, and Wellfound. Applications on those platforms are not supported by this extension.
 
 SUPPORT
-Questions or issues? [support email/URL — fill in before submitting]
+Questions or issues? support@jobmagnate.com
 
 Version 0.1.0 — first release.
 ```
@@ -107,39 +107,12 @@ No `host_permissions` are declared — content-script injection relies on `activ
 
 ## Privacy Policy
 
-**Privacy Policy URL** [REQUIRED] — ⬜ not yet live
+**Privacy Policy URL** [REQUIRED] — ✅ live at `/privacy` (2026-09-17)
 
-Full policy text drafted below — needs a real hosted URL before submission (a `/privacy` page on jobmagnate.com is the natural home; not built yet, offered as a next step). The Chrome Web Store auto-rejects a dead or placeholder link, so don't submit until this resolves to a real page.
+Built as a real Next.js page (`frontend/src/app/privacy/page.tsx`), not the standalone draft text that used to live in this doc — that way it's one page covering both the web app and the extension, and it can't drift out of sync with two separate copies. Linked from the landing page footer and from the "Get the extension" card in Settings.
 
-```
-Privacy Policy for JobMagnate — Assisted Apply
-
-Last updated: 2026-09-14
-
-WHAT DATA WE COLLECT
-Your name, email, phone, location, and social/portfolio links, as already saved in your JobMagnate account — used to fill job application forms you choose to fill. The web address of the page you're on and the target form's field structure (field names, types, and labels — never what you've typed into them), used to identify the job and map the form correctly.
-
-HOW DATA IS STORED
-A connection token is stored locally in your browser (chrome.storage.local) and is never synced to Google's servers. Your profile data itself lives in your JobMagnate account, not in the extension.
-
-HOW DATA IS USED
-Solely to fill a job application form you explicitly ask the extension to fill, and to identify which job it belongs to. The extension never submits a form on your behalf — you always review and click submit yourself.
-
-THIRD-PARTY SERVICES
-When the extension encounters a form structure it hasn't seen before, JobMagnate's backend sends that form's field structure (never your personal data or anything you've typed) to a large-language-model provider to determine how to map it. This mapping is cached and reused for every user who encounters that same form afterward — most forms need this only once, ever.
-
-DATA SHARING
-We do not sell your data. Aside from the field-structure mapping described above, your data is not shared with third parties.
-
-DATA RETENTION AND DELETION
-You can disconnect the extension at any time from its popup, or revoke its access from JobMagnate Settings → Extensions — this immediately invalidates its connection token. Deleting your JobMagnate account deletes the data described above along with everything else in your account.
-
-CHANGES TO THIS POLICY
-We'll update this policy if what we collect or how we use it changes, and update the "Last updated" date above.
-
-CONTACT
-[support email — fill in before publishing]
-```
+- Staging: `https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app/privacy` (verify the exact URL from `infra/terraform/INFRASTRUCTURE.md` if the staging service URL ever changes)
+- Production (once merged): `https://jobmagnate.com/privacy` — **use this one for the actual Chrome Web Store submission**, not the staging URL.
 
 ## Distribution
 
@@ -148,9 +121,9 @@ CONTACT
 
 ## Developer Info
 
-**Publisher Name** [REQUIRED] — [fill in — e.g. "NowMagnate Innovations", per the web app's footer attribution]
-**Contact Email** [REQUIRED] — [fill in — a monitored address; Google sends policy/takedown notices here, and it's shown publicly on the listing]
-**Support URL / Email** [RECOMMENDED] — [fill in]
+**Publisher Name** [REQUIRED] — NowMagnate Innovations (per the web app's footer attribution)
+**Contact Email** [REQUIRED] — support@jobmagnate.com — confirm this inbox is actually monitored (or forwards somewhere that is) before submitting; Google sends policy/takedown notices here, and it's shown publicly on the listing.
+**Support URL / Email** [RECOMMENDED] — support@jobmagnate.com
 **Homepage URL** [RECOMMENDED] — https://jobmagnate.com
 
 ## Version History
@@ -165,8 +138,13 @@ CONTACT
 - **Résumé/cover-letter attachment isn't live yet.** The mapping vocabulary and backend artifact resolution exist, but the content script currently skips filling `resume`/`coverLetter` fields, and the download routes are session-JWT-only (not yet extension-token-authed). Don't claim this in store copy until it ships.
 - **No auto-detect.** Filling only happens on an explicit popup click, never automatically on page load — by design for now, but worth knowing if a reviewer asks "does this run automatically."
 - **`activeTab` + popup-button interaction**: `activeTab`'s temporary grant is triggered by the toolbar-icon click that opens the popup; clicking "Fill this form" *inside* that already-open popup relies on that same grant still being valid, since nothing has navigated the tab away in between. This is a standard, widely-shipped pattern (this is how most icon+popup extensions that act on the current page work) but hasn't been confirmed against a real Chrome install for this specific extension — do that once before submitting, per the skill's "test early" guidance in a real browser, not just via the fixture-based unit tests this repo has.
-- No screenshots yet — needs a real Chrome install against a live job form (see extension/README.md's local-dev instructions).
-- Publisher name, contact email, and the privacy policy's hosted URL are placeholders — must be filled in with real values before submission.
+
+### Still needed before submitting — none of this can be done from the codebase, all manual/Developer Dashboard steps
+- **Screenshots (1 required, 1 recommended) + small promo tile (recommended).** Needs a real Chrome install with the extension loaded unpacked, against a live job form (see extension/README.md's local-dev instructions) — an automated browser tool can't load an unpacked extension or drive Chrome's own extension UI, so this has to be captured by hand.
+- **A one-time $5 Chrome Web Store developer registration fee**, if this Google account hasn't registered as a CWS developer before — a real payment on a real Google account, so this is on you to do directly in the Developer Dashboard, not something to hand off.
+- **Visibility decision** (Public vs. Unlisted for a soft launch first) — a launch-strategy call, not a technical one. Unlisted first is a reasonable default if you want to test the real install flow with a small group before it's publicly searchable.
+- **Confirm support@jobmagnate.com is actually a monitored inbox** (or set up a forward) before it goes out on a public listing and this privacy policy.
+- Once all of the above is done: submit for review using the production privacy policy URL (`https://jobmagnate.com/privacy`, not staging's).
 
 ### Rejection History
 None yet — first submission not made.
