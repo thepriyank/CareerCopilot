@@ -1,5 +1,5 @@
 {
-  "_comment": "System-wide search terms the discovery cron uses against title-based aggregators (JSearch/Adzuna/Jooble/TheirStack). Discovery is no longer per-candidate (2026-09-06) — this is the interim stand-in for the admin mode described in the F4 plan doc, which will let an admin edit this list from a UI instead of a committed file. Keep it curated, not exhaustive — every title here gets queried on every cron tick. Scoped to software-engineering roles only as of 2026-09-09 (dropped Product Manager, added AI/ML, Platform, and Lead Engineer) — this list only bounds the keyword-search aggregators; isSoftwareEngineeringRole.ts is the actual filter applied to every discovered job regardless of source, including the unfiltered remote-board/ATS feeds.",
+  "_comment": "System-wide search terms the discovery cron uses against title-based aggregators (JSearch/Adzuna/Jooble/TheirStack). Discovery is no longer per-candidate (2026-09-06) — this is the interim stand-in for the admin mode described in the F4 plan doc, which will let an admin edit this list from a UI instead of a committed file. Keep it curated, not exhaustive — every title here gets queried on every cron tick. Broadened 2026-09-17 beyond pure software-engineering roles to also cover other trending tech roles (cloud/security/data/design) and trending corporate roles (product/business/finance/growth marketing/customer success/HR business partner), based on research into LinkedIn's Jobs on the Rise, the WEF Future of Jobs 2026 report, and India-specific hiring-trend coverage — this list only bounds the keyword-search aggregators; isAcceptedJobRole.ts is the actual filter applied to every discovered job regardless of source, including the unfiltered remote-board/ATS feeds.",
   "titles": [
     "Software Engineer",
     "Frontend Engineer",
@@ -13,6 +13,18 @@
     "Data Engineer",
     "Platform Engineer",
     "DevOps Engineer",
-    "QA Engineer"
+    "QA Engineer",
+    "Cloud Architect",
+    "Cybersecurity Engineer",
+    "MLOps Engineer",
+    "Data Scientist",
+    "Data Analyst",
+    "Product Designer",
+    "Product Manager",
+    "Business Analyst",
+    "Financial Analyst",
+    "Digital Marketing Manager",
+    "Customer Success Manager",
+    "HR Business Partner"
   ]
 }
