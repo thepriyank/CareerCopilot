@@ -35,7 +35,7 @@ jobs:
       run:
         working-directory: infra/terraform/environments/staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Fixes a real bug hit live (2026-09-09): this run is pinned to the
       # commit that triggered it. If deploy-backend.yml/deploy-frontend.yml
@@ -48,11 +48,11 @@ jobs:
       # the previous one in the queue actually committed.
       - run: git pull --ff-only origin main
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: '1.15.8'
 
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/764795049074/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider
           service_account: jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com
