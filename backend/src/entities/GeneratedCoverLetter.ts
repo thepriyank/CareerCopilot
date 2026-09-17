@@ -20,11 +20,13 @@ export class GeneratedCoverLetter {
   user!: User
 
   // Points at a UserJob row — see MatchResult.ts's comment on why UserJob,
-  // not JobListing.
+  // not JobListing. CASCADE: a cover letter for one specific job posting is
+  // meaningless once that job (and its UserJob row) is gone — see
+  // services/jobs/jobCleanup.ts.
   @Column()
   jobId!: string
 
-  @ManyToOne(() => UserJob, (uj) => uj.generatedLetters)
+  @ManyToOne(() => UserJob, (uj) => uj.generatedLetters, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'jobId' })
   job!: UserJob
 

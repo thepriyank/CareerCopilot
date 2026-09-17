@@ -31,10 +31,14 @@ export class ExtensionFill {
 
   // Null when job identification failed — filling still isn't blocked on
   // knowing which job this is, see "Job identification" in the plan doc.
+  // SET NULL, not CASCADE (2026-09-17): this row is a quota-charge ledger
+  // entry first — "a fill was charged on this date" stays true and worth
+  // keeping even after the linked job is cleaned up (services/jobs/jobCleanup.ts);
+  // only the now-invalid job reference should go, not the whole record.
   @Column({ nullable: true, type: 'uuid' })
   jobId!: string | null
 
-  @ManyToOne(() => UserJob, { nullable: true })
+  @ManyToOne(() => UserJob, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'jobId' })
   job!: UserJob | null
 

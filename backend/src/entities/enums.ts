@@ -55,6 +55,14 @@ export enum ResumeVersionType {
   TAILORED = 'TAILORED',
 }
 
+// Lifecycle state of a shared JobListing — see JobListing.ts's `status`/
+// `expiredAt` comment and services/jobs/jobCleanup.ts for the rules that
+// move a listing between these.
+export enum JobListingStatus {
+  ACTIVE = 'ACTIVE',
+  EXPIRED = 'EXPIRED',
+}
+
 // How a user came to have a given JobListing in their list — see UserJob.
 export enum JobOrigin {
   // System-wide discovery cron found it in the shared pool and it scored

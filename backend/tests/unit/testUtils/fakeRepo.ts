@@ -67,13 +67,26 @@ export function createFakeRepo<T extends Row>(seed: T[] = []) {
     findOne: jest.fn(async (options: { where?: Record<string, unknown> }): Promise<T | null> => {
       return rows.find((r) => matches(r, options?.where)) ?? null
     }),
-    delete: jest.fn(async (where: Record<string, unknown>): Promise<void> => {
-      const idx = rows.findIndex((r) => matches(r, where))
-      if (idx >= 0) rows.splice(idx, 1)
+    // Bulk-matching, like real TypeORM's criteria-object delete/update — an
+    // id string still narrows to exactly one row (the common case), but a
+    // where-object now removes/updates every match, not just the first.
+    // Returns `{ affected }` like TypeORM's DeleteResult/UpdateResult, for
+    // callers (e.g. jobCleanup.ts) that check how many rows were touched.
+    delete: jest.fn(async (where: Record<string, unknown>): Promise<{ affected: number }> => {
+      let affected = 0
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if (matches(rows[i], where)) {
+          rows.splice(i, 1)
+          affected++
+        }
+      }
+      return { affected }
     }),
-    update: jest.fn(async (id: string, partial: Partial<T>): Promise<void> => {
-      const row = rows.find((r) => r.id === id)
-      if (row) Object.assign(row, partial)
+    update: jest.fn(async (criteria: string | Record<string, unknown>, partial: Partial<T>): Promise<{ affected: number }> => {
+      const where = typeof criteria === 'string' ? { id: criteria } : criteria
+      const matched = rows.filter((r) => matches(r, where))
+      matched.forEach((r) => Object.assign(r, partial))
+      return { affected: matched.length }
     }),
   }
 }

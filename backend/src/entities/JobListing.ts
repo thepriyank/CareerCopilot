@@ -1,7 +1,8 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany
+  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index
 } from 'typeorm'
 import { UserJob } from './UserJob'
+import { JobListingStatus } from './enums'
 
 /**
  * The global, deduped record of one real job posting — shared across every
@@ -23,6 +24,8 @@ import { UserJob } from './UserJob'
  * call per user.
  */
 @Entity('job_listings')
+@Index(['status', 'firstSeenAt'])
+@Index(['status', 'expiredAt'])
 export class JobListing {
   @PrimaryGeneratedColumn('uuid')
   id!: string
@@ -87,6 +90,19 @@ export class JobListing {
 
   @UpdateDateColumn()
   lastSeenAt!: Date
+
+  // Phase 2 staleness/expiry (2026-09-17) — see services/jobs/jobCleanup.ts.
+  // A listing flips ACTIVE -> EXPIRED once `firstSeenAt` is >= STALE_DAYS old
+  // (not `lastSeenAt`: a listing a discovery run keeps re-confirming present
+  // is still exactly as old as when it was first posted/found, re-seeing it
+  // doesn't make it a fresher posting). `expiredAt` records when that flip
+  // happened, so the weekly purge job knows which EXPIRED rows have sat long
+  // enough (PURGE_AFTER_EXPIRED_DAYS) to hard-delete.
+  @Column({ type: 'enum', enum: JobListingStatus, default: JobListingStatus.ACTIVE })
+  status!: JobListingStatus
+
+  @Column({ nullable: true, type: 'timestamp' })
+  expiredAt!: Date | null
 
   @OneToMany(() => UserJob, (uj) => uj.jobListing)
   userJobs!: UserJob[]
