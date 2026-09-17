@@ -3,13 +3,17 @@ import cors from 'cors'
 import { config } from './config'
 import routes from './routes'
 import { errorHandler } from './middleware/errorHandler'
+import { isAllowedOrigin } from './config/corsOrigin'
 import { logger } from './utils/logger'
 
 const app = express()
 
 app.use(
   cors({
-    origin: config.cors.origin,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin, config.cors.origin)) callback(null, true)
+      else callback(new Error('Not allowed by CORS'))
+    },
     credentials: true,
   })
 )

@@ -3,12 +3,19 @@ jest.mock('../../src/services/jobs/discoveryService', () => ({
   discoverJobsGlobally: (...args: unknown[]) => mockDiscoverJobsGlobally(...args),
 }))
 
+const mockExpireStaleJobs = jest.fn()
+jest.mock('../../src/services/jobs/jobCleanup', () => ({
+  expireStaleJobs: (...args: unknown[]) => mockExpireStaleJobs(...args),
+}))
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import { runScheduledDiscovery } from '../../src/services/jobs/discoveryCron'
 
 beforeEach(() => {
   mockDiscoverJobsGlobally.mockReset()
   mockDiscoverJobsGlobally.mockResolvedValue({ newListings: 0, seen: 0, errors: [] })
+  mockExpireStaleJobs.mockReset()
+  mockExpireStaleJobs.mockResolvedValue(0)
 })
 
 describe('runScheduledDiscovery', () => {
@@ -20,6 +27,16 @@ describe('runScheduledDiscovery', () => {
     expect(mockDiscoverJobsGlobally).toHaveBeenCalledTimes(1)
     expect(mockDiscoverJobsGlobally).toHaveBeenCalledWith() // no candidate/profile argument any more
     expect(result).toEqual({ newListings: 12, seen: 3 })
+    expect(mockExpireStaleJobs).toHaveBeenCalledTimes(1) // runs every tick — see jobCleanup.ts
+  })
+
+  it('a staleness-marking failure is logged but does not affect the reported discovery result', async () => {
+    mockDiscoverJobsGlobally.mockResolvedValueOnce({ newListings: 5, seen: 1, errors: [] })
+    mockExpireStaleJobs.mockRejectedValueOnce(new Error('update failed'))
+
+    const result = await runScheduledDiscovery()
+
+    expect(result).toEqual({ newListings: 5, seen: 1 })
   })
 
   it('does not throw when a run reports provider errors — just logs and returns the counts', async () => {

@@ -43,9 +43,16 @@ export class UserJob {
   @Column()
   jobListingId!: string
 
-  // No onDelete cascade from JobListing's side — a shared listing outliving
-  // any one user's reference to it is the whole point of splitting this out.
-  @ManyToOne(() => JobListing, (jl) => jl.userJobs)
+  // CASCADE (2026-09-17, Phase 2 cleanup — see services/jobs/jobCleanup.ts):
+  // when a JobListing is hard-deleted (60 days stale + 15 more as EXPIRED),
+  // every UserJob pointing at it — and everything that in turn hangs off
+  // THOSE rows (MatchResult, GeneratedResumeVersion, GeneratedCoverLetter,
+  // ApprovalRecord) — goes with it; none of that per-user data means
+  // anything once the underlying posting is gone. A shared listing still
+  // outlives any single UserJob being removed on its own (the reverse
+  // direction, unaffected by this) — that's the reason this table was split
+  // out from the old per-user JobPosting in the first place.
+  @ManyToOne(() => JobListing, (jl) => jl.userJobs, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'jobListingId' })
   jobListing!: JobListing
 

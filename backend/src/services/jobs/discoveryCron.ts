@@ -20,6 +20,7 @@ import cron, { ScheduledTask } from 'node-cron'
 import { config } from '../../config'
 import { logger } from '../../utils/logger'
 import { discoverJobsGlobally } from './discoveryService'
+import { expireStaleJobs } from './jobCleanup'
 
 let task: ScheduledTask | null = null
 let running = false // re-entrancy guard — a slow run should never overlap the next tick
@@ -42,6 +43,17 @@ export async function runScheduledDiscovery(): Promise<{ newListings: number; se
     logger.info(
       `discoveryCron: ${newListings} new listing(s), ${seen} already known, in ${Date.now() - startedAt}ms`
     )
+
+    // Runs every tick, not just once a week, so a listing is flagged within
+    // about a day of crossing STALE_AFTER_DAYS — see jobCleanup.ts. A
+    // failure here is logged, not fatal: today's discovery results above are
+    // still good and shouldn't be thrown away over a staleness-marking bug.
+    try {
+      await expireStaleJobs()
+    } catch (err) {
+      logger.error('discoveryCron: expireStaleJobs failed', { err: (err as Error).message })
+    }
+
     return { newListings, seen }
   } catch (err) {
     logger.error('discoveryCron: run failed', { err: (err as Error).message })

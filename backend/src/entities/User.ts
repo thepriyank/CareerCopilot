@@ -15,6 +15,8 @@ import { SkillGapReport } from './SkillGapReport'
 import { CourseRecommendation } from './CourseRecommendation'
 import { LinkedInReviewReport } from './LinkedInReviewReport'
 import { ModelUsageRecord } from './ModelUsageRecord'
+import { ExtensionToken } from './ExtensionToken'
+import { ExtensionFill } from './ExtensionFill'
 
 @Entity('users')
 export class User {
@@ -51,6 +53,17 @@ export class User {
 
   @Column({ type: 'enum', enum: Plan, default: Plan.FREE })
   plan!: Plan
+
+  // Expiry for `plan` when it's PREMIUM — null means "does not expire" (a
+  // FREE user, or a future non-expiring PREMIUM grant). The one-month
+  // full-access pass sets both `plan = PREMIUM` and this to `now + 30d`
+  // together; nothing else should ever read `plan` on its own to decide
+  // entitlement — go through resolveEffectivePlan() in
+  // services/plan/resolveEffectivePlan.ts, which treats a past
+  // planExpiresAt as FREE regardless of what this column says. See
+  // docs/monetization_plan.md.
+  @Column({ type: 'timestamp', nullable: true })
+  planExpiresAt!: Date | null
 
   @Column({ type: 'jsonb', default: '{}' })
   settings!: Record<string, unknown>
@@ -96,4 +109,10 @@ export class User {
 
   @OneToMany(() => ModelUsageRecord, (mu) => mu.user)
   modelUsageRecords!: ModelUsageRecord[]
+
+  @OneToMany(() => ExtensionToken, (et) => et.user)
+  extensionTokens!: ExtensionToken[]
+
+  @OneToMany(() => ExtensionFill, (ef) => ef.user)
+  extensionFills!: ExtensionFill[]
 }

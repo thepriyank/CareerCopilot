@@ -31,17 +31,21 @@ export class ApprovalRecord {
   @CreateDateColumn()
   timestamp!: Date
 
+  // Both CASCADE (2026-09-17): an approval record about a resume version or
+  // cover letter that no longer exists (e.g. deleted along with its job via
+  // services/jobs/jobCleanup.ts) is a dangling reference, not useful history
+  // on its own — exactly one of the two is ever set for a given record.
   @Column({ nullable: true, type: 'uuid' })
   resumeVersionId!: string | null
 
-  @ManyToOne(() => GeneratedResumeVersion, (grv) => grv.approvalRecords, { nullable: true })
+  @ManyToOne(() => GeneratedResumeVersion, (grv) => grv.approvalRecords, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'resumeVersionId' })
   resumeVersion!: GeneratedResumeVersion | null
 
   @Column({ nullable: true, type: 'uuid' })
   coverLetterId!: string | null
 
-  @ManyToOne(() => GeneratedCoverLetter, (gcl) => gcl.approvalRecords, { nullable: true })
+  @ManyToOne(() => GeneratedCoverLetter, (gcl) => gcl.approvalRecords, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'coverLetterId' })
   coverLetter!: GeneratedCoverLetter | null
 }

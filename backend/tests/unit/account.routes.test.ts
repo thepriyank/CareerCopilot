@@ -14,6 +14,7 @@ import { SkillGapReport } from '../../src/entities/SkillGapReport'
 import { LinkedInReviewReport } from '../../src/entities/LinkedInReviewReport'
 import { createFakeRepo } from './testUtils/fakeRepo'
 import type { JobView } from '../../src/services/jobs/jobView'
+import { PASS_LAUNCH_AT } from '../../src/services/plan/resolveEffectivePlan'
 
 const userRepo = createFakeRepo()
 const resumeFileRepo = createFakeRepo()
@@ -158,5 +159,68 @@ describe('DELETE /api/account', () => {
     expect(res.status).toBe(200)
     expect(mockDeleteFile).toHaveBeenCalledWith('missing.pdf')
     expect(userRepo.rows.find((r) => r.id === USER_ID)).toBeUndefined()
+  })
+})
+
+describe('POST /api/account/activate-pass', () => {
+  const beforeLaunch = new Date(PASS_LAUNCH_AT.getTime() - 24 * 60 * 60 * 1000)
+
+  it('rejects unauthenticated requests', async () => {
+    const res = await request(buildApp()).post('/api/account/activate-pass')
+    expect(res.status).toBe(401)
+  })
+
+  it('grants a 30-day pass to a pre-existing user who has never had one', async () => {
+    userRepo.rows.push({
+      id: USER_ID, email: 'x@example.com', plan: 'FREE', planExpiresAt: null, createdAt: beforeLaunch, settings: {},
+    } as never)
+
+    const res = await request(buildApp()).post('/api/account/activate-pass').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.user.plan).toBe('PREMIUM')
+    const expiresAt = new Date(res.body.user.planExpiresAt)
+    const daysOut = (expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+    expect(daysOut).toBeGreaterThan(29)
+    expect(daysOut).toBeLessThanOrEqual(30)
+  })
+
+  it('rejects a user who already has a pass (or had one and it expired)', async () => {
+    userRepo.rows.push({
+      id: USER_ID, email: 'x@example.com', plan: 'FREE', planExpiresAt: new Date(Date.now() - 1000), createdAt: beforeLaunch, settings: {},
+    } as never)
+
+    const res = await request(buildApp()).post('/api/account/activate-pass').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_ELIGIBLE')
+  })
+
+  it('rejects a user created after the pass launched (they were already auto-granted one at signup)', async () => {
+    userRepo.rows.push({
+      id: USER_ID, email: 'x@example.com', plan: 'FREE', planExpiresAt: null, createdAt: new Date(PASS_LAUNCH_AT.getTime() + 1000), settings: {},
+    } as never)
+
+    const res = await request(buildApp()).post('/api/account/activate-pass').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(409)
+    expect(res.body.error.code).toBe('NOT_ELIGIBLE')
+  })
+})
+
+describe('POST /api/account/dismiss-pass-banner', () => {
+  it('rejects unauthenticated requests', async () => {
+    const res = await request(buildApp()).post('/api/account/dismiss-pass-banner')
+    expect(res.status).toBe(401)
+  })
+
+  it('sets the dismissal flag without clobbering other settings', async () => {
+    userRepo.rows.push({ id: USER_ID, email: 'x@example.com', settings: { modelConnection: 'kept' } } as never)
+
+    const res = await request(buildApp()).post('/api/account/dismiss-pass-banner').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    const saved = userRepo.rows.find((r) => r.id === USER_ID) as never as { settings: Record<string, unknown> }
+    expect(saved.settings).toEqual({ modelConnection: 'kept', passBannerDismissed: true })
   })
 })

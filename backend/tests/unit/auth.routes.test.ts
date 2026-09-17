@@ -7,6 +7,21 @@ import { createFakeRepo } from './testUtils/fakeRepo'
 
 const userRepo = createFakeRepo()
 
+// bcryptjs's real cost-12 hash/compare is a pure-JS, CPU-bound op chunked
+// via setImmediate — under the CPU contention of a full parallel test run
+// it can take seconds instead of ~300ms, which risks blowing past Jest's
+// per-test timeout. When that happens Jest moves on to the next test (and
+// its beforeEach reset of `userRepo.rows`) while this test's still-pending
+// hash/compare promise — and the `userRepo.save()` awaiting it in the route
+// — keeps running in the background, landing its write on whichever test
+// happens to be running by the time it resolves. Mocking it out makes the
+// route logic under test independent of real hashing cost/timing, same as
+// dataSource and firebaseAdmin below.
+jest.mock('bcryptjs', () => ({
+  hash: jest.fn(async (password: string) => `hashed:${password}`),
+  compare: jest.fn(async (password: string, hash: string) => hash === `hashed:${password}`),
+}))
+
 jest.mock('../../src/config/dataSource', () => {
   const { User } = require('../../src/entities/User')
   return {

@@ -71,6 +71,20 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
 ### 7.2 Post-MVP (out of scope for first release)
 
 - Auto-apply with approval checkpoints.
+- **Assisted Apply browser extension** — form autofill performed locally in
+  the candidate's own browser, on a page they opened, which they then submit
+  themselves. Holds no third-party credentials of any kind and has no submit
+  code path, so it is a different mechanism from the auto-apply gated in §11
+  (which it does not replace). See
+  `docs/assisted_apply_extension_plan.md`.
+- **Billing, pricing and real subscriptions.** Deferred to the phase after
+  the extension, but with a hard deadline rather than an open one: every user
+  is granted a **one-month full-access pass** on signup (granted, never
+  purchased — no payment integration involved), and billing must be live
+  before the first pass expires. Per-job tailored resumes and cover letters
+  are the only existing features intended to become paid; job discovery,
+  matching, and the master resume remain free permanently. See
+  `docs/monetization_plan.md`.
 - LinkedIn content generation and scheduling.
 - Recruiter discovery and outreach recommendations.
 - Network expansion suggestions based on graph analysis.
@@ -121,3 +135,4 @@ Job seekers spend extensive time rewriting resumes and cover letters for each ro
     - **A written per-platform legal/ToS review**, done before integration work starts, not after.
     - **A security audit** of whatever credential/token storage the OAuth flow requires.
     - LinkedIn is out of consideration entirely per this document's existing constraints (§9, §10) unless those are separately revisited.
+  - **The chosen compliant path is the Assisted Apply browser extension (§7.2), not server-side automation.** It is worth being precise about why it does not engage the gate above rather than merely satisfying it: the extension stores no third-party credential, cookie, session or OAuth token whatsoever — the candidate is already logged in to that site in their own browser, and the extension only fills form fields in a page they opened. There is nothing for the OAuth-only clause to apply to and nothing for a credential-storage security audit to examine. Per-application human confirmation is preserved structurally, not by policy: the extension has no submit code path, and a CI check fails the build if one is introduced. A written per-platform review is still required before adding an adapter for any job *aggregator* (Naukri, Indeed); employer-hosted ATS forms — a company's own Greenhouse/Lever/Ashby careers page — do not carry the same terms risk. Genuinely autonomous submission, with no human clicking submit, remains out of scope and still requires the full gate above.

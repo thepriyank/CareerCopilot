@@ -21,11 +21,14 @@ export class GeneratedResumeVersion {
   user!: User
 
   // Points at a UserJob row (null for a master resume, which has no job) —
-  // see MatchResult.ts's comment on why UserJob, not JobListing.
+  // see MatchResult.ts's comment on why UserJob, not JobListing. CASCADE: a
+  // resume tailored to one specific job posting is meaningless once that
+  // job (and its UserJob row) is gone — see services/jobs/jobCleanup.ts.
+  // Master resumes are never affected: jobId is null on those already.
   @Column({ nullable: true, type: 'uuid' })
   jobId!: string | null
 
-  @ManyToOne(() => UserJob, (uj) => uj.generatedResumes, { nullable: true })
+  @ManyToOne(() => UserJob, (uj) => uj.generatedResumes, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'jobId' })
   job!: UserJob | null
 

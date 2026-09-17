@@ -1,0 +1,85 @@
+// The web app origin the Connect button opens — overridden at build time
+// for local dev, see scripts/build.mjs's `--web=` flag and README.
+const WEB_APP_URL = (globalThis as { JOBMAGNATE_WEB_APP_URL?: string }).JOBMAGNATE_WEB_APP_URL
+  ?? 'https://jobmagnate.com'
+
+const statusEl = document.getElementById('status') as HTMLDivElement
+const connectBtn = document.getElementById('connectBtn') as HTMLButtonElement
+const manualConnectEl = document.getElementById('manualConnect') as HTMLDivElement
+const tokenInput = document.getElementById('tokenInput') as HTMLInputElement
+const useTokenBtn = document.getElementById('useTokenBtn') as HTMLButtonElement
+const fillBtn = document.getElementById('fillBtn') as HTMLButtonElement
+const disconnectBtn = document.getElementById('disconnectBtn') as HTMLButtonElement
+const resultEl = document.getElementById('result') as HTMLDivElement
+
+interface StatusResponse {
+  connected: boolean
+  profile?: { email?: string | null }
+  remainingFills?: number | null
+}
+
+async function refresh(): Promise<void> {
+  const status = (await chrome.runtime.sendMessage({ type: 'JOBMAGNATE_GET_STATUS' })) as StatusResponse
+
+  if (!status?.connected) {
+    statusEl.textContent = 'Not connected'
+    connectBtn.hidden = false
+    manualConnectEl.hidden = false
+    fillBtn.hidden = true
+    disconnectBtn.hidden = true
+    return
+  }
+
+  const remaining = status.remainingFills === null || status.remainingFills === undefined
+    ? 'Unlimited autofills'
+    : `${status.remainingFills} autofill${status.remainingFills === 1 ? '' : 's'} left`
+  statusEl.textContent = `${status.profile?.email ?? 'Connected'} · ${remaining}`
+  connectBtn.hidden = true
+  manualConnectEl.hidden = true
+  fillBtn.hidden = false
+  disconnectBtn.hidden = false
+}
+
+connectBtn.addEventListener('click', () => {
+  chrome.tabs.create({ url: `${WEB_APP_URL}/extension/connect` })
+})
+
+useTokenBtn.addEventListener('click', async () => {
+  const token = tokenInput.value.trim()
+  if (!token.startsWith('ext_')) {
+    statusEl.textContent = 'That doesn’t look like a token — it should start with "ext_".'
+    return
+  }
+
+  useTokenBtn.disabled = true
+  const result = (await chrome.runtime.sendMessage({ type: 'JOBMAGNATE_SET_TOKEN', token })) as { ok: boolean; message?: string }
+  useTokenBtn.disabled = false
+
+  if (!result?.ok) {
+    statusEl.textContent = result?.message ?? 'Could not connect with that token.'
+    return
+  }
+
+  tokenInput.value = ''
+  void refresh()
+})
+
+fillBtn.addEventListener('click', async () => {
+  fillBtn.disabled = true
+  resultEl.hidden = false
+  resultEl.textContent = 'Filling…'
+
+  const result = (await chrome.runtime.sendMessage({ type: 'JOBMAGNATE_POPUP_FILL' })) as { ok: boolean; message: string }
+  resultEl.textContent = result.message
+
+  fillBtn.disabled = false
+  void refresh()
+})
+
+disconnectBtn.addEventListener('click', async () => {
+  await chrome.runtime.sendMessage({ type: 'JOBMAGNATE_DISCONNECT' })
+  resultEl.hidden = true
+  void refresh()
+})
+
+void refresh()

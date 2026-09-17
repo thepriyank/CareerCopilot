@@ -36,8 +36,8 @@ jest.mock('../../src/services/skills/extractJobSkills', () => ({
 const fakeProviderA = { id: 'fake-a', detect: () => null, fetch: jest.fn(async (..._args: unknown[]) => [] as unknown[]) }
 // Board providers (RemoteOK/WeWorkRemotely/Himalayas) return their whole
 // feed unfiltered in real life — this fake stands in for that shape, to
-// confirm the software-engineering filter applies to them too (2026-09-09
-// fix), not just the title-search aggregators.
+// confirm the accepted-role filter applies to them too (2026-09-09 fix),
+// not just the title-search aggregators.
 const fakeBoardProvider = { id: 'fake-board', detect: () => null, fetch: jest.fn(async (..._args: unknown[]) => [] as unknown[]) }
 jest.mock('../../src/services/jobs/providers', () => ({
   atsProviders: [],
@@ -46,7 +46,7 @@ jest.mock('../../src/services/jobs/providers', () => ({
 }))
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-import { ensureUserHasJob, discoverJobsGlobally, ingestExternalJobs, JobInput } from '../../src/services/jobs/discoveryService'
+import { ensureUserHasJob, discoverJobsGlobally, ingestExternalJobs, upsertJobListing, JobInput } from '../../src/services/jobs/discoveryService'
 
 const USER_A = 'user-a'
 const USER_B = 'user-b'
@@ -72,6 +72,31 @@ beforeEach(() => {
   mockExtractJobSkills.mockClear()
   fakeProviderA.fetch.mockReset().mockResolvedValue([])
   fakeBoardProvider.fetch.mockReset().mockResolvedValue([])
+})
+
+describe('upsertJobListing description cleaning', () => {
+  it('cleans a jobspy:-sourced description before storing it', async () => {
+    const { listing } = await upsertJobListing(
+      baseInput({ source: 'jobspy:indeed', description: '**Company Description**  \n\nAI\\-native start\\-up' })
+    )
+    expect(listing.description).toBe('Company Description\n\nAI-native start-up')
+  })
+
+  it('leaves a non-jobspy source untouched, even if it happens to contain markdown-like characters', async () => {
+    const { listing } = await upsertJobListing(
+      baseInput({ source: 'pasted', description: '**Company Description**  \n\nAI\\-native start\\-up' })
+    )
+    expect(listing.description).toBe('**Company Description**  \n\nAI\\-native start\\-up')
+  })
+
+  it('also cleans on the update path when a jobspy: listing is re-discovered', async () => {
+    await upsertJobListing(baseInput({ source: 'jobspy:indeed', url: 'https://example.com/jobs/2', description: 'first pass' }))
+    const { listing, isNew } = await upsertJobListing(
+      baseInput({ source: 'jobspy:indeed', url: 'https://example.com/jobs/2', description: '**Updated** \\- description' })
+    )
+    expect(isNew).toBe(false)
+    expect(listing.description).toBe('Updated - description')
+  })
 })
 
 describe('ensureUserHasJob', () => {
@@ -164,7 +189,7 @@ describe('discoverJobsGlobally', () => {
     expect(jobListingRepo.rows).toHaveLength(0)
   })
 
-  it('filters out non-software-engineering listings from board providers, which return their feed unfiltered', async () => {
+  it('filters out unaccepted-role listings from board providers, which return their feed unfiltered', async () => {
     // Board providers have no title/query filtering at the source (unlike
     // aggregatorProviders, which only ever query the target-title seed) —
     // this is the actual gate that keeps e.g. "Executive Personal
@@ -204,7 +229,7 @@ describe('ingestExternalJobs', () => {
     expect(userJobRepo.rows).toHaveLength(0) // shared pool only, never attaches a candidate
   })
 
-  it('applies the same software-engineering-role filter as every other source', async () => {
+  it('applies the same accepted-role filter as every other source', async () => {
     const result = await ingestExternalJobs([
       baseInput({ title: 'Executive Personal Assistant to the Founder', url: 'https://example.com/jobs/11' }),
       baseInput({ title: 'Backend Engineer', url: 'https://example.com/jobs/12' }),

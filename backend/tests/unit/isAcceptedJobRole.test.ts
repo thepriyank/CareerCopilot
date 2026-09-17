@@ -1,7 +1,8 @@
-import { isSoftwareEngineeringRole } from '../../src/services/jobs/isSoftwareEngineeringRole'
+import { isAcceptedJobRole } from '../../src/services/jobs/isAcceptedJobRole'
 
-describe('isSoftwareEngineeringRole', () => {
+describe('isAcceptedJobRole', () => {
   const included: string[] = [
+    // Software engineering
     'Software Engineer',
     'Senior Software Engineer',
     'Backend Engineer (Node.js & Typescript)',
@@ -22,6 +23,26 @@ describe('isSoftwareEngineeringRole', () => {
     'Principal Engineer',
     'Technical Lead',
     'SDE I - Backend',
+    // Other trending tech roles
+    'Cloud Solutions Architect',
+    'Cybersecurity Analyst',
+    'Security Engineer',
+    'MLOps Engineer',
+    'Data Scientist',
+    'Data Analyst',
+    'UX Designer',
+    'Product Designer',
+    // Trending corporate roles
+    'Product Manager',
+    'Senior Product Manager, Payments',
+    'Business Analyst',
+    'Financial Analyst',
+    'Growth Marketing Manager',
+    'Digital Marketing Manager',
+    'Customer Success Manager',
+    'HR Business Partner',
+    'People Operations Lead',
+    'Revenue Operations Manager',
   ]
 
   const excluded: string[] = [
@@ -31,9 +52,8 @@ describe('isSoftwareEngineeringRole', () => {
     'Field Service Engineer',
     'Network Engineer',
     'Mechanical Engineer',
-    'Product Manager',
     'Project Manager',
-    'Marketing Manager',
+    'Program Manager',
     'HR Generalist',
     'Executive Assistant',
     'Recruiter',
@@ -43,15 +63,15 @@ describe('isSoftwareEngineeringRole', () => {
   ]
 
   it.each(included)('includes "%s"', (title) => {
-    expect(isSoftwareEngineeringRole(title)).toBe(true)
+    expect(isAcceptedJobRole(title)).toBe(true)
   })
 
   it.each(excluded)('excludes "%s"', (title) => {
-    expect(isSoftwareEngineeringRole(title)).toBe(false)
+    expect(isAcceptedJobRole(title)).toBe(false)
   })
 
   it('handles null/undefined without throwing', () => {
-    expect(isSoftwareEngineeringRole(null)).toBe(false)
-    expect(isSoftwareEngineeringRole(undefined)).toBe(false)
+    expect(isAcceptedJobRole(null)).toBe(false)
+    expect(isAcceptedJobRole(undefined)).toBe(false)
   })
 })

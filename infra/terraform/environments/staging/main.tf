@@ -63,6 +63,12 @@ locals {
     JOOBLE_API_KEY                 = "jooble-api-key"
     JSEARCH_RAPID_API_KEY          = "jsearch-rapid-api-key"
     JSEARCH_OPEN_WEB_NINJA_API_KEY = "jsearch-open-web-ninja-api-key"
+    # Shared secret for POST /api/internal/jobs/ingest — the local JobSpy
+    # scraper (scripts/jobspy-ingest/) authenticates with this. Added
+    # 2026-09-17 to let that script target the shared staging pool instead
+    # of only local dev (its .env's BACKEND_INGEST_URL defaults to
+    # localhost) — was never wired into any deployed environment before.
+    INTERNAL_INGEST_TOKEN = "internal-ingest-token"
   }
 
   enabled_secret_map = { for k, v in local.all_secrets : k => v if contains(var.enabled_secrets, k) }
@@ -193,4 +199,55 @@ module "discovery_schedule" {
   time_zone                     = "Etc/UTC"
   cloud_run_job_name            = module.discovery_job.name
   invoker_service_account_email = module.discovery_scheduler_sa.email
+}
+
+# ── Weekly job-listing cleanup (Phase 2 staleness/expiry, 2026-09-17) ────
+# Same Cloud Run Job + Cloud Scheduler pattern as discovery above — see
+# backend/src/services/jobs/jobCleanup.ts for the actual rules (a listing
+# is marked EXPIRED once it's been in the pool >= STALE_AFTER_DAYS, by the
+# daily discovery_job above; this weekly job hard-deletes anything that's
+# stayed EXPIRED for >= PURGE_AFTER_EXPIRED_DAYS). Cloud Scheduler has no
+# native "start on this date" option, so "starts 2026-12-01" is enforced in
+# code (jobCleanup.ts's CLEANUP_STARTS_AT) rather than here — every weekly
+# tick before that date is a deliberate, logged no-op, so this can be
+# applied now without anyone needing to touch Terraform again in December.
+module "job_cleanup_scheduler_sa" {
+  source        = "../../modules/service-account"
+  project_id    = var.project_id
+  account_id    = "jobmagnate-clean-sched-${var.environment}" # google_service_account account_id caps at 30 chars
+  display_name  = "Jobmagnate cleanup-job invoker (${var.environment}) — Cloud Scheduler only, no runtime DB/secret access"
+  project_roles = []
+}
+
+module "job_cleanup_job" {
+  source     = "../../modules/cloud-run-job"
+  project_id = var.project_id
+  region     = var.region
+  job_name   = "jobmagnate-job-cleanup-${var.environment}"
+  image      = var.backend_image
+  # Same runtime SA as the backend service/discovery job — already holds
+  # the Secret Manager grants this job needs (just DATABASE_URL, really).
+  service_account_email = module.backend_sa.email
+  command               = ["node"]
+  args                  = ["dist/scripts/runJobCleanup.js"]
+  labels                = { app = "jobmagnate", environment = var.environment, service = "job-cleanup-job" }
+
+  env_vars = {
+    NODE_ENV = "production"
+  }
+
+  # Reuses the full secret set for the same reason discovery_job does —
+  # see that module's comment.
+  secret_env_vars = { for k, m in module.secrets : k => m.secret_id }
+}
+
+module "job_cleanup_schedule" {
+  source                        = "../../modules/cloud-scheduler-job"
+  project_id                    = var.project_id
+  region                        = var.region
+  name                          = "jobmagnate-job-cleanup-${var.environment}"
+  schedule                      = "0 2 * * 2" # 2:00 UTC every Tuesday = 7:30am IST; 2026-12-01 is itself a Tuesday
+  time_zone                     = "Etc/UTC"
+  cloud_run_job_name            = module.job_cleanup_job.name
+  invoker_service_account_email = module.job_cleanup_scheduler_sa.email
 }

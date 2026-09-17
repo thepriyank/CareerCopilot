@@ -1,6 +1,7 @@
 import { Router, Response, NextFunction } from 'express'
 import { AppDataSource } from '../config/dataSource'
 import { User } from '../entities/User'
+import { Plan } from '../entities/enums'
 import { ResumeFile } from '../entities/ResumeFile'
 import { ParsedResume } from '../entities/ParsedResume'
 import { CandidateProfile } from '../entities/CandidateProfile'
@@ -12,11 +13,56 @@ import { ApprovalRecord } from '../entities/ApprovalRecord'
 import { SkillGapReport } from '../entities/SkillGapReport'
 import { LinkedInReviewReport } from '../entities/LinkedInReviewReport'
 import { requireAuth } from '../middleware/auth'
+import { createError } from '../middleware/errorHandler'
 import { deleteFile, filenameFromUrl } from '../services/storage/fileStorage'
+import { publicUser } from '../services/auth/publicUser'
+import { isPassEligible, PASS_DURATION_MS } from '../services/plan/resolveEffectivePlan'
 import { AuthRequest } from '../types'
 
 const router = Router()
 router.use(requireAuth)
+
+// POST /api/account/activate-pass — a pre-existing user (created before the
+// pass shipped) opts into their one-month full-access pass on their own
+// terms, rather than being backfilled. See "Existing users: opt in on next
+// visit" in docs/monetization_plan.md.
+router.post('/activate-pass', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userRepo = AppDataSource.getRepository(User)
+    const user = await userRepo.findOneBy({ id: req.userId! })
+    if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
+
+    if (!isPassEligible(user)) {
+      throw createError(409, 'NOT_ELIGIBLE', 'This account already has a pass, or is not eligible for one')
+    }
+
+    user.plan = Plan.PREMIUM
+    user.planExpiresAt = new Date(Date.now() + PASS_DURATION_MS)
+    await userRepo.save(user)
+
+    res.json({ user: publicUser(user) })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/account/dismiss-pass-banner — quiets the pass offer without
+// hiding it entirely (it's a gift, not a nag — see monetization_plan.md).
+// Stored in the existing settings jsonb; no migration needed.
+router.post('/dismiss-pass-banner', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userRepo = AppDataSource.getRepository(User)
+    const user = await userRepo.findOneBy({ id: req.userId! })
+    if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
+
+    user.settings = { ...user.settings, passBannerDismissed: true }
+    await userRepo.save(user)
+
+    res.json({ message: 'Dismissed' })
+  } catch (err) {
+    next(err)
+  }
+})
 
 // GET /api/account/export — a full JSON dump of everything this account has
 // generated. File *bytes* are intentionally excluded (binary, encrypted,

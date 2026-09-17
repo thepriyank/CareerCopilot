@@ -17,6 +17,7 @@ import {
   LinkedInReviewReport,
   AggregatedGap,
   DashboardData,
+  ExtensionTokenSummary,
 } from '../types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -343,6 +344,26 @@ export const account = {
   exportData: () => request<Record<string, unknown>>('/api/account/export'),
 
   deleteAccount: () => request<{ message: string }>('/api/account', { method: 'DELETE' }),
+
+  // One-month full-access pass — see docs/monetization_plan.md.
+  activatePass: () => request<{ user: User }>('/api/account/activate-pass', { method: 'POST' }),
+
+  dismissPassBanner: () => request<{ message: string }>('/api/account/dismiss-pass-banner', { method: 'POST' }),
+}
+
+// ─── Assisted Apply extension (Settings: Connected extensions) ─────────────
+
+export const extension = {
+  listTokens: () => request<{ tokens: ExtensionTokenSummary[] }>('/api/extension/tokens'),
+
+  mintToken: (label?: string) =>
+    request<{ token: string; id: string; label: string; createdAt: string }>('/api/extension/tokens', {
+      method: 'POST',
+      body: JSON.stringify({ label }),
+    }),
+
+  revokeToken: (id: string) =>
+    request<{ message: string }>(`/api/extension/tokens/${id}`, { method: 'DELETE' }),
 }
 
 export { ApiError }

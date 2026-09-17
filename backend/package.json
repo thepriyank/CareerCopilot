@@ -13,6 +13,8 @@
     "verify:seeds": "ts-node src/scripts/verifySeeds.ts",
     "discover:run": "ts-node src/scripts/runDiscovery.ts",
     "discover:run:prod": "node dist/scripts/runDiscovery.js",
+    "cleanup:run": "ts-node src/scripts/runJobCleanup.ts",
+    "cleanup:run:prod": "node dist/scripts/runJobCleanup.js",
     "postinstall": "npx playwright install chromium --with-deps || npx playwright install chromium",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/dataSource.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/dataSource.ts",

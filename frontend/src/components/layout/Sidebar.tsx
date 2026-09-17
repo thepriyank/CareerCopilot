@@ -7,6 +7,8 @@ import { Icon } from '@/components/ui/Icon'
 import { Avatar } from '@/components/ui/Avatar'
 import { auth as authApi } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
+import { PassBanner } from '@/components/layout/PassBanner'
+import type { User } from '@/types'
 
 const MAIN_NAV = [
   { href: '/dashboard',  label: 'Dashboard',  Icon: Icon.Home },
@@ -27,8 +29,7 @@ interface SidebarProps {
 export function Sidebar({ active }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [userName, setUserName] = useState<string | null>(null)
-  const [plan, setPlan] = useState<string>('Free plan')
+  const [user, setUser] = useState<User | null>(null)
 
   function handleSignOut() {
     clearToken()
@@ -38,14 +39,14 @@ export function Sidebar({ active }: SidebarProps) {
   useEffect(() => {
     authApi
       .me()
-      .then(({ user }) => {
-        setUserName(user.name || user.email)
-        setPlan(user.plan === 'PREMIUM' ? 'Premium plan' : 'Free plan')
-      })
+      .then(({ user }) => setUser(user))
       .catch(() => {
         // Not authenticated (or request failed) — leave the placeholder blank.
       })
   }, [])
+
+  const userName = user?.name || user?.email || null
+  const planLabel = user?.plan === 'PREMIUM' ? 'Premium plan' : 'Free plan'
 
   const isActive = (href: string) =>
     active
@@ -86,6 +87,8 @@ export function Sidebar({ active }: SidebarProps) {
 
       <div style={{ flex: 1 }} />
 
+      {user && <PassBanner user={user} />}
+
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 8px',
@@ -94,7 +97,7 @@ export function Sidebar({ active }: SidebarProps) {
         <Avatar name={userName || '?'} tone="ink" />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '…'}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{plan}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{planLabel}</div>
         </div>
         <Link href="/settings" title="Settings" style={{ color: 'var(--text-muted)', display: 'flex' }}>
           <Icon.Settings size={14} />
