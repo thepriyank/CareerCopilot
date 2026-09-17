@@ -63,6 +63,12 @@ locals {
     JOOBLE_API_KEY                 = "jooble-api-key"
     JSEARCH_RAPID_API_KEY          = "jsearch-rapid-api-key"
     JSEARCH_OPEN_WEB_NINJA_API_KEY = "jsearch-open-web-ninja-api-key"
+    # Shared secret for POST /api/internal/jobs/ingest — the local JobSpy
+    # scraper (scripts/jobspy-ingest/) authenticates with this. Added
+    # 2026-09-17 to let that script target the shared staging pool instead
+    # of only local dev (its .env's BACKEND_INGEST_URL defaults to
+    # localhost) — was never wired into any deployed environment before.
+    INTERNAL_INGEST_TOKEN = "internal-ingest-token"
   }
 
   enabled_secret_map = { for k, v in local.all_secrets : k => v if contains(var.enabled_secrets, k) }

@@ -59,6 +59,10 @@ variable "enabled_secrets" {
     # providers/adzuna.ts; this was the only missing piece).
     "ADZUNA_APP_ID",
     "ADZUNA_APP_KEY",
+    # Lets the local JobSpy scraper (scripts/jobspy-ingest/) target this
+    # environment's shared job pool — see main.tf's comment on
+    # INTERNAL_INGEST_TOKEN. Added 2026-09-17.
+    "INTERNAL_INGEST_TOKEN",
   ]
 }
 
