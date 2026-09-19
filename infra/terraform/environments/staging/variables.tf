@@ -63,6 +63,10 @@ variable "enabled_secrets" {
     # environment's shared job pool — see main.tf's comment on
     # INTERNAL_INGEST_TOKEN. Added 2026-09-17.
     "INTERNAL_INGEST_TOKEN",
+    # Phase B billing (2026-09-19) — routes/payments.routes.ts. Test-mode
+    # keys as of this writing; swap for live keys before real money moves.
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
   ]
 }
 
