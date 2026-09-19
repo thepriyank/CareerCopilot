@@ -564,13 +564,14 @@ function PlansGrid({ plans, currentTier, showBuyCta }: { plans: PassPlan[]; curr
     <div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--error)', marginBottom: 14 }}>{error}</div>}
       <div style={{ overflowX: 'auto', paddingTop: 14, paddingBottom: 4 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(220px, 1fr))', gap: 16, minWidth: 700, alignItems: 'stretch' }}>
+        <div className="plans-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(220px, 1fr))', gap: 16, minWidth: 700, alignItems: 'stretch' }}>
           {plans.map((plan) => {
             const discountPct = Math.round((1 - plan.amount / plan.listPrice) * 100)
             const isCurrent = currentTier === plan.passType
             return (
               <div
                 key={plan.passType}
+                className={plan.recommended ? 'plan-card-recommended' : undefined}
                 style={{
                   position: 'relative',
                   display: 'flex',
