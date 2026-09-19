@@ -366,4 +366,24 @@ export const extension = {
     request<{ message: string }>(`/api/extension/tokens/${id}`, { method: 'DELETE' }),
 }
 
+// ─── Payments (Settings: Plan) ──────────────────────────────────────────────
+// Razorpay Standard Checkout, one-time passes — see docs/monetization_plan.md's
+// "Phase B" and backend/src/routes/payments.routes.ts.
+
+export type PassType = 'ONE_MONTH' | 'THREE_MONTH'
+
+export const payments = {
+  createOrder: (passType: PassType) =>
+    request<{ orderId: string; amount: number; currency: string; keyId: string; passType: PassType; label: string }>(
+      '/api/payments/create-order',
+      { method: 'POST', body: JSON.stringify({ passType }) }
+    ),
+
+  verify: (payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    request<{ success: boolean; planExpiresAt: string }>('/api/payments/verify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+}
+
 export { ApiError }

@@ -12,6 +12,7 @@ import dashboardRoutes from './dashboard.routes'
 import accountRoutes from './account.routes'
 import internalIngestRoutes from './internalIngest.routes'
 import extensionRoutes from './extension.routes'
+import paymentsRoutes from './payments.routes'
 
 const router = Router()
 
@@ -28,5 +29,6 @@ router.use('/dashboard', dashboardRoutes)
 router.use('/account', accountRoutes)
 router.use('/internal', internalIngestRoutes)
 router.use('/extension', extensionRoutes)
+router.use('/payments', paymentsRoutes)
 
 export default router

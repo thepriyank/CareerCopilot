@@ -38,6 +38,7 @@
     "pdf-parse": "^1.1.1",
     "pg": "^8.13.3",
     "playwright": "^1.62.1",
+    "razorpay": "^2.9.8",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.20",
     "uuid": "^10.0.0",

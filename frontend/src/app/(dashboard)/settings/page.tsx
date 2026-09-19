@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Topbar } from '@/components/layout/Topbar'
 import { Icon } from '@/components/ui/Icon'
-import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, ApiError } from '@/lib/api'
+import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, payments as paymentsApi, ApiError, PassType } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
+import { loadRazorpayCheckout } from '@/lib/razorpay'
 import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency, User, ExtensionTokenSummary } from '@/types'
 
 function ModelConnectionCard() {
@@ -413,12 +414,95 @@ function PlanTab() {
       ) : (
         <>
           <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Free plan</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
-            Discovery, matching, skill gaps, LinkedIn review and application tracking are always free. Billing for
-            tailored résumés and cover letters isn&rsquo;t live yet.
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 18 }}>
+            Discovery, matching, skill gaps, LinkedIn review and application tracking are always free.
+            Buy a pass below to unlock unlimited tailored résumés, cover letters, and the Assisted Apply extension.
           </div>
+          <PassCheckoutSection />
         </>
       )}
+    </div>
+  )
+}
+
+const PASS_OPTIONS: { passType: PassType; label: string; price: string; note: string }[] = [
+  { passType: 'ONE_MONTH', label: '1-month pass', price: '₹299', note: 'Best for a single application sprint' },
+  { passType: 'THREE_MONTH', label: '3-month pass', price: '₹799', note: '~11% off the monthly rate' },
+]
+
+// Razorpay Standard Checkout — see docs/monetization_plan.md's "Phase B" and
+// lib/razorpay.ts. Only ever rendered for a user on the plain FREE plan
+// (both the pass-eligible and already-PREMIUM branches above return before
+// reaching this). A successful verify reloads the page, same as
+// activatePass() above, so every plan-derived UI (this tab, the sidebar
+// banner) picks up the new expiry from one shared source (GET /api/auth/me)
+// rather than needing its own local state to stay in sync.
+function PassCheckoutSection() {
+  const [payingFor, setPayingFor] = useState<PassType | null>(null)
+  const [error, setError] = useState('')
+
+  async function handleBuy(passType: PassType) {
+    setPayingFor(passType)
+    setError('')
+    try {
+      await loadRazorpayCheckout()
+      const order = await paymentsApi.createOrder(passType)
+
+      if (!window.Razorpay) throw new Error('Razorpay Checkout failed to load')
+      const checkout = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.orderId,
+        name: 'JobMagnate',
+        description: order.label,
+        handler: async (response) => {
+          try {
+            await paymentsApi.verify(response)
+            window.location.reload()
+          } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Payment succeeded but verification failed — contact support before retrying')
+            setPayingFor(null)
+          }
+        },
+        modal: {
+          // The user closed the modal without paying — not an error, just
+          // back to the buy buttons.
+          ondismiss: () => setPayingFor(null),
+        },
+        theme: { color: '#0f172a' },
+      })
+      checkout.on('payment.failed', (response) => {
+        setError(response.error?.description || 'Payment failed — you were not charged')
+        setPayingFor(null)
+      })
+      checkout.open()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not start checkout — try again')
+      setPayingFor(null)
+    }
+  }
+
+  return (
+    <div>
+      {error && <div style={{ fontSize: 12.5, color: 'var(--error)', marginBottom: 14 }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {PASS_OPTIONS.map((opt) => (
+          <div key={opt.passType} style={{ flex: '1 1 220px', border: '1px solid var(--line-2)', borderRadius: 10, padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{opt.label}</div>
+            <div className="serif" style={{ fontSize: 24, marginBottom: 4 }}>{opt.price}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 14 }}>{opt.note}</div>
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={() => handleBuy(opt.passType)}
+              disabled={payingFor !== null}
+            >
+              {payingFor === opt.passType ? 'Opening checkout…' : 'Buy'}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
