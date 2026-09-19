@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
   UpdateDateColumn, OneToMany, OneToOne
 } from 'typeorm'
-import { Plan, AuthProvider } from './enums'
+import { Plan, PlanTier, AuthProvider } from './enums'
 import { ResumeFile } from './ResumeFile'
 import { ParsedResume } from './ParsedResume'
 import { CandidateProfile } from './CandidateProfile'
@@ -55,8 +55,8 @@ export class User {
   plan!: Plan
 
   // Expiry for `plan` when it's PREMIUM — null means "does not expire" (a
-  // FREE user, or a future non-expiring PREMIUM grant). The one-month
-  // full-access pass sets both `plan = PREMIUM` and this to `now + 30d`
+  // FREE user, or a future non-expiring PREMIUM grant). The free trial
+  // sets both `plan = PREMIUM` and this to `now + TRIAL_DURATION_MS`
   // together; nothing else should ever read `plan` on its own to decide
   // entitlement — go through resolveEffectivePlan() in
   // services/plan/resolveEffectivePlan.ts, which treats a past
@@ -64,6 +64,14 @@ export class User {
   // docs/monetization_plan.md.
   @Column({ type: 'timestamp', nullable: true })
   planExpiresAt!: Date | null
+
+  // Which specific pass is behind the current `plan`/`planExpiresAt` grant
+  // — see enums.ts's PlanTier comment. Null for a FREE user who's never had
+  // one. Set alongside `plan`/`planExpiresAt` at every grant site (signup,
+  // POST /api/account/activate-pass, and a captured Razorpay payment via
+  // services/payments/applyPassPayment.ts) — never inferred after the fact.
+  @Column({ type: 'enum', enum: PlanTier, nullable: true })
+  activePlanTier!: PlanTier | null
 
   @Column({ type: 'jsonb', default: '{}' })
   settings!: Record<string, unknown>

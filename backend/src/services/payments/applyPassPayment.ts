@@ -1,6 +1,6 @@
 import { AppDataSource } from '../../config/dataSource'
 import { User } from '../../entities/User'
-import { Plan } from '../../entities/enums'
+import { Plan, PlanTier } from '../../entities/enums'
 import { PASS_PRICING, PassType } from './passPricing'
 import { logger } from '../../utils/logger'
 
@@ -40,6 +40,10 @@ export async function applyPassPayment(userId: string, paymentId: string, passTy
   const { months } = PASS_PRICING[passType]
   const extendFrom = user.planExpiresAt && user.planExpiresAt.getTime() > Date.now() ? user.planExpiresAt : new Date()
   user.plan = Plan.PREMIUM
+  // A real purchase always overwrites activePlanTier, even if the trial (or
+  // an earlier pass) was still active — the freshly bought tier is what's
+  // now driving the extended expiry, so it's what the UI should show.
+  user.activePlanTier = passType as unknown as PlanTier
   user.planExpiresAt = new Date(extendFrom.getTime() + months * 30 * 24 * 60 * 60 * 1000)
   user.settings = { ...user.settings, processedPaymentIds: [...processedPaymentIds, paymentId] }
   await userRepo.save(user)

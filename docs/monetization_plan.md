@@ -2,9 +2,20 @@
 
 **Status:** decided 2026-09-13, split across two phases.
 
+> **2026-09-19 update:** the free pass is now explicitly called the
+> **trial** (not "the one-month pass") and shortened to **15 days** — its
+> job is to let a candidate try tailored résumés/cover letters/the
+> extension, not to be a free month of service. `User.activePlanTier`
+> (`PlanTier`: `TRIAL`/`ONE_MONTH`/`THREE_MONTH`/`ANNUAL`) now tracks which
+> specific pass is behind a PREMIUM grant, so the business can query who's
+> on what. Tailored résumés and cover letters also got real FREE-tier caps
+> (3/month each, same rolling-window-from-signup shape as the extension's
+> 5/month) — see "Tiering" below, which previously described this as a
+> paid-only gate that the code didn't actually enforce yet.
+
 | Phase | Contents | State |
 |---|---|---|
-| **A — now** | The one-month full-access pass, shipped alongside the Assisted Apply extension | Planned, not started |
+| **A — now** | The 15-day trial, shipped alongside the Assisted Apply extension | Shipped; shortened from 30 to 15 days 2026-09-19 |
 | **B — before the first pass expires** | Billing (Razorpay, one-time passes), usage measurement, real subscriptions, expiry UX | Billing shipped 2026-09-19 (staging); usage measurement and expiry UX still open |
 
 No money moves in Phase A. The pass is *granted* on signup, not purchased,
@@ -38,8 +49,8 @@ version of it — the good version is what sells the subscription.
 | LinkedIn review | Free | **Free permanently** |
 | Application tracking | Free | **Free permanently** |
 | Master résumé PDF download | Free | **Free permanently** — it is the user's own data; gating it reads as hostile and invites justified bad word-of-mouth |
-| **Per-job tailored résumé** | Unlimited during the one-month pass | Paid |
-| **Per-job cover letter** | Unlimited during the one-month pass | Paid |
+| **Per-job tailored résumé** | Unlimited during the trial; 3/month on FREE otherwise (shipped 2026-09-19) | Unlimited on a paid pass |
+| **Per-job cover letter** | Unlimited during the trial; 3/month on FREE otherwise (shipped 2026-09-19) | Unlimited on a paid pass |
 | **Assisted Apply extension** | Not built | **Free for everyone, capped at 5 autofills; unlimited when paid.** The extension is not a premium-only surface — free users get the same full-quality fill, tailored résumé and cover letter included. The paywall is volume, not capability (see `assisted_apply_extension_plan.md`) |
 | **AI crash courses on skill gaps** | Not built | Undecided — lean free, as a retention/differentiation play |
 

@@ -1,6 +1,7 @@
 import { MoreThanOrEqual } from 'typeorm'
 import { AppDataSource } from '../../config/dataSource'
 import { ExtensionFill } from '../../entities/ExtensionFill'
+import { currentWindowStart } from '../plan/resolveEffectivePlan'
 
 // "The period: 5 per month (decided 2026-09-13)" in the plan doc — not a
 // lifetime allowance (a lifetime cap kills the reason to keep the
@@ -12,24 +13,11 @@ export const FREE_MONTHLY_FILL_LIMIT = 5
 // a validation error must not burn a second credit.
 export const IDEMPOTENCY_WINDOW_MS = 24 * 60 * 60 * 1000
 
-/**
- * The start of the user's current rolling monthly window — the most recent
- * monthly anniversary of `createdAt` that has already passed. Walking
- * forward one month at a time from the signup anchor (rather than computing
- * elapsed months directly) keeps the day-of-month anchored to signup day
- * even across months of different lengths; a signup on the 31st can still
- * drift in a 30-day month (a `setUTCMonth` quirk), which is an acceptable
- * MVP edge case for a ±5-credit allowance.
- */
-export function currentFillWindowStart(createdAt: Date, now: Date = new Date()): Date {
-  let start = new Date(createdAt)
-  for (;;) {
-    const next = new Date(start)
-    next.setUTCMonth(next.getUTCMonth() + 1)
-    if (next.getTime() > now.getTime()) return start
-    start = next
-  }
-}
+// Re-exported under its original name here so extension.routes.ts's import
+// doesn't need to change — the rolling-window math itself now lives in
+// services/plan/resolveEffectivePlan.ts, shared with the tailored-résumé
+// and cover-letter quotas (services/plan/freeTierQuota.ts).
+export const currentFillWindowStart = currentWindowStart
 
 /** How many fills this user has been charged for in their current rolling monthly window. */
 export async function countFillsInWindow(userId: string, windowStart: Date): Promise<number> {

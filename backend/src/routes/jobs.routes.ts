@@ -1,16 +1,22 @@
 import { Router, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { AppDataSource } from '../config/dataSource'
+import { User } from '../entities/User'
 import { UserJob } from '../entities/UserJob'
 import { GeneratedResumeVersion } from '../entities/GeneratedResumeVersion'
 import { GeneratedCoverLetter } from '../entities/GeneratedCoverLetter'
 import { SkillGapReport } from '../entities/SkillGapReport'
 import { MatchResult } from '../entities/MatchResult'
 import { CandidateProfile } from '../entities/CandidateProfile'
-import { ResumeVersionType, JobOrigin } from '../entities/enums'
+import { ResumeVersionType, JobOrigin, Plan } from '../entities/enums'
 import { requireAuth } from '../middleware/auth'
 import { llmRateLimit } from '../middleware/rateLimit'
 import { createError } from '../middleware/errorHandler'
+import { resolveEffectivePlan, currentWindowStart } from '../services/plan/resolveEffectivePlan'
+import {
+  FREE_MONTHLY_TAILOR_LIMIT, FREE_MONTHLY_COVER_LETTER_LIMIT,
+  countTailoredResumesInWindow, countCoverLettersInWindow,
+} from '../services/plan/freeTierQuota'
 import { classifySkillGaps } from '../services/skills/jdSkillGap'
 import { flattenResumeText } from '../services/skills/resumeText'
 import { ensureUserHasJob } from '../services/jobs/discoveryService'
@@ -222,6 +228,29 @@ async function loadJobAndMasterResume(userId: string, jobId: string): Promise<{ 
   return { job, masterResume }
 }
 
+/**
+ * Throws 402 if this user is on FREE and has already used up their rolling
+ * monthly allowance of `limit` for whatever `countInWindow` counts — a
+ * no-op entirely for a PREMIUM user (trial or paid, see
+ * resolveEffectivePlan()). Same shape as extension.routes.ts's
+ * `remainingFills` check, generalized — see services/plan/freeTierQuota.ts.
+ */
+async function assertUnderFreeQuota(
+  userId: string,
+  limit: number,
+  countInWindow: (userId: string, windowStart: Date) => Promise<number>,
+  message: string
+): Promise<void> {
+  const userRepo = AppDataSource.getRepository(User)
+  const user = await userRepo.findOneBy({ id: userId })
+  if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
+  if (resolveEffectivePlan(user) === Plan.PREMIUM) return
+
+  const windowStart = currentWindowStart(user.createdAt)
+  const used = await countInWindow(userId, windowStart)
+  if (used >= limit) throw createError(402, 'OUT_OF_CREDITS', message)
+}
+
 // POST /api/jobs/:id/cover-letter — generates a job-specific cover letter
 // from the caller's master resume + profile (see services/ai/coverLetterGenerator.ts
 // for the truthfulness guardrails) and persists it.
@@ -229,6 +258,10 @@ router.post('/:id/cover-letter', llmRateLimit, async (req: AuthRequest, res: Res
   try {
     const userId = req.userId!
     const { job, masterResume } = await loadJobAndMasterResume(userId, req.params.id as string)
+    await assertUnderFreeQuota(
+      userId, FREE_MONTHLY_COVER_LETTER_LIMIT, countCoverLettersInWindow,
+      `You've used all ${FREE_MONTHLY_COVER_LETTER_LIMIT} free cover letters for this period — buy a pass for unlimited`
+    )
 
     const profileRepo = AppDataSource.getRepository(CandidateProfile)
     const profile = await profileRepo.findOneBy({ userId })
@@ -341,6 +374,10 @@ router.post('/:id/tailor', llmRateLimit, async (req: AuthRequest, res: Response,
   try {
     const userId = req.userId!
     const { job, masterResume } = await loadJobAndMasterResume(userId, req.params.id as string)
+    await assertUnderFreeQuota(
+      userId, FREE_MONTHLY_TAILOR_LIMIT, countTailoredResumesInWindow,
+      `You've used all ${FREE_MONTHLY_TAILOR_LIMIT} free tailored résumés for this period — buy a pass for unlimited`
+    )
 
     const entities = masterResume.content as unknown as ExtractedEntities
     const resumeText = flattenResumeText(entities)

@@ -1,7 +1,7 @@
 import { Router, Response, NextFunction } from 'express'
 import { AppDataSource } from '../config/dataSource'
 import { User } from '../entities/User'
-import { Plan } from '../entities/enums'
+import { Plan, PlanTier } from '../entities/enums'
 import { ResumeFile } from '../entities/ResumeFile'
 import { ParsedResume } from '../entities/ParsedResume'
 import { CandidateProfile } from '../entities/CandidateProfile'
@@ -16,7 +16,7 @@ import { requireAuth } from '../middleware/auth'
 import { createError } from '../middleware/errorHandler'
 import { deleteFile, filenameFromUrl } from '../services/storage/fileStorage'
 import { publicUser } from '../services/auth/publicUser'
-import { isPassEligible, PASS_DURATION_MS } from '../services/plan/resolveEffectivePlan'
+import { isPassEligible, TRIAL_DURATION_MS } from '../services/plan/resolveEffectivePlan'
 import { AuthRequest } from '../types'
 
 const router = Router()
@@ -37,7 +37,8 @@ router.post('/activate-pass', async (req: AuthRequest, res: Response, next: Next
     }
 
     user.plan = Plan.PREMIUM
-    user.planExpiresAt = new Date(Date.now() + PASS_DURATION_MS)
+    user.activePlanTier = PlanTier.TRIAL
+    user.planExpiresAt = new Date(Date.now() + TRIAL_DURATION_MS)
     await userRepo.save(user)
 
     res.json({ user: publicUser(user) })

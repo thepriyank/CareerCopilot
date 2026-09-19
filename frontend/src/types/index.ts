@@ -18,7 +18,9 @@ export interface User {
   plan: 'FREE' | 'PREMIUM'
   /** ISO timestamp, or null if the current plan doesn't expire (FREE, or a non-expiring PREMIUM grant). */
   planExpiresAt?: string | null
-  /** True only for a pre-existing user who can still opt into the one-month pass — see PassBanner. */
+  /** Which pass is behind the current PREMIUM grant — null when FREE (or a lapsed pass). See backend PlanTier. */
+  activePlanTier?: 'TRIAL' | 'ONE_MONTH' | 'THREE_MONTH' | 'ANNUAL' | null
+  /** True only for a pre-existing user who can still opt into the 15-day trial — see PassBanner. */
   passEligible?: boolean
   passBannerDismissed?: boolean
   region?: string | null
