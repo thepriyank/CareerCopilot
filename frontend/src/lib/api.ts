@@ -370,11 +370,22 @@ export const extension = {
 // Razorpay Standard Checkout, one-time passes — see docs/monetization_plan.md's
 // "Phase B" and backend/src/routes/payments.routes.ts.
 
-export type PassType = 'ONE_MONTH' | 'THREE_MONTH'
+export type PassType = 'ONE_MONTH' | 'THREE_MONTH' | 'ANNUAL'
+
+export interface PassPlan {
+  passType: PassType
+  label: string
+  months: number
+  amount: number
+  listPrice: number
+  recommended: boolean
+}
 
 export const payments = {
+  getPlans: () => request<{ plans: PassPlan[] }>('/api/payments/plans'),
+
   createOrder: (passType: PassType) =>
-    request<{ orderId: string; amount: number; currency: string; keyId: string; passType: PassType; label: string }>(
+    request<{ orderId: string; amount: number; currency: string; keyId: string; passType: PassType; label: string; listPrice: number; recommended: boolean }>(
       '/api/payments/create-order',
       { method: 'POST', body: JSON.stringify({ passType }) }
     ),

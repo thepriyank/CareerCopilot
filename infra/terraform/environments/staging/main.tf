@@ -70,8 +70,9 @@ locals {
     # localhost) — was never wired into any deployed environment before.
     INTERNAL_INGEST_TOKEN = "internal-ingest-token"
     # Phase B billing (2026-09-19) — see routes/payments.routes.ts.
-    RAZORPAY_KEY_ID     = "razorpay-key-id"
-    RAZORPAY_KEY_SECRET = "razorpay-key-secret"
+    RAZORPAY_KEY_ID         = "razorpay-key-id"
+    RAZORPAY_KEY_SECRET     = "razorpay-key-secret"
+    RAZORPAY_WEBHOOK_SECRET = "razorpay-webhook-secret"
   }
 
   enabled_secret_map = { for k, v in local.all_secrets : k => v if contains(var.enabled_secrets, k) }

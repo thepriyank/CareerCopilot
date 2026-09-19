@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Topbar } from '@/components/layout/Topbar'
 import { Icon } from '@/components/ui/Icon'
-import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, payments as paymentsApi, ApiError, PassType } from '@/lib/api'
+import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, payments as paymentsApi, ApiError, PassType, PassPlan } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
 import { loadRazorpayCheckout } from '@/lib/razorpay'
 import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency, User, ExtensionTokenSummary } from '@/types'
@@ -425,10 +425,9 @@ function PlanTab() {
   )
 }
 
-const PASS_OPTIONS: { passType: PassType; label: string; price: string; note: string }[] = [
-  { passType: 'ONE_MONTH', label: '1-month pass', price: '₹299', note: 'Best for a single application sprint' },
-  { passType: 'THREE_MONTH', label: '3-month pass', price: '₹799', note: '~11% off the monthly rate' },
-]
+function formatRupees(paise: number): string {
+  return `₹${Math.round(paise / 100).toLocaleString('en-IN')}`
+}
 
 // Razorpay Standard Checkout — see docs/monetization_plan.md's "Phase B" and
 // lib/razorpay.ts. Only ever rendered for a user on the plain FREE plan
@@ -437,9 +436,22 @@ const PASS_OPTIONS: { passType: PassType; label: string; price: string; note: st
 // activatePass() above, so every plan-derived UI (this tab, the sidebar
 // banner) picks up the new expiry from one shared source (GET /api/auth/me)
 // rather than needing its own local state to stay in sync.
+//
+// Plans are fetched from GET /api/payments/plans rather than hardcoded here
+// — backend/src/services/payments/passPricing.ts is the one place prices
+// live, so this can never drift from what create-order actually charges.
 function PassCheckoutSection() {
+  const [plans, setPlans] = useState<PassPlan[] | null>(null)
+  const [plansError, setPlansError] = useState('')
   const [payingFor, setPayingFor] = useState<PassType | null>(null)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    paymentsApi
+      .getPlans()
+      .then(({ plans }) => setPlans(plans))
+      .catch((err) => setPlansError(err instanceof ApiError ? err.message : 'Could not load plans'))
+  }, [])
 
   async function handleBuy(passType: PassType) {
     setPayingFor(passType)
@@ -483,25 +495,63 @@ function PassCheckoutSection() {
     }
   }
 
+  if (plansError) {
+    return <div style={{ fontSize: 12.5, color: 'var(--error)' }}>{plansError}</div>
+  }
+  if (!plans) {
+    return <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Loading plans…</div>
+  }
+
   return (
     <div>
       {error && <div style={{ fontSize: 12.5, color: 'var(--error)', marginBottom: 14 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {PASS_OPTIONS.map((opt) => (
-          <div key={opt.passType} style={{ flex: '1 1 220px', border: '1px solid var(--line-2)', borderRadius: 10, padding: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{opt.label}</div>
-            <div className="serif" style={{ fontSize: 24, marginBottom: 4 }}>{opt.price}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 14 }}>{opt.note}</div>
-            <button
-              className="btn btn-primary btn-sm"
-              style={{ width: '100%', justifyContent: 'center' }}
-              onClick={() => handleBuy(opt.passType)}
-              disabled={payingFor !== null}
+        {plans.map((plan) => {
+          const discountPct = Math.round((1 - plan.amount / plan.listPrice) * 100)
+          return (
+            <div
+              key={plan.passType}
+              style={{
+                flex: '1 1 220px',
+                position: 'relative',
+                border: plan.recommended ? '1px solid var(--accent)' : '1px solid var(--line-2)',
+                boxShadow: plan.recommended ? '0 0 0 1px var(--accent)' : 'none',
+                borderRadius: 10,
+                padding: 16,
+              }}
             >
-              {payingFor === opt.passType ? 'Opening checkout…' : 'Buy'}
-            </button>
-          </div>
-        ))}
+              {plan.recommended && (
+                <div
+                  style={{
+                    position: 'absolute', top: -10, left: 16, background: 'var(--accent)', color: '#fff',
+                    fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, letterSpacing: 0.3,
+                  }}
+                >
+                  RECOMMENDED
+                </div>
+              )}
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{plan.label}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+                <span className="serif" style={{ fontSize: 24 }}>{formatRupees(plan.amount)}</span>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'line-through' }}>{formatRupees(plan.listPrice)}</span>
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 14 }}>{discountPct}% off — limited-time price</div>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => handleBuy(plan.passType)}
+                disabled={payingFor !== null}
+              >
+                {payingFor === plan.passType ? 'Opening checkout…' : 'Buy'}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 16 }}>
+        One-time purchase, not a recurring subscription. By buying a pass you agree to the{' '}
+        <Link href="/terms" target="_blank" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>Terms of Service</Link> and{' '}
+        <Link href="/refund-policy" target="_blank" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>Refund Policy</Link>.
       </div>
     </div>
   )

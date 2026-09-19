@@ -67,6 +67,10 @@ variable "enabled_secrets" {
     # keys as of this writing; swap for live keys before real money moves.
     "RAZORPAY_KEY_ID",
     "RAZORPAY_KEY_SECRET",
+    # The Razorpay webhook (routes/razorpayWebhook.routes.ts) — a value you
+    # choose yourself, entered identically in Razorpay Dashboard -> Settings
+    # -> Webhooks. Added 2026-09-19.
+    "RAZORPAY_WEBHOOK_SECRET",
   ]
 }
 

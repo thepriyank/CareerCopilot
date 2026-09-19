@@ -176,5 +176,9 @@ export const config = {
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID ?? '',
     keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
+    // Separate from keySecret — this is the secret you set when adding the
+    // webhook URL in Razorpay Dashboard -> Settings -> Webhooks, not the API
+    // key secret. See routes/razorpayWebhook.routes.ts.
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
   },
 } as const

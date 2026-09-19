@@ -1,29 +1,46 @@
 import { Router, Response, NextFunction } from 'express'
 import crypto from 'crypto'
 import { z } from 'zod'
-import { AppDataSource } from '../config/dataSource'
 import { config } from '../config'
-import { User } from '../entities/User'
-import { Plan } from '../entities/enums'
 import { requireAuth } from '../middleware/auth'
 import { createError } from '../middleware/errorHandler'
 import { logger } from '../utils/logger'
 import { getRazorpayClient } from '../services/payments/razorpayClient'
 import { PASS_PRICING, isPassType } from '../services/payments/passPricing'
+import { applyPassPayment } from '../services/payments/applyPassPayment'
 import { AuthRequest } from '../types'
 
 /**
  * Phase B billing (2026-09-19) — Razorpay Standard Checkout, one-time passes
  * only. See docs/monetization_plan.md's "Phase B" section for the design
  * this implements: order creation here, signature verification below, and
- * a successful verify extends `User.planExpiresAt` exactly the way
- * POST /api/account/activate-pass already does for the free month — no new
- * entity, no webhook, no Subscription table (see that doc's "Mechanism —
- * deliberately two columns, not a billing system").
+ * a successful verify extends `User.planExpiresAt` via
+ * services/payments/applyPassPayment.ts — the same helper the Razorpay
+ * webhook (routes/razorpayWebhook.routes.ts) calls, since a browser-side
+ * verify alone can't be trusted as the only path (it never runs if the tab
+ * closes right after payment) — no new entity, no Subscription table (see
+ * that doc's "Mechanism — deliberately two columns, not a billing system").
  */
 
 const router = Router()
 router.use(requireAuth)
+
+// GET /api/payments/plans — the pricing catalog, so the frontend renders
+// its three pass cards from the same source of truth create-order prices
+// against, instead of a second hardcoded copy that could drift out of sync.
+router.get('/plans', (_req: AuthRequest, res: Response) => {
+  const plans = (Object.entries(PASS_PRICING) as [keyof typeof PASS_PRICING, (typeof PASS_PRICING)[keyof typeof PASS_PRICING]][]).map(
+    ([passType, option]) => ({
+      passType,
+      label: option.label,
+      months: option.months,
+      amount: option.amountPaise,
+      listPrice: option.listPricePaise,
+      recommended: option.recommended ?? false,
+    })
+  )
+  res.json({ plans })
+})
 
 const createOrderSchema = z.object({
   passType: z.string().refine(isPassType, { message: 'Unknown passType' }),
@@ -69,6 +86,8 @@ router.post('/create-order', async (req: AuthRequest, res: Response, next: NextF
       keyId: config.razorpay.keyId,
       passType,
       label: option.label,
+      listPrice: option.listPricePaise,
+      recommended: option.recommended ?? false,
     })
   } catch (err) {
     next(err)
@@ -129,26 +148,14 @@ router.post('/verify', async (req: AuthRequest, res: Response, next: NextFunctio
       throw createError(500, 'ORDER_CORRUPT', 'Order is missing a valid pass type')
     }
 
-    const userRepo = AppDataSource.getRepository(User)
-    const user = await userRepo.findOneBy({ id: req.userId! })
-    if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
-
-    const processedPaymentIds = (user.settings.processedPaymentIds as string[] | undefined) ?? []
-    if (processedPaymentIds.includes(razorpay_payment_id)) {
-      // Already applied — same success shape, but no double-extension.
-      res.json({ success: true, planExpiresAt: user.planExpiresAt, alreadyProcessed: true })
-      return
+    let result
+    try {
+      result = await applyPassPayment(req.userId!, razorpay_payment_id, passType)
+    } catch (err) {
+      throw createError(404, 'USER_NOT_FOUND', (err as Error).message)
     }
 
-    const { months } = PASS_PRICING[passType]
-    const extendFrom = user.planExpiresAt && user.planExpiresAt.getTime() > Date.now() ? user.planExpiresAt : new Date()
-    user.plan = Plan.PREMIUM
-    user.planExpiresAt = new Date(extendFrom.getTime() + months * 30 * 24 * 60 * 60 * 1000)
-    user.settings = { ...user.settings, processedPaymentIds: [...processedPaymentIds, razorpay_payment_id] }
-    await userRepo.save(user)
-
-    logger.info(`payments.verify: extended user ${user.id} to ${user.planExpiresAt.toISOString()} (${passType})`)
-    res.json({ success: true, planExpiresAt: user.planExpiresAt })
+    res.json({ success: true, planExpiresAt: result.planExpiresAt, alreadyProcessed: result.alreadyProcessed })
   } catch (err) {
     next(err)
   }

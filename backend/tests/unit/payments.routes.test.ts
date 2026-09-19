@@ -57,6 +57,24 @@ beforeEach(() => {
   mockOrdersFetch.mockReset()
 })
 
+describe('GET /api/payments/plans', () => {
+  it('rejects unauthenticated requests', async () => {
+    const res = await request(buildApp()).get('/api/payments/plans')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns all three tiers with list price and exactly one recommended', async () => {
+    const res = await request(buildApp()).get('/api/payments/plans').set('Authorization', `Bearer ${sessionToken}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.plans).toEqual([
+      { passType: 'ONE_MONTH', label: '1-month pass', months: 1, amount: 39900, listPrice: 79900, recommended: false },
+      { passType: 'THREE_MONTH', label: '3-month pass', months: 3, amount: 99900, listPrice: 199900, recommended: true },
+      { passType: 'ANNUAL', label: 'Annual pass', months: 12, amount: 499900, listPrice: 799900, recommended: false },
+    ])
+  })
+})
+
 describe('POST /api/payments/create-order', () => {
   it('rejects unauthenticated requests', async () => {
     const res = await request(buildApp()).post('/api/payments/create-order').send({ passType: 'ONE_MONTH' })
@@ -73,7 +91,7 @@ describe('POST /api/payments/create-order', () => {
   })
 
   it('creates an order priced from the server-side catalog, never a client-supplied amount', async () => {
-    mockOrdersCreate.mockResolvedValue({ id: 'order_abc123', amount: 29900, currency: 'INR' })
+    mockOrdersCreate.mockResolvedValue({ id: 'order_abc123', amount: 39900, currency: 'INR' })
 
     const res = await request(buildApp())
       .post('/api/payments/create-order')
@@ -82,9 +100,18 @@ describe('POST /api/payments/create-order', () => {
 
     expect(res.status).toBe(200)
     expect(mockOrdersCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 29900, currency: 'INR', notes: { userId: USER_ID, passType: 'ONE_MONTH' } })
+      expect.objectContaining({ amount: 39900, currency: 'INR', notes: { userId: USER_ID, passType: 'ONE_MONTH' } })
     )
-    expect(res.body).toEqual({ orderId: 'order_abc123', amount: 29900, currency: 'INR', keyId: 'rzp_test_fake', passType: 'ONE_MONTH', label: '1-month pass' })
+    expect(res.body).toEqual({
+      orderId: 'order_abc123',
+      amount: 39900,
+      currency: 'INR',
+      keyId: 'rzp_test_fake',
+      passType: 'ONE_MONTH',
+      label: '1-month pass',
+      listPrice: 79900,
+      recommended: false,
+    })
   })
 
   it('returns 500 when the Razorpay API call fails', async () => {

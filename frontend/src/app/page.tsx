@@ -134,6 +134,12 @@ export default function LandingPage() {
           <Link href="/privacy" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
             Privacy Policy
           </Link>
+          <Link href="/terms" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+            Terms of Service
+          </Link>
+          <Link href="/refund-policy" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+            Refund Policy
+          </Link>
           <div>
             A{' '}
             <a href="https://nowmagnate.com" target="_blank" rel="noreferrer" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>

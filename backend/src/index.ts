@@ -18,7 +18,19 @@ app.use(
   })
 )
 
-app.use(express.json({ limit: '10mb' }))
+app.use(
+  express.json({
+    limit: '10mb',
+    // Stashes the exact bytes Express parsed, so the Razorpay webhook
+    // (routes/razorpayWebhook.routes.ts) can HMAC-verify against the same
+    // payload Razorpay signed — re-serializing req.body after parsing isn't
+    // guaranteed to reproduce the identical bytes. Cheap for every other
+    // route: just a Buffer reference, never read.
+    verify: (req, _res, buf) => {
+      ;(req as express.Request & { rawBody?: Buffer }).rawBody = buf
+    },
+  })
+)
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // Uploaded resume files are encrypted at rest and served only through the

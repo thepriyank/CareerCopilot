@@ -5,7 +5,7 @@
 | Phase | Contents | State |
 |---|---|---|
 | **A — now** | The one-month full-access pass, shipped alongside the Assisted Apply extension | Planned, not started |
-| **B — before the first pass expires** | Billing (Razorpay, one-time passes), usage measurement, real subscriptions, expiry UX | Next phase, hard deadline |
+| **B — before the first pass expires** | Billing (Razorpay, one-time passes), usage measurement, real subscriptions, expiry UX | Billing shipped 2026-09-19 (staging); usage measurement and expiry UX still open |
 
 No money moves in Phase A. The pass is *granted* on signup, not purchased,
 so it needs no payment integration — two columns and a helper. Everything
@@ -116,28 +116,38 @@ that is not a framework and does not need to become one.
    `anthropicClient.ts`, and production runs `LLM_ALLOW_PAID=false` on the
    free provider chain — so that table is effectively empty. Recording usage
    in `providerChain.generate()` instead fixes it for all providers.
-2. **Billing** — Razorpay, one-time 1-month/3-month passes (no recurring
-   mandates in v1; see pricing notes). Order creation, webhook with
-   signature verification and idempotency, extend `planExpiresAt` on
-   success.
+2. **Billing (shipped 2026-09-19)** — Razorpay Standard Checkout, one-time
+   1-month/3-month/annual passes (no recurring mandates in v1; see
+   pricing). Order creation, signature verification, and a
+   `payment.captured` webhook (server-to-server, authoritative even if the
+   browser never calls back) both converge on the same idempotent
+   plan-extension helper. See `backend/src/routes/payments.routes.ts` and
+   `razorpayWebhook.routes.ts`.
 3. **Expiry UX** — in-app and email warning before a pass lapses, and a
    clear, non-punitive downgrade state. A user must never discover they lost
    access by clicking a button that silently fails.
 4. T&C, refund policy, pricing disclosure — Razorpay requires these live to
    activate the account.
 
-## Pricing notes (for when the time comes)
+## Pricing (decided 2026-09-19)
 
-- **India-first realities.** ₹199–499/month is the realistic band for a
-  job-seeker tool. Job hunting is *episodic*, not perpetual — a one-month or
-  three-month "sprint" pass will likely convert better than an annual
-  subscription, and it matches how people actually experience the problem.
+Three one-time passes, no recurring mandate — see `backend/src/services/payments/passPricing.ts`
+for the single source of truth these are read from (the frontend fetches
+this via `GET /api/payments/plans` rather than hardcoding it a second time):
+
+| Pass | List price | Current price (limited-time discount) |
+|---|---|---|
+| 1-month | ₹799 | ₹399 |
+| 3-month (**recommended**) | ₹1,999 | ₹999 |
+| Annual | ₹7,999 | ₹4,999 |
+
 - **Razorpay over Stripe** for India (UPI support is not optional here).
 - **Recurring billing is not a one-liner in India.** RBI e-mandate rules mean
   recurring card payments need AFA registration; UPI Autopay is the usual
-  route. Budget real time for this, or sidestep it entirely at first by
-  selling non-recurring passes.
-- A refund policy and terms of service become mandatory the day money moves.
+  route. Sidestepped for now by selling only non-recurring passes (above).
+- Terms of Service (`/terms`) and Refund Policy (`/refund-policy`) are live —
+  see those pages for the actual policy text (7-day refund window, unused
+  pass only).
 
 ## Existing users: opt in on next visit (decided 2026-09-13)
 
