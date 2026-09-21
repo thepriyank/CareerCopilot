@@ -3,12 +3,12 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { AppDataSource } from '../config/dataSource'
 import { User } from '../entities/User'
-import { AuthProvider, Plan } from '../entities/enums'
+import { AuthProvider, Plan, PlanTier } from '../entities/enums'
 import { signToken, requireAuth } from '../middleware/auth'
 import { createError } from '../middleware/errorHandler'
 import { verifyFirebaseIdToken } from '../services/auth/firebaseAdmin'
 import { publicUser } from '../services/auth/publicUser'
-import { resolveEffectivePlan, PASS_DURATION_MS } from '../services/plan/resolveEffectivePlan'
+import { resolveEffectivePlan, TRIAL_DURATION_MS } from '../services/plan/resolveEffectivePlan'
 import { AuthRequest } from '../types'
 import { logger } from '../utils/logger'
 
@@ -42,15 +42,16 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
-    // Every new signup gets the one-month full-access pass automatically —
-    // see "The one-month full-access pass" in docs/monetization_plan.md.
+    // Every new signup gets the 15-day free trial automatically — see "The
+    // one-month full-access pass" (now 15 days) in docs/monetization_plan.md.
     const user = userRepo.create({
       email,
       passwordHash,
       name: name ?? null,
       authProvider: AuthProvider.PASSWORD,
       plan: Plan.PREMIUM,
-      planExpiresAt: new Date(Date.now() + PASS_DURATION_MS),
+      activePlanTier: PlanTier.TRIAL,
+      planExpiresAt: new Date(Date.now() + TRIAL_DURATION_MS),
     })
     await userRepo.save(user)
 
@@ -136,9 +137,10 @@ router.post('/google', async (req: Request, res: Response, next: NextFunction) =
           name: decoded.name ?? null,
           firebaseUid: decoded.uid,
           authProvider: AuthProvider.GOOGLE,
-          // Same one-month pass a password signup gets — see POST /register.
+          // Same free trial a password signup gets — see POST /register.
           plan: Plan.PREMIUM,
-          planExpiresAt: new Date(Date.now() + PASS_DURATION_MS),
+          activePlanTier: PlanTier.TRIAL,
+          planExpiresAt: new Date(Date.now() + TRIAL_DURATION_MS),
         })
         user = await userRepo.save(created)
       }
@@ -157,7 +159,7 @@ router.get('/me', requireAuth, async (req: AuthRequest, res: Response, next: Nex
     const userRepo = AppDataSource.getRepository(User)
     const user = await userRepo.findOne({
       where: { id: req.userId! },
-      select: ['id', 'email', 'name', 'plan', 'planExpiresAt', 'settings', 'region', 'createdAt'],
+      select: ['id', 'email', 'name', 'plan', 'planExpiresAt', 'activePlanTier', 'settings', 'region', 'createdAt'],
     })
     if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
     res.json({ user: publicUser(user) })

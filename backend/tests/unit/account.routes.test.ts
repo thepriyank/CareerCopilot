@@ -170,7 +170,7 @@ describe('POST /api/account/activate-pass', () => {
     expect(res.status).toBe(401)
   })
 
-  it('grants a 30-day pass to a pre-existing user who has never had one', async () => {
+  it('grants a 15-day trial to a pre-existing user who has never had one', async () => {
     userRepo.rows.push({
       id: USER_ID, email: 'x@example.com', plan: 'FREE', planExpiresAt: null, createdAt: beforeLaunch, settings: {},
     } as never)
@@ -179,10 +179,11 @@ describe('POST /api/account/activate-pass', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.user.plan).toBe('PREMIUM')
+    expect(res.body.user.activePlanTier).toBe('TRIAL')
     const expiresAt = new Date(res.body.user.planExpiresAt)
     const daysOut = (expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
-    expect(daysOut).toBeGreaterThan(29)
-    expect(daysOut).toBeLessThanOrEqual(30)
+    expect(daysOut).toBeGreaterThan(14)
+    expect(daysOut).toBeLessThanOrEqual(15)
   })
 
   it('rejects a user who already has a pass (or had one and it expired)', async () => {

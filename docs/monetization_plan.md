@@ -2,10 +2,21 @@
 
 **Status:** decided 2026-09-13, split across two phases.
 
+> **2026-09-19 update:** the free pass is now explicitly called the
+> **trial** (not "the one-month pass") and shortened to **15 days** — its
+> job is to let a candidate try tailored résumés/cover letters/the
+> extension, not to be a free month of service. `User.activePlanTier`
+> (`PlanTier`: `TRIAL`/`ONE_MONTH`/`THREE_MONTH`/`ANNUAL`) now tracks which
+> specific pass is behind a PREMIUM grant, so the business can query who's
+> on what. Tailored résumés and cover letters also got real FREE-tier caps
+> (3/month each, same rolling-window-from-signup shape as the extension's
+> 5/month) — see "Tiering" below, which previously described this as a
+> paid-only gate that the code didn't actually enforce yet.
+
 | Phase | Contents | State |
 |---|---|---|
-| **A — now** | The one-month full-access pass, shipped alongside the Assisted Apply extension | Planned, not started |
-| **B — before the first pass expires** | Billing (Razorpay, one-time passes), usage measurement, real subscriptions, expiry UX | Next phase, hard deadline |
+| **A — now** | The 15-day trial, shipped alongside the Assisted Apply extension | Shipped; shortened from 30 to 15 days 2026-09-19 |
+| **B — before the first pass expires** | Billing (Razorpay, one-time passes), usage measurement, real subscriptions, expiry UX | Billing shipped 2026-09-19 (staging); usage measurement and expiry UX still open |
 
 No money moves in Phase A. The pass is *granted* on signup, not purchased,
 so it needs no payment integration — two columns and a helper. Everything
@@ -38,8 +49,8 @@ version of it — the good version is what sells the subscription.
 | LinkedIn review | Free | **Free permanently** |
 | Application tracking | Free | **Free permanently** |
 | Master résumé PDF download | Free | **Free permanently** — it is the user's own data; gating it reads as hostile and invites justified bad word-of-mouth |
-| **Per-job tailored résumé** | Unlimited during the one-month pass | Paid |
-| **Per-job cover letter** | Unlimited during the one-month pass | Paid |
+| **Per-job tailored résumé** | Unlimited during the trial; 3/month on FREE otherwise (shipped 2026-09-19) | Unlimited on a paid pass |
+| **Per-job cover letter** | Unlimited during the trial; 3/month on FREE otherwise (shipped 2026-09-19) | Unlimited on a paid pass |
 | **Assisted Apply extension** | Not built | **Free for everyone, capped at 5 autofills; unlimited when paid.** The extension is not a premium-only surface — free users get the same full-quality fill, tailored résumé and cover letter included. The paywall is volume, not capability (see `assisted_apply_extension_plan.md`) |
 | **AI crash courses on skill gaps** | Not built | Undecided — lean free, as a retention/differentiation play |
 
@@ -116,28 +127,38 @@ that is not a framework and does not need to become one.
    `anthropicClient.ts`, and production runs `LLM_ALLOW_PAID=false` on the
    free provider chain — so that table is effectively empty. Recording usage
    in `providerChain.generate()` instead fixes it for all providers.
-2. **Billing** — Razorpay, one-time 1-month/3-month passes (no recurring
-   mandates in v1; see pricing notes). Order creation, webhook with
-   signature verification and idempotency, extend `planExpiresAt` on
-   success.
+2. **Billing (shipped 2026-09-19)** — Razorpay Standard Checkout, one-time
+   1-month/3-month/annual passes (no recurring mandates in v1; see
+   pricing). Order creation, signature verification, and a
+   `payment.captured` webhook (server-to-server, authoritative even if the
+   browser never calls back) both converge on the same idempotent
+   plan-extension helper. See `backend/src/routes/payments.routes.ts` and
+   `razorpayWebhook.routes.ts`.
 3. **Expiry UX** — in-app and email warning before a pass lapses, and a
    clear, non-punitive downgrade state. A user must never discover they lost
    access by clicking a button that silently fails.
 4. T&C, refund policy, pricing disclosure — Razorpay requires these live to
    activate the account.
 
-## Pricing notes (for when the time comes)
+## Pricing (decided 2026-09-19)
 
-- **India-first realities.** ₹199–499/month is the realistic band for a
-  job-seeker tool. Job hunting is *episodic*, not perpetual — a one-month or
-  three-month "sprint" pass will likely convert better than an annual
-  subscription, and it matches how people actually experience the problem.
+Three one-time passes, no recurring mandate — see `backend/src/services/payments/passPricing.ts`
+for the single source of truth these are read from (the frontend fetches
+this via `GET /api/payments/plans` rather than hardcoding it a second time):
+
+| Pass | List price | Current price (limited-time discount) |
+|---|---|---|
+| 1-month | ₹799 | ₹399 |
+| 3-month (**recommended**) | ₹1,999 | ₹999 |
+| Annual | ₹7,999 | ₹4,999 |
+
 - **Razorpay over Stripe** for India (UPI support is not optional here).
 - **Recurring billing is not a one-liner in India.** RBI e-mandate rules mean
   recurring card payments need AFA registration; UPI Autopay is the usual
-  route. Budget real time for this, or sidestep it entirely at first by
-  selling non-recurring passes.
-- A refund policy and terms of service become mandatory the day money moves.
+  route. Sidestepped for now by selling only non-recurring passes (above).
+- Terms of Service (`/terms`) and Refund Policy (`/refund-policy`) are live —
+  see those pages for the actual policy text (7-day refund window, unused
+  pass only).
 
 ## Existing users: opt in on next visit (decided 2026-09-13)
 

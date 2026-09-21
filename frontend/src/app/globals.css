@@ -439,6 +439,30 @@ html, body {
   }
 }
 
+/* ─── Settings -> Plan pricing grid (app/(dashboard)/settings/page.tsx) mobile stack ───
+   Desktop keeps all three pass cards in one row via an inline `min-width:
+   700px` on the grid (see PlansGrid) so they never wrap awkwardly at
+   in-between widths. That same fixed min-width is exactly what breaks
+   mobile: a 1fr grid track still sizes to its content's min-content width,
+   so the 700px floor dragged the *entire* Settings column (including the
+   unrelated Current Plan card above it, sharing the same .grid-stack-scroll
+   column) out to ~820px regardless of the 375px viewport, forcing the
+   whole page to scroll sideways. Below the breakpoint, drop to one card
+   per row instead — the standard mobile treatment for a pricing table,
+   and the min-width floor that caused this stops applying once the grid
+   itself is a single column. */
+@media (max-width: 768px) {
+  .plans-grid {
+    grid-template-columns: 1fr !important;
+    min-width: 0 !important;
+  }
+  /* `scale(1.05)` is a nice "this one's bigger" cue between side-by-side
+     desktop cards, but on a single stacked column it just makes the card
+     edge poke past its neighbors' — drop it and let the existing accent
+     border + RECOMMENDED badge carry the emphasis instead. */
+  .plan-card-recommended { transform: none !important; }
+}
+
 /* ─── Jobs page (app/(dashboard)/jobs/page.tsx) mobile filter dropdown ───
    The Source/Level filter sidebar used to stack full-width above the job
    grid on mobile (via .grid-stack-scroll), permanently eating vertical

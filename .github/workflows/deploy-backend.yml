@@ -30,7 +30,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # See terraform-apply-staging.yml's comment on the same step — a
       # queued run in this concurrency group can be pinned to a commit
@@ -38,7 +38,7 @@ jobs:
       - run: git pull --ff-only origin main
         working-directory: .
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: npm
@@ -50,16 +50,16 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
 
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/764795049074/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider
           service_account: jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
 
       - run: gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: '1.15.8'
 

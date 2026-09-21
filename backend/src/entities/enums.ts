@@ -3,6 +3,20 @@ export enum Plan {
   PREMIUM = 'PREMIUM',
 }
 
+// Which specific pass a PREMIUM user is actually on — `Plan.PREMIUM` alone
+// doesn't distinguish "on the free trial" from "bought a 3-month pass",
+// which the Settings -> Plan page needs to say so (and the business needs
+// to be able to query). Null for a FREE user with no active or past pass.
+// Values for the three paid tiers deliberately match
+// services/payments/passPricing.ts's `PassType` string-for-string, so a
+// purchased pass can be assigned here directly with no translation.
+export enum PlanTier {
+  TRIAL = 'TRIAL',
+  ONE_MONTH = 'ONE_MONTH',
+  THREE_MONTH = 'THREE_MONTH',
+  ANNUAL = 'ANNUAL',
+}
+
 // How a user's identity was established — see User.ts's firebaseUid comment
 // and routes/auth.routes.ts's POST /google. PASSWORD is the original/
 // default flow (email + bcrypt); GOOGLE means they signed in via Firebase's

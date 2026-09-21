@@ -7,7 +7,7 @@ import { GeneratedCoverLetter } from '../../src/entities/GeneratedCoverLetter'
 import { SkillGapReport } from '../../src/entities/SkillGapReport'
 import { MatchResult } from '../../src/entities/MatchResult'
 import { CandidateProfile } from '../../src/entities/CandidateProfile'
-import { ResumeVersionType, ArtifactStatus } from '../../src/entities/enums'
+import { ResumeVersionType, ArtifactStatus, Plan } from '../../src/entities/enums'
 import { extractJdSkills } from '../../src/services/skills/jdSkillGap'
 import { createFakeRepo } from './testUtils/fakeRepo'
 
@@ -18,6 +18,7 @@ const skillGapRepo = createFakeRepo()
 const profileRepo = createFakeRepo()
 const coverLetterRepo = createFakeRepo()
 const matchResultRepo = createFakeRepo()
+const userRepo = createFakeRepo()
 
 // The real UserJob repo joins to JobListing via TypeORM `relations` —
 // fakeRepo has no concept of relations, so `find`/`findOne`/`findOneBy` are
@@ -49,6 +50,7 @@ jest.mock('../../src/config/dataSource', () => {
   const { SkillGapReport } = require('../../src/entities/SkillGapReport')
   const { MatchResult } = require('../../src/entities/MatchResult')
   const { CandidateProfile } = require('../../src/entities/CandidateProfile')
+  const { User } = require('../../src/entities/User')
 
   return {
     AppDataSource: {
@@ -60,6 +62,7 @@ jest.mock('../../src/config/dataSource', () => {
         if (entity === SkillGapReport) return skillGapRepo
         if (entity === MatchResult) return matchResultRepo
         if (entity === CandidateProfile) return profileRepo
+        if (entity === User) return userRepo
         throw new Error(`No fake repo registered for entity: ${entity}`)
       }),
     },
@@ -134,6 +137,14 @@ beforeEach(() => {
   profileRepo.rows.length = 0
   coverLetterRepo.rows.length = 0
   matchResultRepo.rows.length = 0
+  userRepo.rows.length = 0
+  // PREMIUM by default — these tests aren't about the free-tier quota (see
+  // the dedicated 'free-tier quota' describe block below for that), so
+  // every other test keeps its pre-existing "unlimited" assumption.
+  userRepo.rows.push(
+    { id: USER_ID, plan: Plan.PREMIUM, planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), createdAt: new Date('2026-01-01') },
+    { id: OTHER_USER_ID, plan: Plan.PREMIUM, planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), createdAt: new Date('2026-01-01') }
+  )
   mockExtractJobSkills.mockClear()
   mockGenerateCoverLetter.mockClear()
   mockTailorResume.mockClear()
@@ -566,6 +577,45 @@ describe('POST /api/jobs/:id/cover-letter', () => {
     expect(res.body.coverLetter.jobId).toBe(job.id)
     expect(res.body.coverLetter.content.letter.role_title).toBe('Backend Engineer')
     expect(coverLetterRepo.rows).toHaveLength(1)
+  })
+})
+
+describe('free-tier quota on tailored résumés and cover letters', () => {
+  it('blocks a FREE user once they hit FREE_MONTHLY_COVER_LETTER_LIMIT, but PREMIUM stays unaffected', async () => {
+    const { FREE_MONTHLY_COVER_LETTER_LIMIT } = require('../../src/services/plan/freeTierQuota')
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
+
+    for (let i = 0; i < FREE_MONTHLY_COVER_LETTER_LIMIT; i++) {
+      const ok = await request(app).post(`/api/jobs/${job.id}/cover-letter`).set('Authorization', `Bearer ${token}`)
+      expect(ok.status).toBe(201)
+    }
+
+    const blocked = await request(app).post(`/api/jobs/${job.id}/cover-letter`).set('Authorization', `Bearer ${token}`)
+    expect(blocked.status).toBe(402)
+    expect(blocked.body.error.code).toBe('OUT_OF_CREDITS')
+
+    // Back to PREMIUM — the same limit no longer applies.
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.PREMIUM, planExpiresAt: new Date(Date.now() + 1000000) }
+    const stillWorks = await request(app).post(`/api/jobs/${job.id}/cover-letter`).set('Authorization', `Bearer ${token}`)
+    expect(stillWorks.status).toBe(201)
+  })
+
+  it('blocks a FREE user once they hit FREE_MONTHLY_TAILOR_LIMIT', async () => {
+    const { FREE_MONTHLY_TAILOR_LIMIT } = require('../../src/services/plan/freeTierQuota')
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
+
+    for (let i = 0; i < FREE_MONTHLY_TAILOR_LIMIT; i++) {
+      const ok = await request(app).post(`/api/jobs/${job.id}/tailor`).set('Authorization', `Bearer ${token}`)
+      expect(ok.status).toBe(201)
+    }
+
+    const blocked = await request(app).post(`/api/jobs/${job.id}/tailor`).set('Authorization', `Bearer ${token}`)
+    expect(blocked.status).toBe(402)
+    expect(blocked.body.error.code).toBe('OUT_OF_CREDITS')
   })
 })
 

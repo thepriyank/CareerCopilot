@@ -1,9 +1,14 @@
 import type { FieldMappingEntry, FillableProfileFields, FormFieldSchema } from '../lib/fieldSchema'
 
 // Overridden at build time for local dev — see scripts/build.mjs's
-// `--api=` flag and README. Defaults to production.
+// `--api=` flag and README. Defaults to production. `api.jobmagnate.com`
+// has no DNS record (no Cloud Run domain mapping was ever created for
+// it — only the apex `jobmagnate.com` is mapped, to the frontend); the
+// backend is only reachable at its Cloud Run URL, exactly like the web
+// app's own NEXT_PUBLIC_API_URL build arg points at it. Point here too
+// until/unless an api.jobmagnate.com domain mapping is added.
 export const API_BASE_URL = (globalThis as { JOBMAGNATE_API_BASE_URL?: string }).JOBMAGNATE_API_BASE_URL
-  ?? 'https://api.jobmagnate.com'
+  ?? 'https://jobmagnate-backend-production-w4642vyi6a-as.a.run.app'
 
 const TOKEN_STORAGE_KEY = 'jobmagnateExtensionToken'
 

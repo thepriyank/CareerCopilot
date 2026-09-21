@@ -166,4 +166,19 @@ export const config = {
   internalIngest: {
     token: process.env.INTERNAL_INGEST_TOKEN ?? '',
   },
+
+  // Phase B billing (2026-09-19) — see docs/monetization_plan.md. keySecret
+  // never leaves the backend; only keyId (safe to expose) is ever returned
+  // to the frontend, via POST /api/payments/create-order's response rather
+  // than a NEXT_PUBLIC_* build-time env var, so the client always opens
+  // Razorpay Checkout with the exact key this backend is actually signing
+  // orders with — no risk of the two drifting apart across environments.
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID ?? '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
+    // Separate from keySecret — this is the secret you set when adding the
+    // webhook URL in Razorpay Dashboard -> Settings -> Webhooks, not the API
+    // key secret. See routes/razorpayWebhook.routes.ts.
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  },
 } as const

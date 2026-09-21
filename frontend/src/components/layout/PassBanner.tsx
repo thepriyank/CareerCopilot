@@ -56,7 +56,7 @@ export function PassBanner({ user }: PassBannerProps) {
             disabled={loading}
             style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-text)', fontWeight: 500, fontSize: 11.5, cursor: 'pointer', textAlign: 'left' }}
           >
-            {loading ? 'Activating…' : 'Free month available — Activate'}
+            {loading ? 'Activating…' : 'Free trial available — Activate'}
           </button>
           {error && <div style={{ color: 'var(--error)', fontSize: 10.5, marginTop: 2 }}>{error}</div>}
         </div>
@@ -66,7 +66,7 @@ export function PassBanner({ user }: PassBannerProps) {
     return (
       <div style={{ margin: '0 0 10px', padding: 10, borderRadius: 10, background: 'var(--accent-subtle)', border: '1px solid var(--accent-subtle-bd)' }}>
         <div style={{ fontSize: 11.5, color: 'var(--accent-text)', lineHeight: 1.4, marginBottom: 8 }}>
-          <strong>Your free month is ready.</strong> 30 days of unlimited tailored résumés and cover letters.
+          <strong>Your free trial is ready.</strong> 15 days of unlimited tailored résumés, cover letters, and Assisted Apply.
         </div>
         {error && <div style={{ fontSize: 10.5, color: 'var(--error)', marginBottom: 6 }}>{error}</div>}
         <div style={{ display: 'flex', gap: 6 }}>
