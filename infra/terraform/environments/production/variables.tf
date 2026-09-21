@@ -45,13 +45,12 @@ variable "enabled_secrets" {
     "CEREBRAS_API_KEY",
     "OLLAMA_API_KEY",
     "OPENROUTER_API_KEY",
-    # RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET / RAZORPAY_WEBHOOK_SECRET are
-    # deliberately NOT enabled yet — added 2026-09-21 (locals.all_secrets)
-    # in preparation for going live, same reasoning as GROQ_API_KEY above:
-    # an empty-but-present secret would make the app think billing is
-    # configured when it isn't. Add all three here (and populate real
-    # *live* Razorpay values, not staging's test keys) once the Razorpay
-    # account is activated for live mode, then re-apply.
+    # Live Razorpay credentials — account activated 2026-09-21. Real
+    # rzp_live_* values populated directly via `gcloud secrets versions
+    # add`, never committed to source — NOT staging's rzp_test_* keys.
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET",
   ]
 }
 
