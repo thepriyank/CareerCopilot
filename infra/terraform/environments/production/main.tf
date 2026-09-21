@@ -53,6 +53,9 @@ locals {
     JOOBLE_API_KEY                 = "jooble-api-key"
     JSEARCH_RAPID_API_KEY          = "jsearch-rapid-api-key"
     JSEARCH_OPEN_WEB_NINJA_API_KEY = "jsearch-open-web-ninja-api-key"
+    RAZORPAY_KEY_ID                = "razorpay-key-id"
+    RAZORPAY_KEY_SECRET            = "razorpay-key-secret"
+    RAZORPAY_WEBHOOK_SECRET        = "razorpay-webhook-secret"
   }
 
   enabled_secret_map = { for k, v in local.all_secrets : k => v if contains(var.enabled_secrets, k) }
