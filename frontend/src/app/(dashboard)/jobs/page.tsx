@@ -14,6 +14,10 @@ const TIER_LABEL: Record<ExperienceLevel, string> = {
   entry: 'Entry',
   mid: 'Mid',
   senior: 'Senior',
+  staff: 'Staff',
+  principal: 'Principal',
+  director: 'Director',
+  manager: 'Manager',
 }
 
 interface NewJobForm {

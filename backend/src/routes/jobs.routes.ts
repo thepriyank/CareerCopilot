@@ -322,8 +322,8 @@ router.get('/:id/cover-letter/pdf', async (req: AuthRequest, res: Response, next
 })
 
 // POST /api/jobs/:id/match — scores the caller's master resume against this
-// job (skill coverage + preference fit — see services/matching/matchScore.ts
-// for the v3-scoring-approach note) and persists a MatchResult.
+// job (skills/seniority/salary gates + a minor location nudge — see
+// services/matching/matchScore.ts's v4 header) and persists a MatchResult.
 router.post('/:id/match', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!

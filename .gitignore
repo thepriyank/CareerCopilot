@@ -13,6 +13,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 .venv/
+.venv-*/
 venv/
 scripts/jobspy-ingest/.state.json
 

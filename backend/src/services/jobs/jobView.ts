@@ -29,6 +29,11 @@ export interface JobView {
   company: string | null
   location: string | null
   salary: string | null
+  salaryMin: number | null
+  salaryMax: number | null
+  salaryCurrency: string | null
+  minYearsExperience: number | null
+  maxYearsExperience: number | null
   description: string
   normalizedFields: Record<string, unknown>
   skills: string[]
@@ -50,6 +55,11 @@ export function toJobView(userJob: UserJob, listing: JobListing, matchScore: num
     company: listing.company,
     location: listing.location,
     salary: listing.salary,
+    salaryMin: listing.salaryMin,
+    salaryMax: listing.salaryMax,
+    salaryCurrency: listing.salaryCurrency,
+    minYearsExperience: listing.minYearsExperience,
+    maxYearsExperience: listing.maxYearsExperience,
     description: listing.description,
     normalizedFields: listing.normalizedFields,
     skills: listing.skills,

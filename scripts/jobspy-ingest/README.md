@@ -55,6 +55,28 @@ shared platform infrastructure, and is scoped to India only.
      ```
      and put the same value in both places.
 
+   **Targeting the Neon staging database directly (no local backend needed):**
+   this script never talks to Postgres itself — it always goes through the
+   backend's HTTP ingest route, which then runs jobs through the real
+   title-filter/dedup/skill-extraction pipeline (`discoveryService.ts`)
+   before writing to whichever database *that backend instance* is
+   connected to. So "point this at the Neon staging DB" means pointing
+   `BACKEND_INGEST_URL` at the already-deployed **staging** backend (which
+   is already wired to the Neon `staging` branch, `br-muddy-dream-b3x0ok39`
+   — see `infra/terraform/INFRASTRUCTURE.md`), not adding a Postgres
+   connection string here:
+   ```
+   BACKEND_INGEST_URL=https://jobmagnate-backend-staging-w4642vyi6a-as.a.run.app/api/internal/jobs/ingest
+   ```
+   `INTERNAL_INGEST_TOKEN` must then be the **staging** token (Secret
+   Manager secret `jobmagnate-staging-internal-ingest-token`, provisioned
+   2026-09-17 for exactly this purpose), not whatever's in your local
+   `backend/.env`. Fetch it yourself with:
+   ```bash
+   gcloud secrets versions access latest --secret=jobmagnate-staging-internal-ingest-token --project=jobmagnet-6a1ab
+   ```
+   and paste the value into this `.env`'s `INTERNAL_INGEST_TOKEN`.
+
 ## Running it
 
 ```bash
@@ -112,31 +134,78 @@ same `INTERNAL_INGEST_TOKEN` value), then run.
 
 ## Site selection
 
-Defaults to `indeed` only. **Naukri was tried and confirmed blocked**
-(2026-09-12): every request comes back `HTTP 406 "recaptcha required"` —
-real, active bot-detection, not a transient rate limit. Working around a
-CAPTCHA is out of bounds regardless of the broader scraping decision, so
-Naukri stays out of the defaults; add it via `JOBSPY_SITES` if you want to
-try anyway, but expect 0 results. This also means Naukri's structured
-`skills` field (the reason `JobInput.preExtractedSkills` exists) currently
-never actually fires — it's still there for if/when Naukri becomes
-reachable, or for other sites that return structured skills.
+**2026-09-21 decision: full capability enabled.** Every JobSpy-supported
+site is on by default **except Naukri**:
+`indeed,linkedin,zip_recruiter,glassdoor,google,bayt,bdjobs`.
 
-`linkedin` is also **not** in the default list — this project has a standing
-extra-caution stance on LinkedIn specifically (see `CLAUDE.md` §7); add it
-yourself via `JOBSPY_SITES` if you want it anyway. `glassdoor`, `google`,
-`bayt`, and `bdjobs` are also supported by JobSpy but not defaulted on here
-(bayt/bdjobs aren't India-relevant; glassdoor/google are reasonable
-additions if you want more volume later — untested here).
+- **Naukri stays excluded** — confirmed blocked (2026-09-12): every request
+  comes back `HTTP 406 "recaptcha required"`, real active bot-detection,
+  not a transient rate limit. Working around a CAPTCHA is out of bounds
+  regardless of the broader scraping decision. Add it back via
+  `JOBSPY_SITES` if you want to try anyway, but expect 0 results. This also
+  means Naukri's structured `skills` field (the reason
+  `JobInput.preExtractedSkills` exists) currently never actually fires —
+  it's still there for if/when Naukri becomes reachable, or for other sites
+  that return structured skills.
+- **LinkedIn is now included** — previously excluded under a standing
+  extra-caution stance (see `CLAUDE.md` §7). The user explicitly approved
+  scraping LinkedIn's public job listings (2026-09-21); this remains
+  unauthenticated, credential-free listing scraping only — it is NOT
+  LinkedIn automation (no login, no auto-apply, no auto-messaging), which
+  `CLAUDE.md` §7 still prohibits. See "LinkedIn rate-limit handling" below
+  for how this script keeps LinkedIn scraping running reliably instead of
+  just failing on the first 429.
+- `zip_recruiter` (US/Canada-focused) and `bayt`/`bdjobs` (Middle East /
+  Bangladesh-focused) are also now on by default for full coverage, but
+  expect thin-to-zero results from them given this script's India-only
+  scope (`COUNTRY = "India"`) — harmless to leave on, a 0-result site just
+  logs `0 raw rows`.
+- `glassdoor` and `google` are included too (previously listed as
+  "untested" additions).
+
+## LinkedIn rate-limit handling
+
+JobSpy's own docs note LinkedIn rate-limits after roughly 10 pages from one
+IP, and `linkedin_fetch_description=True` (needed for full descriptions)
+adds one extra request per job on top of pagination — so LinkedIn burns
+through that budget faster than a plain listing scrape. To keep a run
+covering all of LinkedIn's latest matching jobs instead of just skipping it
+after the first failure:
+
+- Each site is now scraped **independently per title** (not all sites in
+  one JobSpy call), so a LinkedIn-specific failure never drops the other
+  sites' results for that title.
+- LinkedIn gets its own, longer pause between calls
+  (`JOBSPY_LINKEDIN_SLEEP_SECONDS`, default 35s vs. 8s for everything else)
+  and a smaller `results_wanted` per search (`JOBSPY_LINKEDIN_RESULTS_PER_SEARCH`,
+  default 15) to stay further under the ~10-page threshold.
+- Any failed (title, site) call — a 429, a transient network error, anything
+  — retries with exponential backoff (`JOBSPY_MAX_RETRIES`, default 4
+  attempts; `JOBSPY_RETRY_BACKOFF_SECONDS`, default 45s, doubling each
+  attempt: 45s, 90s, 180s, 360s) before being logged and skipped. This
+  applies to every site, but matters most for LinkedIn since it's the one
+  most likely to actually trip a rate limit.
+- The `--loop` flag (see "Running it" above) then re-scrapes everything
+  again 24h later, filtered to `JOBSPY_HOURS_OLD` — so even if a handful of
+  (title, site) pairs still exhaust their retries in one run, the next
+  day's run picks up anything posted since, keeping LinkedIn coverage
+  current over time rather than needing one run to be perfect.
+- JobSpy also supports `proxies=[...]` if you're still seeing heavy
+  blocking after tuning the above — not wired up here; add it to
+  `scrape_one()` in `scrape_and_post.py` if you need it.
 
 ## Tuning (all optional, set in `.env`)
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `JOBSPY_SITES` | `indeed,naukri` | Comma-separated JobSpy site names |
-| `JOBSPY_RESULTS_PER_SEARCH` | `30` | Results per title per site |
+| `JOBSPY_SITES` | `indeed,linkedin,zip_recruiter,glassdoor,google,bayt,bdjobs` | Comma-separated JobSpy site names |
+| `JOBSPY_RESULTS_PER_SEARCH` | `30` | Results per title per site (non-LinkedIn) |
+| `JOBSPY_LINKEDIN_RESULTS_PER_SEARCH` | `15` | Results per title for LinkedIn specifically (kept smaller to respect its rate limit) |
 | `JOBSPY_HOURS_OLD` | `24` | Age filter on every run after the first |
-| `JOBSPY_SLEEP_SECONDS` | `8` | Pause between per-title scrape calls |
+| `JOBSPY_SLEEP_SECONDS` | `8` | Pause between per-title/per-site scrape calls (non-LinkedIn) |
+| `JOBSPY_LINKEDIN_SLEEP_SECONDS` | `35` | Pause between LinkedIn calls specifically |
+| `JOBSPY_MAX_RETRIES` | `4` | Retry attempts for a failed (title, site) call before giving up on it |
+| `JOBSPY_RETRY_BACKOFF_SECONDS` | `45` | Base backoff delay, doubled each retry attempt |
 
 ## Known limitations
 
@@ -149,11 +218,9 @@ additions if you want more volume later — untested here).
   `last_run_at` is only saved when every batch in a run succeeded, so a
   partially-failed run correctly stays in "first run" mode (no `hours_old`
   filter) until a clean run completes.
-- JobSpy's own docs note LinkedIn rate-limits after ~10 pages from one IP,
-  and any site can return HTTP 429 under load — this script logs and skips
-  a failed title/site rather than crashing the whole run, but if you're
-  seeing a lot of failures, add delay (`JOBSPY_SLEEP_SECONDS`) or a proxy
-  (JobSpy supports `proxies=[...]`, not currently wired up here — add it to
-  `scrape_for_title()` in `scrape_and_post.py` if you need it).
+- Scraping 7 sites × 25 titles per run (instead of 1 site) means each full
+  pass takes noticeably longer — budget on the order of an hour or more per
+  run given the sleep/retry tuning above, which is fine for a background
+  `--loop` process but worth knowing if you're watching it run interactively.
 - This intentionally does not run inside the deployed backend or its Cloud
   Run discovery job — it's a separate, local/self-hosted process by design.

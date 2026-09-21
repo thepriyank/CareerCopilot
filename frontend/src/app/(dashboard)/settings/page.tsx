@@ -117,6 +117,7 @@ function ProfileTab() {
   const [error, setError] = useState('')
 
   const [targetRoles, setTargetRoles] = useState('')
+  const [yearsOfExperience, setYearsOfExperience] = useState('')
   const [industries, setIndustries] = useState('')
   const [locations, setLocations] = useState('')
   const [remotePreference, setRemotePreference] = useState<RemotePreference>('OPEN')
@@ -134,6 +135,7 @@ function ProfileTab() {
         setProfile(res.profile)
         if (res.profile) {
           setTargetRoles(res.profile.targetRoles.join(', '))
+          setYearsOfExperience(res.profile.yearsOfExperience != null ? String(res.profile.yearsOfExperience) : '')
           setIndustries(res.profile.industries.join(', '))
           setLocations(res.profile.locations.join(', '))
           setRemotePreference(res.profile.remotePreference)
@@ -156,6 +158,7 @@ function ProfileTab() {
     try {
       const res = await profileApi.upsert({
         targetRoles: targetRoles.split(',').map((s) => s.trim()).filter(Boolean),
+        yearsOfExperience: yearsOfExperience ? Number(yearsOfExperience) : null,
         industries: industries.split(',').map((s) => s.trim()).filter(Boolean),
         locations: locations.split(',').map((s) => s.trim()).filter(Boolean),
         remotePreference,
@@ -193,6 +196,10 @@ function ProfileTab() {
         <div>
           <label style={labelStyle}>Target roles (comma separated)</label>
           <input style={inputStyle} value={targetRoles} onChange={(e) => setTargetRoles(e.target.value)} placeholder="Senior Backend Engineer, Staff Engineer" />
+        </div>
+        <div>
+          <label style={labelStyle}>Years of experience</label>
+          <input style={inputStyle} type="number" min={0} max={60} value={yearsOfExperience} onChange={(e) => setYearsOfExperience(e.target.value)} placeholder="10" />
         </div>
         <div>
           <label style={labelStyle}>Industries</label>

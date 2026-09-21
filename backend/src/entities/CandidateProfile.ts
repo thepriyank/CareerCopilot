@@ -24,6 +24,16 @@ export class CandidateProfile {
   @Column({ type: 'text', array: true, default: '{}' })
   targetRoles!: string[]
 
+  // 2026-09-21 matching redesign: the one piece of "how senior am I" data
+  // this app ever directly asks for — captured explicitly during onboarding
+  // rather than inferred from résumé dates, since a candidate's own stated
+  // number is more reliable than summing WorkExperience date ranges (gaps,
+  // overlaps, contract work all make that arithmetic fragile). Feeds
+  // services/matching/experienceFit.ts as the one non-negotiable "years"
+  // signal matched against a job's LLM-extracted years-of-experience range.
+  @Column({ type: 'int', nullable: true })
+  yearsOfExperience!: number | null
+
   @Column({ type: 'text', array: true, default: '{}' })
   industries!: string[]
 

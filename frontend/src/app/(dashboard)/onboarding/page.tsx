@@ -23,6 +23,7 @@ const QUICK_REPLIES: Partial<Record<OnboardingState, string[]>> = {
 
 const PROFILE_FIELDS: Record<string, string> = {
   'Target roles': '',
+  'Experience': '',
   'Industries': '',
   'Location': '',
   'Remote pref': '',
@@ -65,6 +66,13 @@ export default function OnboardingPage() {
       .then((res) => {
         const profile = res.profile
         if (profile) {
+          // Years of experience is pre-filled from the résumé's own dates
+          // at upload time (see backend resume.routes.ts) — never asked as
+          // a chat question, so it needs to be seeded here to actually show
+          // up in the live preview rather than sitting blank until Step 3.
+          if (profile.yearsOfExperience != null) {
+            setProfilePreview((prev) => ({ ...prev, Experience: `${profile.yearsOfExperience} years` }))
+          }
           if (profile.onboardingState === 'DONE') {
             setIsComplete(true)
           } else {
