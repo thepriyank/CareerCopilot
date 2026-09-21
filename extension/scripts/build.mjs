@@ -18,8 +18,10 @@ const watch = args.includes('--watch')
 const apiArg = args.find((a) => a.startsWith('--api='))
 const webArg = args.find((a) => a.startsWith('--web='))
 
+// Production default matches api.ts's fallback — see the comment there on
+// why this isn't api.jobmagnate.com.
 const define = {
-  'globalThis.JOBMAGNATE_API_BASE_URL': JSON.stringify(apiArg ? apiArg.slice('--api='.length) : 'https://api.jobmagnate.com'),
+  'globalThis.JOBMAGNATE_API_BASE_URL': JSON.stringify(apiArg ? apiArg.slice('--api='.length) : 'https://jobmagnate-backend-production-w4642vyi6a-as.a.run.app'),
   'globalThis.JOBMAGNATE_WEB_APP_URL': JSON.stringify(webArg ? webArg.slice('--web='.length) : 'https://jobmagnate.com'),
 }
 

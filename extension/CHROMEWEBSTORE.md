@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — JobMagnate — Assisted Apply
 
-> Last Updated: 2026-09-17
+> Last Updated: 2026-09-21
 
 Generated per the `modern-web-guidance:chrome-extensions` skill's
 convention — the single place to copy-paste from when filling out the
@@ -111,8 +111,10 @@ No `host_permissions` are declared — content-script injection relies on `activ
 
 Built as a real Next.js page (`frontend/src/app/privacy/page.tsx`), not the standalone draft text that used to live in this doc — that way it's one page covering both the web app and the extension, and it can't drift out of sync with two separate copies. Linked from the landing page footer and from the "Get the extension" card in Settings.
 
-- Staging: `https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app/privacy` (verify the exact URL from `infra/terraform/INFRASTRUCTURE.md` if the staging service URL ever changes)
-- Production (once merged): `https://jobmagnate.com/privacy` — **use this one for the actual Chrome Web Store submission**, not the staging URL.
+- Staging: `https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app/privacy`
+- Production: `https://jobmagnate.com/privacy` — **verified live (HTTP 200) on 2026-09-21.** Use this one for the actual Chrome Web Store submission.
+
+**Note on Terms of Service / Refund Policy**: those pages (`/terms`, `/refund-policy`) exist on `main` (staging) but currently return 404 on production — `main` has diverged significantly from the `production` branch (Razorpay billing, the 3-tier pricing page, these two pages, and a mobile-layout fix are all staging-only right now; see the standalone note below). Not a Chrome Web Store blocker by itself — only the privacy policy is a store requirement — but worth knowing before anyone reaches the pricing page from a production install.
 
 ## Distribution
 
@@ -131,6 +133,7 @@ Built as a real Next.js page (`frontend/src/app/privacy/page.tsx`), not the stan
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
 | 0.1.0 | 2026-09-14 | First release candidate. Generic (Tier-2/LLM) form-field mapping for any employer-hosted form; text fields only, résumé/cover-letter attachment not yet wired (see Known Issues). Real app-icon set. | Draft |
+| 0.1.0 | 2026-09-21 | **Fixed a production-breaking bug found during this readiness audit**: the default build (`npm run build`, no flags — i.e. exactly what a real submission build uses) pointed `API_BASE_URL` at `https://api.jobmagnate.com`, which has no DNS record at all (confirmed by direct lookup — `Could not resolve host`). No Cloud Run domain mapping for that subdomain was ever created; only the apex `jobmagnate.com` is mapped, to the frontend. Every API call from a real install would have failed outright. Repointed the default (`src/background/api.ts` + `scripts/build.mjs`) to the backend's actual live Cloud Run URL, `https://jobmagnate-backend-production-w4642vyi6a-as.a.run.app` — the same URL the web app's own `NEXT_PUBLIC_API_URL` build arg already resolves to, so this isn't a new/separate backend, just the extension pointing at the real one instead of a placeholder. Verified: `npm run build` output only embeds this URL (grepped the built bundle), `npm test` (38/38) and `tsc --noEmit` still pass, CORS already allows `chrome-extension://` origins on the production backend (`backend/src/config/corsOrigin.ts`, shipped earlier in `2d733b0`). Rebuilt `dist/` and packaged `jobmagnate-assisted-apply-0.1.0.zip` — ready to upload as-is. | Ready to submit (pending the manual items below) |
 
 ## Review Notes
 
@@ -140,11 +143,16 @@ Built as a real Next.js page (`frontend/src/app/privacy/page.tsx`), not the stan
 - **`activeTab` + popup-button interaction**: `activeTab`'s temporary grant is triggered by the toolbar-icon click that opens the popup; clicking "Fill this form" *inside* that already-open popup relies on that same grant still being valid, since nothing has navigated the tab away in between. This is a standard, widely-shipped pattern (this is how most icon+popup extensions that act on the current page work) but hasn't been confirmed against a real Chrome install for this specific extension — do that once before submitting, per the skill's "test early" guidance in a real browser, not just via the fixture-based unit tests this repo has.
 
 ### Still needed before submitting — none of this can be done from the codebase, all manual/Developer Dashboard steps
-- **Screenshots (1 required, 1 recommended) + small promo tile (recommended).** Needs a real Chrome install with the extension loaded unpacked, against a live job form (see extension/README.md's local-dev instructions) — an automated browser tool can't load an unpacked extension or drive Chrome's own extension UI, so this has to be captured by hand.
+- **Load `extension/dist/` unpacked in a real Chrome and smoke-test it against a live job form first**, before anything else below. `chrome://extensions` → Developer mode → "Load unpacked" → select `extension/dist/`. This is also the moment to confirm the `activeTab` + popup-click pattern actually works end to end (see Known Issues) — it's never been run in a real Chrome, only against the fixture-based unit tests. `jobmagnate-assisted-apply-0.1.0.zip` (repo root of `extension/`) is the same build, already zipped, ready to upload once this checks out.
+- **Screenshots (1 required, 1 recommended) + small promo tile (recommended).** Capture these during that same real-Chrome session: (1) the popup showing "Connected" + remaining-fill count, (2) a real job application form mid-fill with green highlights visible, (3) the result message. An automated browser tool can't load an unpacked extension or drive Chrome's own extension UI, so this has to be by hand.
 - **A one-time $5 Chrome Web Store developer registration fee**, if this Google account hasn't registered as a CWS developer before — a real payment on a real Google account, so this is on you to do directly in the Developer Dashboard, not something to hand off.
 - **Visibility decision** (Public vs. Unlisted for a soft launch first) — a launch-strategy call, not a technical one. Unlisted first is a reasonable default if you want to test the real install flow with a small group before it's publicly searchable.
 - **Confirm support@jobmagnate.com is actually a monitored inbox** (or set up a forward) before it goes out on a public listing and this privacy policy.
-- Once all of the above is done: submit for review using the production privacy policy URL (`https://jobmagnate.com/privacy`, not staging's).
+- Once all of the above is done: submit for review using the production privacy policy URL (`https://jobmagnate.com/privacy`, not staging's), uploading `jobmagnate-assisted-apply-0.1.0.zip`.
+- **After the listing goes live**: set `NEXT_PUBLIC_CHROME_WEBSTORE_URL` (and `NEXT_PUBLIC_EXTENSION_ID`, needed for `/extension/connect`'s automatic token handoff) in the frontend's env — both are still empty, so Settings' "Add to Chrome" card currently shows "Coming soon" instead of a real install link.
+
+### Separate, non-blocking finding from this audit: production is well behind `main`
+Not a Chrome Web Store requirement, but worth flagging since it affects what a real user reaches right after installing the extension: the `production` branch hasn't been merged since the privacy-policy merge and job-cleanup work (`72af4e5`, `8b455ad`). Everything since — the full Razorpay integration + webhook, the 3-tier pricing page, Terms of Service, Refund Policy, and the mobile-layout fix for the Plan tab — exists only on `main` (staging). Production's Secret Manager also has no Razorpay secrets provisioned at all (`infra/terraform/environments/production/` has zero references to Razorpay), so merging `main` → `production` as-is would break the production backend on deploy (missing secrets) — that merge needs its own terraform work (mirroring `5fa4735`'s staging provisioning) and a decision on live vs. test Razorpay keys first. Flagging this separately rather than bundling it into the extension launch; happy to take it on next if wanted.
 
 ### Rejection History
 None yet — first submission not made.
