@@ -142,3 +142,25 @@ resource "google_cloud_run_domain_mapping" "frontend" {
     route_name = module.frontend_service.name
   }
 }
+
+# Maps api.<custom_domain> to the backend service. Added 2026-09-21 — the
+# Chrome extension shipped hardcoded to https://api.jobmagnate.com before
+# this mapping ever existed, which had no DNS record at all and would have
+# broken every real install; the extension was repointed at the backend's
+# raw Cloud Run URL as an immediate fix (see extension/CHROMEWEBSTORE.md),
+# with this mapping as the proper follow-up. Same Search Console
+# verification caveat as the frontend mapping above applies — a
+# Domain-type (not URL-prefix) verified property for var.custom_domain
+# should already cover this subdomain automatically.
+resource "google_cloud_run_domain_mapping" "backend" {
+  location = var.region
+  name     = "api.${var.custom_domain}"
+
+  metadata {
+    namespace = var.project_id
+  }
+
+  spec {
+    route_name = module.backend_service.name
+  }
+}
