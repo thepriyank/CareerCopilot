@@ -1,6 +1,6 @@
 {
   "name": "@jobmagnate/extension",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "JobMagnate Assisted Apply — Chrome extension (MV3). See docs/assisted_apply_extension_plan.md.",
   "scripts": {
