@@ -331,7 +331,7 @@ module "link_check_schedule" {
 module "pass_expiry_scheduler_sa" {
   source        = "../../modules/service-account"
   project_id    = var.project_id
-  account_id    = "jobmagnate-expiry-sched-${var.environment}" # google_service_account account_id caps at 30 chars
+  account_id    = "jobmagnate-exp-sched-${var.environment}" # google_service_account account_id caps at 30 chars
   display_name  = "Jobmagnate pass-expiry-job invoker (${var.environment}) — Cloud Scheduler only, no runtime DB/secret access"
   project_roles = []
 }
