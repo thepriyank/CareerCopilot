@@ -34,20 +34,27 @@ export async function hasCustomModelConnection(userId: string): Promise<boolean>
 }
 
 /**
- * Gates job matching (services/matching/surfaceJobs.ts and the on-demand
- * POST /:id/match route) — 2026-09-22 product decision: matching is free
- * during an active PREMIUM pass (trial or paid), same as before, but stops
- * once a FREE user's pass has lapsed *unless* they've supplied their own
- * model connection (Settings -> API keys). Matching itself never actually
- * calls an LLM (see matchScore.ts's header — it's local computation over
- * already-extracted data), so a custom key isn't spent on it; its presence
- * is used here purely as the paid-tier's alternate unlock condition, per
- * that decision. Tailored résumés/cover letters are a separate gate (see
- * jobs.routes.ts's assertUnderFreeQuota) — that one *does* actually route
- * generation through the user's key, transparently, via
- * anthropicClient.ts's resolveConnection().
+ * Gates every AI-assisted per-job action — match score/recompute, skill
+ * gap, tailored résumé, cover letter (jobs.routes.ts) — plus whether a
+ * score/skill-gap is shown at all. 2026-09-22 product decision, revised
+ * same day after initial feedback: a FREE user (trial/pass lapsed, or
+ * never had one) still sees their job board — surfacing keeps running,
+ * skill-match based, same as always — but sees no match score, no skill
+ * gap, and can't trigger any of the four actions above. All of it unlocks
+ * the moment they're on an active PREMIUM pass (trial or paid) *or* have
+ * supplied their own model connection (Settings -> API keys).
+ *
+ * Match/skill-gap never actually call an LLM at request time (see
+ * matchScore.ts's and jdSkillGap.ts's headers — both are local computation
+ * over already-extracted data), so a custom key isn't spent on either;
+ * its presence is purely the alternate unlock condition. Tailored résumés
+ * and cover letters are the one pair that *do* route generation through
+ * the key, transparently, via anthropicClient.ts's resolveConnection() —
+ * this gate still applies to them the same way, just for a different
+ * underlying reason (there, it's real generation cost the user is opting
+ * to cover themselves).
  */
-export async function canUserMatch(user: { id: string; plan: Plan; planExpiresAt: Date | null }): Promise<boolean> {
+export async function canUseAiJobFeatures(user: { id: string; plan: Plan; planExpiresAt: Date | null }): Promise<boolean> {
   if (resolveEffectivePlan(user) === Plan.PREMIUM) return true
   return hasCustomModelConnection(user.id)
 }

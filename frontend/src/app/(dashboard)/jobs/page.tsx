@@ -46,14 +46,14 @@ export default function JobBoardPage() {
   const [addError, setAddError] = useState('')
 
   const [needsMasterResume, setNeedsMasterResume] = useState(false)
-  const [matchingPaused, setMatchingPaused] = useState(false)
+  const [aiFeaturesLocked, setAiFeaturesLocked] = useState(false)
 
   async function fetchJobs() {
     try {
       const res = await jobsApi.list()
       setJobList(res.jobs)
       setNeedsMasterResume(res.needsMasterResume)
-      setMatchingPaused(res.matchingPaused)
+      setAiFeaturesLocked(res.aiFeaturesLocked)
       setError('')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to load jobs')
@@ -205,14 +205,14 @@ export default function JobBoardPage() {
 
         {/* Job grid */}
         <div style={{ overflow: 'auto', padding: 24, background: 'var(--paper-2)' }}>
-          {matchingPaused && (
+          {aiFeaturesLocked && (
             <div
               className="card"
               style={{ padding: '12px 16px', marginBottom: 16, background: 'var(--warning-bg)', border: '1px solid var(--warning)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
             >
               <Icon.Bell size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 200, fontSize: 12.5 }}>
-                Your free pass has ended, so job matching is paused — the jobs below are what was already matched; nothing new will be surfaced until you add your own API key or upgrade.
+                Your free pass has ended — jobs still show up here by skill match, but match scores, skill gaps, tailored résumés and cover letters are locked. Add your own API key or upgrade to unlock them.
               </div>
               <Link href="/settings" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
                 Go to Settings

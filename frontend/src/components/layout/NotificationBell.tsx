@@ -16,11 +16,20 @@ function timeAgo(iso: string): string {
   return `${days}d ago`
 }
 
-// Sidebar bell, next to Settings/Sign out — see NM notification ticket.
-// Loads on mount only (no polling); a fresh list is fetched every time the
-// dropdown opens instead, which is cheap (capped at 30 rows server-side)
-// and keeps this simple with no interval to clean up.
-export function NotificationBell() {
+interface NotificationBellProps {
+  /** Which way the dropdown opens relative to the bell. 'down' (default)
+   * for a top-of-screen bell (Topbar, mobile); 'up' for a bottom-of-screen
+   * one (Sidebar, desktop) so it doesn't run off the top of the viewport. */
+  openDirection?: 'down' | 'up'
+}
+
+// Rendered in two places: the Sidebar (desktop, bottom row, opens
+// upward) and the Topbar (mobile-only, top row, opens downward) — see
+// each component for why. Loads on mount only (no polling); a fresh list
+// is fetched every time the dropdown opens instead, which is cheap
+// (capped at 30 rows server-side) and keeps this simple with no interval
+// to clean up.
+export function NotificationBell({ openDirection = 'down' }: NotificationBellProps) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -98,8 +107,10 @@ export function NotificationBell() {
         <div
           className="card"
           style={{
-            position: 'absolute', bottom: '130%', right: -8, zIndex: 30, width: 320, maxHeight: 380,
-            overflowY: 'auto', padding: 0, boxShadow: 'var(--shadow-3)',
+            position: 'absolute',
+            ...(openDirection === 'up' ? { bottom: '130%' } : { top: '130%' }),
+            right: -8, zIndex: 30, width: 320, maxHeight: 380,
+            overflowY: 'auto', padding: 0, boxShadow: 'var(--shadow-3)', background: 'var(--surface)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--line-2)' }}>
@@ -118,7 +129,7 @@ export function NotificationBell() {
           {loading ? (
             <div style={{ padding: 16, fontSize: 12.5, color: 'var(--text-muted)' }}>Loading…</div>
           ) : items.length === 0 ? (
-            <div style={{ padding: 16, fontSize: 12.5, color: 'var(--text-muted)' }}>You&rsquo;re all caught up.</div>
+            <div style={{ padding: 16, fontSize: 12.5, color: 'var(--text-muted)' }}>No new notifications</div>
           ) : (
             items.map((n) => (
               <button

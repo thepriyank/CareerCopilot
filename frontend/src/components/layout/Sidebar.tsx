@@ -9,6 +9,7 @@ import { auth as authApi } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
 import { PassBanner } from '@/components/layout/PassBanner'
 import { NotificationBell } from '@/components/layout/NotificationBell'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { User } from '@/types'
 
 const MAIN_NAV = [
@@ -31,6 +32,7 @@ export function Sidebar({ active }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
 
   function handleSignOut() {
     clearToken()
@@ -100,13 +102,13 @@ export function Sidebar({ active }: SidebarProps) {
           <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '…'}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{planLabel}</div>
         </div>
-        {user && <NotificationBell />}
+        {user && <NotificationBell openDirection="up" />}
         <Link href="/settings" title="Settings" style={{ color: 'var(--text-muted)', display: 'flex' }}>
           <Icon.Settings size={14} />
         </Link>
         <button
           type="button"
-          onClick={handleSignOut}
+          onClick={() => setConfirmingSignOut(true)}
           title="Sign out"
           aria-label="Sign out"
           style={{ display: 'flex', alignItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
@@ -114,6 +116,16 @@ export function Sidebar({ active }: SidebarProps) {
           <Icon.LogOut size={14} />
         </button>
       </div>
+
+      {confirmingSignOut && (
+        <ConfirmDialog
+          title="Sign out?"
+          body="You'll need to sign back in to get to your dashboard, résumés, and matched jobs."
+          confirmLabel="Sign out"
+          onConfirm={handleSignOut}
+          onCancel={() => setConfirmingSignOut(false)}
+        />
+      )}
     </aside>
   )
 }

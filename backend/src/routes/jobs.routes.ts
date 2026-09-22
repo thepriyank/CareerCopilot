@@ -8,16 +8,11 @@ import { GeneratedCoverLetter } from '../entities/GeneratedCoverLetter'
 import { SkillGapReport } from '../entities/SkillGapReport'
 import { MatchResult } from '../entities/MatchResult'
 import { CandidateProfile } from '../entities/CandidateProfile'
-import { ResumeVersionType, JobOrigin, Plan, NotInterestedReason } from '../entities/enums'
+import { ResumeVersionType, JobOrigin, NotInterestedReason } from '../entities/enums'
 import { requireAuth } from '../middleware/auth'
 import { llmRateLimit } from '../middleware/rateLimit'
 import { createError } from '../middleware/errorHandler'
-import { resolveEffectivePlan, currentWindowStart } from '../services/plan/resolveEffectivePlan'
-import { canUserMatch, hasCustomModelConnection } from '../services/plan/matchingAccess'
-import {
-  FREE_MONTHLY_TAILOR_LIMIT, FREE_MONTHLY_COVER_LETTER_LIMIT,
-  countTailoredResumesInWindow, countCoverLettersInWindow,
-} from '../services/plan/freeTierQuota'
+import { canUseAiJobFeatures } from '../services/plan/matchingAccess'
 import { classifySkillGaps } from '../services/skills/jdSkillGap'
 import { flattenResumeText } from '../services/skills/resumeText'
 import { ensureUserHasJob } from '../services/jobs/discoveryService'
@@ -47,6 +42,20 @@ const createJobSchema = z.object({
 
 function jobNotFoundError() {
   return createError(404, 'NOT_FOUND', 'Job posting not found')
+}
+
+/** Throws the standard 402 for any AI-assisted job action a locked user attempts directly (defense in depth — the UI disables these first). */
+function aiFeatureLockedError() {
+  return createError(
+    402,
+    'AI_FEATURE_LOCKED',
+    "This isn't available on the free tier. Add your own API key in Settings, or upgrade to unlock it."
+  )
+}
+
+/** Strips the score from job views a locked caller shouldn't see — surfacing still runs, the score just isn't shown. */
+function withScoresHiddenIfLocked<T extends { matchScore: number | null }>(views: T[], locked: boolean): T[] {
+  return locked ? views.map((v) => ({ ...v, matchScore: null })) : views
 }
 
 // POST /api/jobs — add a job posting (pasted JD). Upserts into the shared
@@ -101,24 +110,24 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       order: { createdAt: 'DESC' },
     })
 
-    // A lapsed FREE user (no active pass, no custom key) keeps whatever
-    // was already matched — nothing here deletes past MatchResult/UserJob
-    // rows — but stops getting *new* jobs surfaced from the shared pool
-    // until they upgrade or add their own key. See services/plan/
-    // matchingAccess.ts's canUserMatch() comment for why matching (unlike
-    // tailored résumés/cover letters) gates on the key's mere presence
-    // rather than actually spending it.
+    // Surfacing runs for every user regardless of plan — a FREE user (no
+    // active pass, no custom key) still gets new pool jobs matched onto
+    // their board by skill match, same threshold as everyone else. What's
+    // locked for them is the score itself (stripped below) and every
+    // explicit AI action (recompute match, skill gap, tailor, cover
+    // letter — see aiFeatureLockedError() and its call sites). See
+    // services/plan/matchingAccess.ts's canUseAiJobFeatures() comment.
     const user = await userRepo.findOneBy({ id: userId })
-    const matchingAllowed = user ? await canUserMatch(user) : false
+    const locked = user ? !(await canUseAiJobFeatures(user)) : true
 
-    if (masterResume && matchingAllowed) {
+    if (masterResume) {
       const profile = await profileRepo.findOneBy({ userId })
       await ensureMatchedJobsForCandidate(userId, profile, masterResume)
     }
 
     const includeNotInterested = req.query.includeNotInterested === 'true'
     const jobs = await listJobViews(userId, { includeNotInterested })
-    res.json({ jobs, needsMasterResume: !masterResume, matchingPaused: !matchingAllowed })
+    res.json({ jobs: withScoresHiddenIfLocked(jobs, locked), needsMasterResume: !masterResume, aiFeaturesLocked: locked })
   } catch (err) {
     next(err)
   }
@@ -127,9 +136,15 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
 // GET /api/jobs/:id
 router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const job = await loadJobView(req.userId!, req.params.id as string)
+    const userId = req.userId!
+    const userRepo = AppDataSource.getRepository(User)
+    const user = await userRepo.findOneBy({ id: userId })
+    const locked = user ? !(await canUseAiJobFeatures(user)) : true
+
+    const job = await loadJobView(userId, req.params.id as string)
     if (!job) throw jobNotFoundError()
-    res.json({ job })
+    if (locked) job.matchScore = null
+    res.json({ job, aiFeaturesLocked: locked })
   } catch (err) {
     next(err)
   }
@@ -220,8 +235,12 @@ router.delete('/:id/not-interested', async (req: AuthRequest, res: Response, nex
 router.post('/:id/skill-gap', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
+    const userRepo = AppDataSource.getRepository(User)
     const resumeRepo = AppDataSource.getRepository(GeneratedResumeVersion)
     const skillGapRepo = AppDataSource.getRepository(SkillGapReport)
+
+    const user = await userRepo.findOneBy({ id: userId })
+    if (!user || !(await canUseAiJobFeatures(user))) throw aiFeatureLockedError()
 
     const job = await loadJobView(userId, req.params.id as string)
     if (!job) throw jobNotFoundError()
@@ -258,10 +277,19 @@ router.post('/:id/skill-gap', async (req: AuthRequest, res: Response, next: Next
   }
 })
 
-// GET /api/jobs/:id/skill-gap — latest skill-gap classification for this job
+// GET /api/jobs/:id/skill-gap — latest skill-gap classification for this
+// job. Hidden (not just blocked from computing new) for a locked user —
+// see matchingAccess.ts's canUseAiJobFeatures() comment.
 router.get('/:id/skill-gap', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
+    const userRepo = AppDataSource.getRepository(User)
+    const user = await userRepo.findOneBy({ id: userId })
+    if (user && !(await canUseAiJobFeatures(user))) {
+      res.json({ skillGapReport: null, existing: [], supportedByResume: [] })
+      return
+    }
+
     const skillGapRepo = AppDataSource.getRepository(SkillGapReport)
     const skillGapReport = await skillGapRepo.findOne({
       where: { userId, jobId: req.params.id as string },
@@ -298,33 +326,19 @@ async function loadJobAndMasterResume(userId: string, jobId: string): Promise<{ 
 }
 
 /**
- * Throws 402 if this user is on FREE and has already used up their rolling
- * monthly allowance of `limit` for whatever `countInWindow` counts — a
- * no-op entirely for a PREMIUM user (trial or paid, see
- * resolveEffectivePlan()) *or* a FREE user with their own model connection
- * configured (2026-09-22 — see services/plan/matchingAccess.ts): unlike
- * matching, tailoring/cover-letter generation genuinely calls an LLM, and
- * anthropicClient.ts's resolveConnection() already transparently routes
- * that call through the user's own key when one's saved, so their usage
- * costs the platform nothing and the monthly cap doesn't apply. Same shape
- * as extension.routes.ts's `remainingFills` check, generalized — see
- * services/plan/freeTierQuota.ts.
+ * Throws the standard 402 unless this user is on an active PREMIUM pass
+ * (trial or paid) or has their own model connection configured
+ * (2026-09-22 — see services/plan/matchingAccess.ts). Tailoring/cover-
+ * letter generation genuinely calls an LLM, and anthropicClient.ts's
+ * resolveConnection() already transparently routes that call through the
+ * user's own key when one's saved, so their usage costs the platform
+ * nothing once unlocked this way.
  */
-async function assertUnderFreeQuota(
-  userId: string,
-  limit: number,
-  countInWindow: (userId: string, windowStart: Date) => Promise<number>,
-  message: string
-): Promise<void> {
+async function assertAiFeatureUnlocked(userId: string): Promise<void> {
   const userRepo = AppDataSource.getRepository(User)
   const user = await userRepo.findOneBy({ id: userId })
   if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
-  if (resolveEffectivePlan(user) === Plan.PREMIUM) return
-  if (await hasCustomModelConnection(userId)) return
-
-  const windowStart = currentWindowStart(user.createdAt)
-  const used = await countInWindow(userId, windowStart)
-  if (used >= limit) throw createError(402, 'OUT_OF_CREDITS', message)
+  if (!(await canUseAiJobFeatures(user))) throw aiFeatureLockedError()
 }
 
 // POST /api/jobs/:id/cover-letter — generates a job-specific cover letter
@@ -333,11 +347,8 @@ async function assertUnderFreeQuota(
 router.post('/:id/cover-letter', llmRateLimit, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
+    await assertAiFeatureUnlocked(userId)
     const { job, masterResume } = await loadJobAndMasterResume(userId, req.params.id as string)
-    await assertUnderFreeQuota(
-      userId, FREE_MONTHLY_COVER_LETTER_LIMIT, countCoverLettersInWindow,
-      `You've used all ${FREE_MONTHLY_COVER_LETTER_LIMIT} free cover letters for this period — buy a pass for unlimited`
-    )
 
     const profileRepo = AppDataSource.getRepository(CandidateProfile)
     const profile = await profileRepo.findOneBy({ userId })
@@ -403,16 +414,7 @@ router.get('/:id/cover-letter/pdf', async (req: AuthRequest, res: Response, next
 router.post('/:id/match', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
-    const userRepo = AppDataSource.getRepository(User)
-    const user = await userRepo.findOneBy({ id: userId })
-    if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
-    if (!(await canUserMatch(user))) {
-      throw createError(
-        402,
-        'MATCHING_UNAVAILABLE',
-        'Your free pass has ended, so job matching is paused. Add your own API key in Settings, or upgrade to keep matching.'
-      )
-    }
+    await assertAiFeatureUnlocked(userId)
 
     const { job, masterResume } = await loadJobAndMasterResume(userId, req.params.id as string)
 
@@ -439,10 +441,18 @@ router.post('/:id/match', async (req: AuthRequest, res: Response, next: NextFunc
   }
 })
 
-// GET /api/jobs/:id/match — latest match result for this job
+// GET /api/jobs/:id/match — latest match result for this job. Hidden for
+// a locked user, same reasoning as GET /:id/skill-gap above.
 router.get('/:id/match', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
+    const userRepo = AppDataSource.getRepository(User)
+    const user = await userRepo.findOneBy({ id: userId })
+    if (user && !(await canUseAiJobFeatures(user))) {
+      res.json({ matchResult: null })
+      return
+    }
+
     const matchRepo = AppDataSource.getRepository(MatchResult)
     const matchResult = await matchRepo.findOne({
       where: { userId, jobId: req.params.id as string },
@@ -460,11 +470,8 @@ router.get('/:id/match', async (req: AuthRequest, res: Response, next: NextFunct
 router.post('/:id/tailor', llmRateLimit, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
+    await assertAiFeatureUnlocked(userId)
     const { job, masterResume } = await loadJobAndMasterResume(userId, req.params.id as string)
-    await assertUnderFreeQuota(
-      userId, FREE_MONTHLY_TAILOR_LIMIT, countTailoredResumesInWindow,
-      `You've used all ${FREE_MONTHLY_TAILOR_LIMIT} free tailored résumés for this period — buy a pass for unlimited`
-    )
 
     const entities = masterResume.content as unknown as ExtractedEntities
     const resumeText = flattenResumeText(entities)

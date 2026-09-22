@@ -6,6 +6,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
+import { LockedHint } from '@/components/ui/LockedHint'
 import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
 import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
@@ -66,6 +67,7 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<JobPosting | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [aiFeaturesLocked, setAiFeaturesLocked] = useState(false)
 
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null)
   const [matching, setMatching] = useState(false)
@@ -104,6 +106,7 @@ export default function JobDetailPage() {
     ])
       .then(([jobRes, matchRes, skillGapRes, letterRes, tailorRes]) => {
         setJob(jobRes.job)
+        setAiFeaturesLocked(jobRes.aiFeaturesLocked)
         setMatchResult(matchRes.matchResult)
         if (skillGapRes.skillGapReport) {
           setSkillGap({
@@ -326,10 +329,17 @@ export default function JobDetailPage() {
         <div style={{ overflow: 'auto', padding: 24, background: 'var(--paper-2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Section
             title="Match"
-            action={<button className="btn btn-secondary btn-sm" onClick={handleComputeMatch} disabled={matching}><Icon.Sparkle size={12} /> {matching ? 'Scoring…' : matchResult ? 'Recompute' : 'Compute match'}</button>}
+            action={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {aiFeaturesLocked && <LockedHint />}
+                <button className="btn btn-secondary btn-sm" onClick={handleComputeMatch} disabled={matching || aiFeaturesLocked}><Icon.Sparkle size={12} /> {matching ? 'Scoring…' : matchResult ? 'Recompute' : 'Compute match'}</button>
+              </div>
+            }
           >
             {matchError && <div style={{ fontSize: 12, color: 'var(--error)' }}>{matchError}</div>}
-            {matchResult ? (
+            {aiFeaturesLocked ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Match score isn&rsquo;t available on the free tier.</div>
+            ) : matchResult ? (
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                 <ScoreRing value={matchResult.score} />
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -371,10 +381,17 @@ export default function JobDetailPage() {
 
           <Section
             title="Skill gap"
-            action={<button className="btn btn-secondary btn-sm" onClick={handleCheckSkillGap} disabled={checkingSkills}><Icon.Sparkle size={12} /> {checkingSkills ? 'Checking…' : skillGap ? 'Recheck' : 'Check skill gaps'}</button>}
+            action={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {aiFeaturesLocked && <LockedHint />}
+                <button className="btn btn-secondary btn-sm" onClick={handleCheckSkillGap} disabled={checkingSkills || aiFeaturesLocked}><Icon.Sparkle size={12} /> {checkingSkills ? 'Checking…' : skillGap ? 'Recheck' : 'Check skill gaps'}</button>
+              </div>
+            }
           >
             {skillError && <div style={{ fontSize: 12, color: 'var(--error)' }}>{skillError}</div>}
-            {skillGap ? (
+            {aiFeaturesLocked ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Skill gap isn&rsquo;t available on the free tier.</div>
+            ) : skillGap ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>On your resume</div>
@@ -432,13 +449,14 @@ export default function JobDetailPage() {
           <Section
             title="Cover letter"
             action={
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {coverLetter && (
                   <button className="btn btn-ghost btn-sm" onClick={handleDownloadLetterPdf} disabled={downloadingLetterPdf}>
                     <Icon.Doc size={12} /> {downloadingLetterPdf ? 'Preparing…' : 'PDF'}
                   </button>
                 )}
-                <button className="btn btn-secondary btn-sm" onClick={handleGenerateCoverLetter} disabled={generatingLetter}>
+                {aiFeaturesLocked && <LockedHint />}
+                <button className="btn btn-secondary btn-sm" onClick={handleGenerateCoverLetter} disabled={generatingLetter || aiFeaturesLocked}>
                   <Icon.Sparkle size={12} /> {generatingLetter ? 'Writing…' : coverLetter ? 'Regenerate' : 'Generate cover letter'}
                 </button>
               </div>
@@ -463,13 +481,14 @@ export default function JobDetailPage() {
           <Section
             title="Tailored resume"
             action={
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {tailoredResume && (
                   <button className="btn btn-ghost btn-sm" onClick={handleDownloadTailoredPdf} disabled={downloadingTailoredPdf}>
                     <Icon.Doc size={12} /> {downloadingTailoredPdf ? 'Preparing…' : 'PDF'}
                   </button>
                 )}
-                <button className="btn btn-secondary btn-sm" onClick={handleGenerateTailoredResume} disabled={tailoring}>
+                {aiFeaturesLocked && <LockedHint />}
+                <button className="btn btn-secondary btn-sm" onClick={handleGenerateTailoredResume} disabled={tailoring || aiFeaturesLocked}>
                   <Icon.Sparkle size={12} /> {tailoring ? 'Tailoring…' : tailoredResume ? 'Re-tailor' : 'Tailor resume'}
                 </button>
               </div>

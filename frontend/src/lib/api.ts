@@ -236,16 +236,17 @@ export const jobs = {
   // against an admin-configured pool), never something a candidate
   // triggers. `needsMasterResume` is true until they've generated one —
   // nothing gets matched before that.
-  // `matchingPaused` is true once a FREE user's pass has lapsed with no
-  // custom API key configured — existing `jobs` still list (nothing is
-  // deleted), but no *new* pool listing gets surfaced until they add a
-  // key or upgrade. See backend jobs.routes.ts's GET / handler.
+  // `aiFeaturesLocked` is true once a FREE user's pass has lapsed with no
+  // custom API key configured — jobs still surface normally (skill-match
+  // based), but `matchScore` comes back null and every AI action (match
+  // recompute, skill gap, tailor, cover letter) is locked. See backend
+  // jobs.routes.ts's GET / handler and matchingAccess.ts.
   list: (options: { includeNotInterested?: boolean } = {}) =>
-    request<{ jobs: JobPosting[]; needsMasterResume: boolean; matchingPaused: boolean }>(
+    request<{ jobs: JobPosting[]; needsMasterResume: boolean; aiFeaturesLocked: boolean }>(
       `/api/jobs${options.includeNotInterested ? '?includeNotInterested=true' : ''}`
     ),
 
-  get: (id: string) => request<{ job: JobPosting }>(`/api/jobs/${id}`),
+  get: (id: string) => request<{ job: JobPosting; aiFeaturesLocked: boolean }>(`/api/jobs/${id}`),
 
   create: (data: {
     title: string
