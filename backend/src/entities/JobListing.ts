@@ -142,6 +142,21 @@ export class JobListing {
   @Column({ nullable: true, type: 'timestamp' })
   expiredAt!: Date | null
 
+  // 2026-09-22 link-health check (Jira NM-26) — see
+  // services/jobs/linkHealthCheck.ts. `lastLinkCheckedAt` is what the daily
+  // check batches on (oldest/never-checked first), independent of
+  // `lastSeenAt` (which only reflects re-discovery, not link validity).
+  // `linkCheckFailureCount` counts consecutive *ambiguous* failures (403/
+  // 429/timeout/5xx — could just be bot-blocking, not necessarily a dead
+  // link) across separate daily runs; it takes 2 to flip the listing to
+  // EXPIRED. A clean 404/410 is unambiguous and expires the listing
+  // immediately without needing this counter at all.
+  @Column({ nullable: true, type: 'timestamp' })
+  lastLinkCheckedAt!: Date | null
+
+  @Column({ type: 'int', default: 0 })
+  linkCheckFailureCount!: number
+
   @OneToMany(() => UserJob, (uj) => uj.jobListing)
   userJobs!: UserJob[]
 }
