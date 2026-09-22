@@ -27,6 +27,18 @@ export interface User {
   createdAt: string
 }
 
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export interface Notification {
+  id: string
+  type: 'PASS_EXPIRING'
+  title: string
+  body: string
+  meta: Record<string, unknown> | null
+  readAt: string | null
+  createdAt: string
+}
+
 // ─── Resume File ──────────────────────────────────────────────────────────────
 
 export interface ResumeFile {

@@ -655,6 +655,42 @@ describe('GET /api/jobs — auto-surfacing matched pool jobs', () => {
     expect(res.body.needsMasterResume).toBe(true) // other user has no master resume
     expect(res.body.jobs).toEqual([])
   })
+
+  it('a lapsed FREE user with no custom key still gets new jobs surfaced, but aiFeaturesLocked is true and the score is hidden', async () => {
+    const app = buildApp()
+    await seedPoolListing()
+    await saveMasterResume(USER_ID, ['Python', 'Kubernetes'])
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
+
+    const res = await request(app).get('/api/jobs').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.aiFeaturesLocked).toBe(true)
+    expect(res.body.jobs).toHaveLength(1) // still surfaced, skill-match based
+    expect(res.body.jobs[0].matchScore).toBeNull() // but the score isn't shown
+    expect(userJobRepo.rows).toHaveLength(1)
+    expect(matchResultRepo.rows).toHaveLength(1) // still computed/persisted internally, just not exposed
+  })
+
+  it('a FREE user with a valid custom model connection sees the score too', async () => {
+    const { encrypt } = require('../../src/utils/encryption')
+    const app = buildApp()
+    await seedPoolListing()
+    await saveMasterResume(USER_ID, ['Python', 'Kubernetes'])
+    userRepo.rows[0] = {
+      ...userRepo.rows[0],
+      plan: Plan.FREE,
+      planExpiresAt: null,
+      settings: { modelConnection: encrypt('sk-ant-user-owned-key') },
+    }
+
+    const res = await request(app).get('/api/jobs').set('Authorization', `Bearer ${token}`)
+
+    expect(res.body.aiFeaturesLocked).toBe(false)
+    expect(res.body.jobs).toHaveLength(1)
+    expect(typeof res.body.jobs[0].matchScore).toBe('number')
+    expect(userJobRepo.rows).toHaveLength(1)
+  })
 })
 
 describe('POST /api/jobs/:id/cover-letter', () => {
@@ -689,42 +725,84 @@ describe('POST /api/jobs/:id/cover-letter', () => {
   })
 })
 
-describe('free-tier quota on tailored résumés and cover letters', () => {
-  it('blocks a FREE user once they hit FREE_MONTHLY_COVER_LETTER_LIMIT, but PREMIUM stays unaffected', async () => {
-    const { FREE_MONTHLY_COVER_LETTER_LIMIT } = require('../../src/services/plan/freeTierQuota')
+describe('AI-feature lock on tailored résumés and cover letters (2026-09-22 — no more monthly quota, hard lock instead)', () => {
+  it('blocks a FREE user with no custom key from generating a cover letter, but PREMIUM works', async () => {
     const app = buildApp()
     const job = await seedJobAndMasterResume(app, token)
     userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
 
-    for (let i = 0; i < FREE_MONTHLY_COVER_LETTER_LIMIT; i++) {
-      const ok = await request(app).post(`/api/jobs/${job.id}/cover-letter`).set('Authorization', `Bearer ${token}`)
-      expect(ok.status).toBe(201)
-    }
-
     const blocked = await request(app).post(`/api/jobs/${job.id}/cover-letter`).set('Authorization', `Bearer ${token}`)
     expect(blocked.status).toBe(402)
-    expect(blocked.body.error.code).toBe('OUT_OF_CREDITS')
+    expect(blocked.body.error.code).toBe('AI_FEATURE_LOCKED')
 
-    // Back to PREMIUM — the same limit no longer applies.
     userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.PREMIUM, planExpiresAt: new Date(Date.now() + 1000000) }
     const stillWorks = await request(app).post(`/api/jobs/${job.id}/cover-letter`).set('Authorization', `Bearer ${token}`)
     expect(stillWorks.status).toBe(201)
   })
 
-  it('blocks a FREE user once they hit FREE_MONTHLY_TAILOR_LIMIT', async () => {
-    const { FREE_MONTHLY_TAILOR_LIMIT } = require('../../src/services/plan/freeTierQuota')
+  it('blocks a FREE user with no custom key from tailoring a résumé', async () => {
     const app = buildApp()
     const job = await seedJobAndMasterResume(app, token)
     userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
 
-    for (let i = 0; i < FREE_MONTHLY_TAILOR_LIMIT; i++) {
-      const ok = await request(app).post(`/api/jobs/${job.id}/tailor`).set('Authorization', `Bearer ${token}`)
-      expect(ok.status).toBe(201)
-    }
-
     const blocked = await request(app).post(`/api/jobs/${job.id}/tailor`).set('Authorization', `Bearer ${token}`)
     expect(blocked.status).toBe(402)
-    expect(blocked.body.error.code).toBe('OUT_OF_CREDITS')
+    expect(blocked.body.error.code).toBe('AI_FEATURE_LOCKED')
+  })
+
+  it('a FREE user with their own model connection can tailor/generate freely, no cap', async () => {
+    const { encrypt } = require('../../src/utils/encryption')
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    userRepo.rows[0] = {
+      ...userRepo.rows[0],
+      plan: Plan.FREE,
+      planExpiresAt: null,
+      settings: { modelConnection: encrypt('sk-ant-user-owned-key') },
+    }
+
+    for (let i = 0; i < 5; i++) {
+      const res = await request(app).post(`/api/jobs/${job.id}/tailor`).set('Authorization', `Bearer ${token}`)
+      expect(res.status).toBe(201)
+    }
+  })
+
+  it('blocks a FREE user with no custom key from computing a skill gap, but PREMIUM works', async () => {
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
+
+    const blocked = await request(app).post(`/api/jobs/${job.id}/skill-gap`).set('Authorization', `Bearer ${token}`)
+    expect(blocked.status).toBe(402)
+    expect(blocked.body.error.code).toBe('AI_FEATURE_LOCKED')
+
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.PREMIUM, planExpiresAt: new Date(Date.now() + 1000000) }
+    const stillWorks = await request(app).post(`/api/jobs/${job.id}/skill-gap`).set('Authorization', `Bearer ${token}`)
+    expect(stillWorks.status).toBe(201)
+  })
+
+  it('hides an already-computed skill gap from a locked FREE user, even though it still exists', async () => {
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    await request(app).post(`/api/jobs/${job.id}/skill-gap`).set('Authorization', `Bearer ${token}`)
+
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
+    const res = await request(app).get(`/api/jobs/${job.id}/skill-gap`).set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(200)
+    expect(res.body.skillGapReport).toBeNull()
+    expect(skillGapRepo.rows).toHaveLength(1) // still there, just not returned
+  })
+
+  it('hides an already-computed match result from a locked FREE user, even though it still exists', async () => {
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    await request(app).post(`/api/jobs/${job.id}/match`).set('Authorization', `Bearer ${token}`)
+
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
+    const res = await request(app).get(`/api/jobs/${job.id}/match`).set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(200)
+    expect(res.body.matchResult).toBeNull()
+    expect(matchResultRepo.rows).toHaveLength(1) // still there, just not returned
   })
 })
 
@@ -792,6 +870,32 @@ describe('POST /api/jobs/:id/match', () => {
     expect(typeof res.body.matchResult.score).toBe('number')
     expect(res.body.matchResult.rationale.matchedSkills).toEqual(expect.arrayContaining(['Python']))
     expect(matchResultRepo.rows).toHaveLength(1)
+  })
+
+  it('blocks a lapsed FREE user with no custom key', async () => {
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    userRepo.rows[0] = { ...userRepo.rows[0], plan: Plan.FREE, planExpiresAt: null }
+
+    const res = await request(app).post(`/api/jobs/${job.id}/match`).set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(402)
+    expect(res.body.error.code).toBe('AI_FEATURE_LOCKED')
+    expect(matchResultRepo.rows).toHaveLength(0)
+  })
+
+  it('allows a lapsed FREE user who has configured their own model connection', async () => {
+    const { encrypt } = require('../../src/utils/encryption')
+    const app = buildApp()
+    const job = await seedJobAndMasterResume(app, token)
+    userRepo.rows[0] = {
+      ...userRepo.rows[0],
+      plan: Plan.FREE,
+      planExpiresAt: null,
+      settings: { modelConnection: encrypt('sk-ant-user-owned-key') },
+    }
+
+    const res = await request(app).post(`/api/jobs/${job.id}/match`).set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(201)
   })
 })
 

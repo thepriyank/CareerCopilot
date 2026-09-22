@@ -17,6 +17,7 @@ import { LinkedInReviewReport } from './LinkedInReviewReport'
 import { ModelUsageRecord } from './ModelUsageRecord'
 import { ExtensionToken } from './ExtensionToken'
 import { ExtensionFill } from './ExtensionFill'
+import { Notification } from './Notification'
 
 @Entity('users')
 export class User {
@@ -123,4 +124,7 @@ export class User {
 
   @OneToMany(() => ExtensionFill, (ef) => ef.user)
   extensionFills!: ExtensionFill[]
+
+  @OneToMany(() => Notification, (n) => n.user)
+  notifications!: Notification[]
 }

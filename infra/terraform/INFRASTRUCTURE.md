@@ -22,6 +22,11 @@ than no note.
 
 **Changelog (most recent first):**
 
+- **2026-09-22** — Wrote Terraform for a new daily link-health-check Cloud
+  Run Job + Cloud Scheduler (staging) — see "Daily link-health check"
+  below. `terraform validate`/`plan` pass; **not yet applied**, so nothing
+  below actually exists in GCP yet. Update this entry (and move the
+  section out of "planned") once a real `terraform apply` runs.
 - **2026-09-10** — Verified the daily discovery job runs end-to-end on its
   own schedule (was "not yet verified"). Marked the "committed source
   predates the real app" limitation RESOLVED — the real app has been on
@@ -126,6 +131,65 @@ Manual trigger: `gcloud scheduler jobs run jobmagnate-discovery-staging
 --region asia-southeast1 --project jobmagnet-6a1ab` and
 `gcloud logging read 'resource.type="cloud_run_job"
 resource.labels.job_name="jobmagnate-discovery-staging"'` for the result.
+
+### Daily link-health check (2026-09-22, Jira NM-26) — **written, not yet applied**
+
+Same Cloud Run Job + Cloud Scheduler pattern as discovery/job-cleanup above
+— `terraform validate` and `terraform plan` both pass against this file,
+but **no `terraform apply` has been run for it yet**, so none of this
+exists in GCP as of this writing. Treat this section as a spec for the
+next apply, not a "verified working" record like the discovery job's
+above.
+
+| Resource | Value |
+|---|---|
+| Cloud Run Job | `jobmagnate-link-check-staging` — same image as the backend service, entrypoint overridden to `node dist/scripts/runLinkCheck.js` |
+| Cloud Scheduler job | `jobmagnate-link-check-staging` — `0 3 * * *` UTC (8:30am IST), once daily |
+| Scheduler invoker SA | `jobmagnate-link-sched-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` — `roles/run.invoker` on just this one Job, nothing else |
+| Job's runtime identity | reuses `jobmagnate-be-staging` (the backend runtime SA) — already has the Secret Manager grants it needs (just `DATABASE_URL`) |
+
+**Staging-only by deliberate product decision (2026-09-22)** — this job is
+*not* mirrored into `environments/production/main.tf`, unlike the general
+"production mirrors staging exactly in shape" convention that file states
+for everything else. Staging is the lower-stakes environment to run a
+still-settling background job that repeatedly scans/writes the job pool;
+any bug in it stays off what real users hit. Both `staging/main.tf` (right
+above this job's module blocks) and the top of `production/main.tf` carry
+an explicit comment to this effect, specifically so a future "bring
+production up to parity" pass doesn't sweep this job in automatically —
+re-adding it to production needs its own decision. (Note this is
+independent of the fact that staging and production are already separate
+Neon branches — `br-muddy-dream-b3x0ok39` vs `br-lucky-term-b3v6w6c4`, not
+literally the same database — this job's queries were never going to load
+production's compute directly either way; the exclusion is about keeping
+an unproven background job's blast radius off production regardless.)
+
+What it does: checks a bounded batch (300, oldest/never-checked first) of
+`ACTIVE` `JobListing` rows' own posting URLs with a `HEAD` request (falling
+back to `GET` only on a 405), and marks a listing `EXPIRED` — the same
+status the age-based staleness path already uses — either immediately on a
+clean 404/410, or after 2 consecutive ambiguous failures (403/429/timeout/
+5xx) across separate daily runs. See
+`backend/src/services/jobs/linkHealthCheck.ts` for the actual logic and
+`backend/tests/unit/linkHealthCheck.test.ts` for the test coverage.
+
+**A real `terraform plan` run against this file (2026-09-22) also surfaced
+2 unrelated pre-existing drift changes** on `backend_service`/
+`frontend_service` (a `scaling` block's `manual_instance_count`/
+`min_instance_count` the current `.tf` config doesn't set explicitly,
+which GCP/a prior out-of-band change populated) — not caused by this
+addition, would show up on any plan against current state. Apply this
+job with `-target=module.link_check_scheduler_sa -target=module.link_check_job
+-target=module.link_check_schedule` to create only the 4 new resources
+without also touching that drift, or accept the drift fix in the same
+apply if it looks harmless (it does — Cloud Run treats an absent block the
+same as its printed defaults).
+
+Manual trigger (once applied): `gcloud scheduler jobs run
+jobmagnate-link-check-staging --location asia-southeast1 --project
+jobmagnet-6a1ab`, then `gcloud run jobs executions list --job
+jobmagnate-link-check-staging --region asia-southeast1 --project
+jobmagnet-6a1ab`.
 
 ### Secrets provisioned (Secret Manager, real values populated 2026-09-08)
 

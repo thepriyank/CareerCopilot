@@ -19,6 +19,7 @@ import { ModelUsageRecord } from '../entities/ModelUsageRecord'
 import { ExtensionToken } from '../entities/ExtensionToken'
 import { ExtensionFill } from '../entities/ExtensionFill'
 import { FieldMappingCache } from '../entities/FieldMappingCache'
+import { Notification } from '../entities/Notification'
 
 // 2026-09-07 architecture hardening: `synchronize: true` is retired. It let
 // TypeORM silently drop/alter columns on any entity change with no rollback
@@ -53,6 +54,7 @@ export const AppDataSource = new DataSource({
     ExtensionToken,
     ExtensionFill,
     FieldMappingCache,
+    Notification,
   ],
   subscribers: [],
 })

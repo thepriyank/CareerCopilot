@@ -19,6 +19,7 @@ import {
   DashboardData,
   ExtensionTokenSummary,
   NotInterestedReason,
+  Notification,
 } from '../types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -235,12 +236,17 @@ export const jobs = {
   // against an admin-configured pool), never something a candidate
   // triggers. `needsMasterResume` is true until they've generated one —
   // nothing gets matched before that.
+  // `aiFeaturesLocked` is true once a FREE user's pass has lapsed with no
+  // custom API key configured — jobs still surface normally (skill-match
+  // based), but `matchScore` comes back null and every AI action (match
+  // recompute, skill gap, tailor, cover letter) is locked. See backend
+  // jobs.routes.ts's GET / handler and matchingAccess.ts.
   list: (options: { includeNotInterested?: boolean } = {}) =>
-    request<{ jobs: JobPosting[]; needsMasterResume: boolean }>(
+    request<{ jobs: JobPosting[]; needsMasterResume: boolean; aiFeaturesLocked: boolean }>(
       `/api/jobs${options.includeNotInterested ? '?includeNotInterested=true' : ''}`
     ),
 
-  get: (id: string) => request<{ job: JobPosting }>(`/api/jobs/${id}`),
+  get: (id: string) => request<{ job: JobPosting; aiFeaturesLocked: boolean }>(`/api/jobs/${id}`),
 
   create: (data: {
     title: string
@@ -365,6 +371,17 @@ export const account = {
   activatePass: () => request<{ user: User }>('/api/account/activate-pass', { method: 'POST' }),
 
   dismissPassBanner: () => request<{ message: string }>('/api/account/dismiss-pass-banner', { method: 'POST' }),
+}
+
+// ─── Notifications (sidebar bell) ──────────────────────────────────────────
+
+export const notifications = {
+  list: () => request<{ notifications: Notification[]; unreadCount: number }>('/api/notifications'),
+
+  markRead: (id: string) =>
+    request<{ notification: Notification }>(`/api/notifications/${id}/read`, { method: 'POST' }),
+
+  markAllRead: () => request<{ ok: boolean }>('/api/notifications/read-all', { method: 'POST' }),
 }
 
 // ─── Assisted Apply extension (Settings: Connected extensions) ─────────────

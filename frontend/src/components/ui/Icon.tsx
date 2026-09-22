@@ -48,6 +48,7 @@ export const Icon = {
   ChevronR:   ic(<path d="M9 6l6 6-6 6"/>),
   Map:        ic(<><path d="M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></>),
   Bell:       ic(<><path d="M6 8a6 6 0 1112 0c0 7 3 7 3 9H3c0-2 3-2 3-9z"/><path d="M10 21a2 2 0 004 0"/></>),
+  Menu:       ic(<><path d="M4 6h16M4 12h16M4 18h16"/></>),
   Mail:       ic(<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 7 9-7"/></>),
   X:          ic(<path d="M6 6l12 12M18 6L6 18"/>),
   Refresh:    ic(<><path d="M4 12a8 8 0 0114-5l2-2"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 01-14 5l-2 2"/><path d="M4 20v-5h5"/></>),

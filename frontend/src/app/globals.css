@@ -313,6 +313,10 @@ html, body {
   gap: var(--s-4);
   background: var(--surface);
 }
+/* Notification bell (+ a page's optional hamburger, e.g. Settings) —
+   desktop already has the bell in the Sidebar, so this stays hidden until
+   the mobile breakpoint below turns it on. */
+.topbar-mobile-icons { display: none; align-items: center; gap: 10px; flex-shrink: 0; }
 
 /* ─── Document surfaces ─── */
 .doc {
@@ -395,6 +399,39 @@ html, body {
     flex-wrap: wrap;
     justify-content: flex-start !important;
   }
+  .topbar-mobile-icons { display: flex !important; }
+}
+
+/* ─── Settings sub-nav (Profile/API keys/Privacy/Plan/...) ───
+   On mobile, `.grid-stack-scroll` collapses this 220px sidebar column to
+   full width and stacks it *above* the actual tab content — the sub-nav
+   list rendered as a wall of options before a single form field was
+   visible. Hidden on mobile entirely; replaced by a slide-in drawer
+   (`.settings-drawer`) triggered from Topbar's mobileExtra hamburger —
+   same list, same handlers, just a different container. Desktop is
+   untouched (this only hides at the same breakpoint as the tab/nav
+   layout the drawer is standing in for). */
+.settings-subnav { display: flex; }
+.settings-drawer-overlay { display: none; }
+@media (max-width: 768px) {
+  .settings-subnav { display: none; }
+  .settings-drawer-overlay {
+    display: flex;
+    position: fixed; inset: 0; z-index: 150;
+    background: oklch(0.2 0.02 262 / 0.4);
+  }
+  .settings-drawer {
+    width: 260px; max-width: 80vw; height: 100%;
+    background: var(--surface);
+    padding: 20px 14px;
+    display: flex; flex-direction: column;
+    box-shadow: var(--shadow-3);
+    animation: settings-drawer-in 0.15s ease-out;
+  }
+}
+@keyframes settings-drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 
 /* ─── Landing page (app/page.tsx) mobile fixes ───

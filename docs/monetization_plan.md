@@ -13,6 +13,38 @@
 > 5/month) — see "Tiering" below, which previously described this as a
 > paid-only gate that the code didn't actually enforce yet.
 
+> **2026-09-22 update — matching is no longer unconditionally free.**
+> Product decision: once a user's trial (or a paid pass) lapses, the job
+> board keeps working — jobs still surface, skill-match based, same as
+> always — but the match score, skill gap, and every explicit AI action
+> (recompute match, check skill gaps, tailor résumé, generate cover
+> letter) are locked, shown as disabled buttons with an "i" tooltip
+> ("Feature not available in free-tier"). This reverses "the governing
+> principle" below as originally written, which is worth stating plainly
+> rather than quietly editing around. **Revised same day** from an initial
+> version that stopped surfacing new jobs entirely — the jobs list staying
+> populated (skill-match only, no score/gap detail) is the shipped
+> behavior, not that first pass.
+>
+> **The escape hatch**: a FREE user who adds their own model API key
+> (Settings → API keys) unlocks all of it — matching, skill gap, tailored
+> résumés and cover letters — indefinitely. Tailored résumés/cover letters
+> already route generation through that key automatically, at no cost to
+> the platform; matching and skill-gap classification call no LLM at all
+> (both are local computation over already-extracted data — see
+> `matchScore.ts`/`jdSkillGap.ts`), so the key's *presence* is what the
+> gate checks there, not its usage. Extension autofill and every other pro
+> feature stay gated behind an actual paid/trial pass regardless of a
+> configured key. The old 3/month FREE-tier grace on tailored résumés/
+> cover letters is gone — replaced by this same hard lock, for one
+> consistent free-tier story instead of two different mechanisms.
+>
+> See `backend/src/services/plan/matchingAccess.ts` and the in-app
+> pass-expiry notification (`entities/Notification.ts`, fired 3 days
+> before expiry). `docs/marketing_ads_plan.md`'s "finding a job is free,
+> permanently" campaign claim needs updating to match before that plan
+> goes live — flagged there, not yet edited.
+
 | Phase | Contents | State |
 |---|---|---|
 | **A — now** | The 15-day trial, shipped alongside the Assisted Apply extension | Shipped; shortened from 30 to 15 days 2026-09-19 |
@@ -24,11 +56,14 @@ that touches money is Phase B.
 
 ## The governing principle
 
-**Finding a job is never gated.** Discovery, matching, match explanations,
-the job board, skill-gap identification, LinkedIn review and application
-tracking stay free permanently — for every user, unmetered. The product's
-reason to exist is that a candidate who cannot pay still gets matched to
-work they're qualified for.
+**Finding a job is never gated — while a trial or pass is active, or a
+user supplies their own model key.** Discovery, matching, match
+explanations, the job board, skill-gap identification, LinkedIn review and
+application tracking stay free and unmetered for as long as either of
+those is true (see the 2026-09-22 update above). The product's reason to
+exist is that a candidate who cannot pay, but can either use the trial or
+plug in a free-tier key of their own, still gets matched to work they're
+qualified for — the bar to clear is "bring any working key," not "pay us."
 
 What can eventually carry a price is the **output artifacts and the
 leverage** — the things that save a candidate an hour of writing per
@@ -44,13 +79,15 @@ version of it — the good version is what sells the subscription.
 | Feature | Today | Eventually |
 |---|---|---|
 | Résumé ingestion, onboarding, master résumé enhancement | Free | **Free permanently** |
-| Job discovery, match scoring, match explanations, job board | Free | **Free permanently** |
-| Skill-gap identification + course recommendations | Free | **Free permanently** |
+| Job discovery + job board | Free always — surfacing runs regardless of plan, skill-match based | Same — this is the shipped, final behavior, not a placeholder |
+| Match scoring, match explanations | Free during trial/pass, or with a custom key; locked (score hidden) otherwise (shipped 2026-09-22) | Same |
+| Skill-gap identification (per job) | Free during trial/pass, or with a custom key; locked otherwise (shipped 2026-09-22) | Same |
+| Course recommendations | Free | **Free permanently** |
 | LinkedIn review | Free | **Free permanently** |
 | Application tracking | Free | **Free permanently** |
 | Master résumé PDF download | Free | **Free permanently** — it is the user's own data; gating it reads as hostile and invites justified bad word-of-mouth |
-| **Per-job tailored résumé** | Unlimited during the trial; 3/month on FREE otherwise (shipped 2026-09-19) | Unlimited on a paid pass |
-| **Per-job cover letter** | Unlimited during the trial; 3/month on FREE otherwise (shipped 2026-09-19) | Unlimited on a paid pass |
+| **Per-job tailored résumé** | Unlimited during the trial/pass, or with a custom key; locked otherwise — no more 3/month FREE grace (revised 2026-09-22, was shipped 2026-09-19) | Unlimited on a paid pass |
+| **Per-job cover letter** | Unlimited during the trial/pass, or with a custom key; locked otherwise — no more 3/month FREE grace (revised 2026-09-22, was shipped 2026-09-19) | Unlimited on a paid pass |
 | **Assisted Apply extension** | Not built | **Free for everyone, capped at 5 autofills; unlimited when paid.** The extension is not a premium-only surface — free users get the same full-quality fill, tailored résumé and cover letter included. The paywall is volume, not capability (see `assisted_apply_extension_plan.md`) |
 | **AI crash courses on skill gaps** | Not built | Undecided — lean free, as a retention/differentiation play |
 

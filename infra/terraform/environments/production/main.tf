@@ -3,6 +3,21 @@
 # to compare. Only the values differ: production's own runtime SAs, own
 # secrets (never shared with staging), and the existing Neon `production`
 # branch (already the project default) rather than a child branch.
+#
+# EXCEPTION (2026-09-22 product decision): the background Cloud Run Jobs +
+# Cloud Scheduler triggers staging defines — discovery_job, job_cleanup_job,
+# link_check_job, and (added same day) pass_expiry_job — are deliberately
+# NOT mirrored here, and none of the four should be added to this file
+# without a new, explicit decision to do so. Reasoning specific to
+# link_check_job and pass_expiry_job: both are new, still-settling
+# background jobs (one repeatedly scans/writes the job pool, the other
+# reads every PREMIUM user's planExpiresAt and writes Notification rows)
+# — staging is the lower-stakes environment to run either on, so a bug or
+# runaway behavior stays off production entirely rather than adding load
+# or risk to what real users hit. If discovery/cleanup ever get added here
+# too, treat link_check_job and pass_expiry_job as excluded on their own
+# merits, not swept in by "mirror staging" — see
+# infra/terraform/INFRASTRUCTURE.md's "Daily link-health check" section.
 
 data "google_project" "current" {
   project_id = var.project_id

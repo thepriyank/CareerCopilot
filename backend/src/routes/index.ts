@@ -14,6 +14,7 @@ import internalIngestRoutes from './internalIngest.routes'
 import extensionRoutes from './extension.routes'
 import paymentsRoutes from './payments.routes'
 import razorpayWebhookRoutes from './razorpayWebhook.routes'
+import notificationsRoutes from './notifications.routes'
 
 const router = Router()
 
@@ -32,5 +33,6 @@ router.use('/internal', internalIngestRoutes)
 router.use('/extension', extensionRoutes)
 router.use('/payments', paymentsRoutes)
 router.use('/webhooks', razorpayWebhookRoutes)
+router.use('/notifications', notificationsRoutes)
 
 export default router

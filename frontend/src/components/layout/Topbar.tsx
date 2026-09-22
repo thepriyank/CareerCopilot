@@ -1,6 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { Icon } from '@/components/ui/Icon'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 
 interface TopbarProps {
   title: string
@@ -16,9 +17,15 @@ interface TopbarProps {
    * 2026-09-12 fix). */
   backHref?: string
   backLabel?: string
+  /** Extra icon-button rendered on mobile only, to the right of the
+   * notification bell in the same corner (e.g. Settings' hamburger menu
+   * trigger — see `.topbar-mobile-icons` in globals.css). On desktop the
+   * bell already lives in the Sidebar, so this whole row is hidden there;
+   * nothing needs to pass this prop on desktop-only flows. */
+  mobileExtra?: React.ReactNode
 }
 
-export function Topbar({ title, eyebrow, right, backHref, backLabel = 'Back' }: TopbarProps) {
+export function Topbar({ title, eyebrow, right, backHref, backLabel = 'Back', mobileExtra }: TopbarProps) {
   return (
     <div className="topbar">
       <div className="topbar-main" style={{ flex: 1, minWidth: 0 }}>
@@ -35,8 +42,15 @@ export function Topbar({ title, eyebrow, right, backHref, backLabel = 'Back' }: 
               {backLabel}
             </Link>
           )}
-          <div className="topbar-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-0.018em', minWidth: 0 }}>
+          <div className="topbar-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-0.018em', minWidth: 0, flex: 1 }}>
             {title}
+          </div>
+          {/* Mobile-only — desktop already has the bell in the Sidebar.
+              Bell always first; mobileExtra (e.g. Settings' hamburger)
+              sits to its right when a page passes one. */}
+          <div className="topbar-mobile-icons">
+            <NotificationBell />
+            {mobileExtra}
           </div>
         </div>
       </div>

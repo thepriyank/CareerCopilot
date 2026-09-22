@@ -96,6 +96,14 @@ export enum NotInterestedReason {
   OTHER = 'OTHER',
 }
 
+// In-app notification types — see entities/Notification.ts and
+// services/notifications/passExpiryNotifier.ts. One value today
+// (PASS_EXPIRING); designed to grow rather than be reused loosely, since
+// `meta` shape differs per type.
+export enum NotificationType {
+  PASS_EXPIRING = 'PASS_EXPIRING',
+}
+
 // How a user came to have a given JobListing in their list — see UserJob.
 export enum JobOrigin {
   // System-wide discovery cron found it in the shared pool and it scored

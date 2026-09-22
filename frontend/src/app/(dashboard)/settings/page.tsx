@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Topbar } from '@/components/layout/Topbar'
 import { Icon } from '@/components/ui/Icon'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, payments as paymentsApi, ApiError, PassType, PassPlan } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
 import { loadRazorpayCheckout } from '@/lib/razorpay'
@@ -831,6 +832,8 @@ const TAB_TITLES: Record<string, string> = {
 
 export default function SettingsPage() {
   const [activeNav, setActiveNav] = useState('API keys')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
   const router = useRouter()
 
   function handleSignOut() {
@@ -838,32 +841,56 @@ export default function SettingsPage() {
     router.push('/login')
   }
 
+  // Shared between the desktop sub-nav column and the mobile drawer — same
+  // list, same handlers, just a different container (see .settings-subnav
+  // / .settings-drawer in globals.css for why the drawer exists at all).
+  function renderSubNavList(closeDrawerOnSelect: boolean) {
+    return (
+      <>
+        {SUB_NAV.map(n => (
+          <div
+            key={n}
+            onClick={() => {
+              setActiveNav(n)
+              if (closeDrawerOnSelect) setMobileMenuOpen(false)
+            }}
+            style={{ padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 2, color: activeNav === n ? 'var(--accent-text)' : 'var(--text-soft)', background: activeNav === n ? 'var(--accent-subtle)' : 'transparent', fontWeight: activeNav === n ? 500 : 400, cursor: 'pointer' }}
+          >
+            {n}
+          </div>
+        ))}
+        <div style={{ flex: 1 }} />
+        <div
+          onClick={() => setConfirmingSignOut(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', marginTop: 12, borderTop: '1px solid var(--line-2)', paddingTop: 16 }}
+        >
+          <Icon.LogOut size={14} />
+          Sign out
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <Topbar
         eyebrow="Settings"
         title={TAB_TITLES[activeNav]}
+        mobileExtra={
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open settings menu"
+            style={{ display: 'flex', alignItems: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
+          >
+            <Icon.Menu size={16} />
+          </button>
+        }
       />
       <div className="grid-stack-scroll" style={{ flex: 1, display: 'grid', gridTemplateColumns: '220px 1fr', overflow: 'hidden' }}>
-        {/* Sub-nav */}
-        <div style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', display: 'flex', flexDirection: 'column' }}>
-          {SUB_NAV.map(n => (
-            <div
-              key={n}
-              onClick={() => setActiveNav(n)}
-              style={{ padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 2, color: activeNav === n ? 'var(--accent-text)' : 'var(--text-soft)', background: activeNav === n ? 'var(--accent-subtle)' : 'transparent', fontWeight: activeNav === n ? 500 : 400, cursor: 'pointer' }}
-            >
-              {n}
-            </div>
-          ))}
-          <div style={{ flex: 1 }} />
-          <div
-            onClick={handleSignOut}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 6, fontSize: 13, color: 'var(--text-muted)', cursor: 'pointer', marginTop: 12, borderTop: '1px solid var(--line-2)', paddingTop: 16 }}
-          >
-            <Icon.LogOut size={14} />
-            Sign out
-          </div>
+        {/* Sub-nav — desktop only below 768px, see .settings-subnav */}
+        <div className="settings-subnav" style={{ borderRight: '1px solid var(--line-2)', padding: 20, background: 'var(--paper)', flexDirection: 'column' }}>
+          {renderSubNavList(false)}
         </div>
 
         {/* Form */}
@@ -881,8 +908,9 @@ export default function SettingsPage() {
                 <div className="serif" style={{ fontSize: 26 }}>Bring your own model — or use ours.</div>
                 <div style={{ fontSize: 13.5, color: 'var(--text-soft)', marginTop: 8, lineHeight: 1.55 }}>
                   We use embeddings on our own servers for matching. For rewriting, tailoring, and cover letters you can plug in your own keys —
-                  we&rsquo;ll route generation through them and never see the content. If you don&rsquo;t add a key, we fall back to our hosted
-                  open-source model.
+                  we&rsquo;ll route generation through them and never see the content. If you don&rsquo;t add a key, we fall back to our own hosted models.
+                  It&rsquo;s also what keeps match scores, tailored résumés and cover letters working if your paid plan or trial ends — those pause on the
+                  free tier otherwise.
                 </div>
               </div>
 
@@ -891,6 +919,35 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {mobileMenuOpen && (
+        <div className="settings-drawer-overlay" onClick={() => setMobileMenuOpen(false)}>
+          <div className="settings-drawer" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div className="eyebrow" style={{ margin: 0 }}>Settings</div>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close"
+                style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <Icon.X size={14} />
+              </button>
+            </div>
+            {renderSubNavList(true)}
+          </div>
+        </div>
+      )}
+
+      {confirmingSignOut && (
+        <ConfirmDialog
+          title="Sign out?"
+          body="You'll need to sign back in to get to your dashboard, résumés, and matched jobs."
+          confirmLabel="Sign out"
+          onConfirm={handleSignOut}
+          onCancel={() => setConfirmingSignOut(false)}
+        />
+      )}
     </>
   )
 }

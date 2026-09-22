@@ -23,6 +23,12 @@ function matchesValue(actual: unknown, expected: unknown): boolean {
         return (actual as any) <= (opValue as any)
       case 'lessThan':
         return (actual as any) < (opValue as any)
+      case 'between': {
+        const [lo, hi] = opValue as [unknown, unknown]
+        return (actual as any) >= (lo as any) && (actual as any) <= (hi as any)
+      }
+      case 'isNull':
+        return actual === null || actual === undefined
       default:
         throw new Error(`fakeRepo: unsupported FindOperator type "${expected.type}"`)
     }
@@ -55,8 +61,24 @@ export function createFakeRepo<T extends Row>(seed: T[] = []) {
       else rows.push(entity)
       return entity
     }),
-    find: jest.fn(async (options?: { where?: Record<string, unknown> }): Promise<T[]> => {
-      return rows.filter((r) => matches(r, options?.where))
+    find: jest.fn(async (options?: {
+      where?: Record<string, unknown>
+      order?: Record<string, 'ASC' | 'DESC'>
+      take?: number
+    }): Promise<T[]> => {
+      let result = rows.filter((r) => matches(r, options?.where))
+      const orderEntry = options?.order && Object.entries(options.order)[0]
+      if (orderEntry) {
+        const [key, dir] = orderEntry
+        result = [...result].sort((a, b) => {
+          const av = a[key] as any
+          const bv = b[key] as any
+          const cmp = av > bv ? 1 : av < bv ? -1 : 0
+          return dir === 'DESC' ? -cmp : cmp
+        })
+      }
+      if (typeof options?.take === 'number') result = result.slice(0, options.take)
+      return result
     }),
     count: jest.fn(async (options?: { where?: Record<string, unknown> }): Promise<number> => {
       return rows.filter((r) => matches(r, options?.where)).length
@@ -64,8 +86,21 @@ export function createFakeRepo<T extends Row>(seed: T[] = []) {
     findOneBy: jest.fn(async (where: Record<string, unknown>): Promise<T | null> => {
       return rows.find((r) => matches(r, where)) ?? null
     }),
-    findOne: jest.fn(async (options: { where?: Record<string, unknown> }): Promise<T | null> => {
-      return rows.find((r) => matches(r, options?.where)) ?? null
+    findOne: jest.fn(async (options: {
+      where?: Record<string, unknown>
+      order?: Record<string, 'ASC' | 'DESC'>
+    }): Promise<T | null> => {
+      const matched = rows.filter((r) => matches(r, options?.where))
+      const orderEntry = options?.order && Object.entries(options.order)[0]
+      if (!orderEntry) return matched[0] ?? null
+      const [key, dir] = orderEntry
+      const sorted = [...matched].sort((a, b) => {
+        const av = a[key] as any
+        const bv = b[key] as any
+        const cmp = av > bv ? 1 : av < bv ? -1 : 0
+        return dir === 'DESC' ? -cmp : cmp
+      })
+      return sorted[0] ?? null
     }),
     // Bulk-matching, like real TypeORM's criteria-object delete/update — an
     // id string still narrows to exactly one row (the common case), but a
