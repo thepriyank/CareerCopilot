@@ -167,6 +167,7 @@ export interface CandidateProfile {
   id: string
   userId: string
   targetRoles: string[]
+  yearsOfExperience?: number | null
   industries: string[]
   locations: string[]
   avoidTechnologies: string[]
@@ -292,7 +293,8 @@ export interface ApprovalArtifact {
 
 // ─── Jobs (F4) ─────────────────────────────────────────────────────────────────
 
-export type ExperienceLevel = 'intern' | 'entry' | 'mid' | 'senior'
+export type ExperienceLevel =
+  | 'intern' | 'entry' | 'mid' | 'senior' | 'staff' | 'principal' | 'director' | 'manager'
 
 export interface JobPosting {
   id: string
@@ -303,6 +305,11 @@ export interface JobPosting {
   company: string | null
   location: string | null
   salary: string | null
+  salaryMin?: number | null
+  salaryMax?: number | null
+  salaryCurrency?: string | null
+  minYearsExperience?: number | null
+  maxYearsExperience?: number | null
   description: string
   normalizedFields: Record<string, unknown>
   skills: string[]
@@ -316,24 +323,47 @@ export interface JobPosting {
   // Set once the candidate marks this job as applied (PUT /:id/applied);
   // null when they haven't. Separate from opening the original posting.
   appliedAt: string | null
+  // Set once the candidate dismisses this job as not interested (PUT/DELETE
+  // /:id/not-interested) — GET /api/jobs excludes these by default. Not yet
+  // used by matching itself (see Jira NM-27).
+  notInterestedAt: string | null
+  notInterestedReason: NotInterestedReason | null
+  notInterestedNote: string | null
 }
+
+export type NotInterestedReason =
+  | 'ROLE_TOO_JUNIOR'
+  | 'ROLE_TOO_SENIOR'
+  | 'SALARY_TOO_LOW'
+  | 'LOCATION_MISMATCH'
+  | 'SKILLS_MISMATCH'
+  | 'WRONG_ROLE_TYPE'
+  | 'COMPANY'
+  | 'OTHER'
 
 // ─── Match scoring (F4) ─────────────────────────────────────────────────────────
 
 export type LocationFit = 'remote-ok' | 'location-match' | 'location-mismatch' | 'unknown'
 export type SalaryFit = 'within-range' | 'below-range' | 'above-range' | 'unknown'
+export type ExperienceFit = 'closely-matched' | 'underqualified' | 'overqualified' | 'unknown'
 
 export interface MatchScoreRationale {
   matchedSkills: string[]
   missingSkills: string[]
   locationFit: LocationFit
   salaryFit: SalaryFit
-  // Optional: older persisted MatchResults (before 2026-09-12) won't have
-  // these, so the UI must handle their absence gracefully. Rows from before
-  // 2026-09-13 may also still carry a since-retired `lexicalSimilarity`
-  // field — harmless, just untyped and unrendered now.
+  // Added 2026-09-21 (v4 scoring redesign — skills/seniority/salary are
+  // gates, location is a minor nudge; see backend matchScore.ts's header).
+  // Optional: MatchResults persisted before this redesign won't have these,
+  // so the UI must handle their absence gracefully. Rows from before
+  // 2026-09-13 may also still carry since-retired `lexicalSimilarity`/
+  // `preferenceFit` fields — harmless, just untyped and unrendered now.
+  experienceFit?: ExperienceFit
   skillCoverage?: number
-  preferenceFit?: number
+  seniorityFit?: number
+  salaryFitScore?: number
+  locationFitScore?: number
+  experienceGapYears?: number
 }
 
 export interface MatchResult {

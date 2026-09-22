@@ -58,10 +58,28 @@ load_dotenv(SCRIPT_DIR / ".env")
 # gets HTTP 406 "recaptcha required" from Naukri's own API — this isn't a
 # transient block, it's active bot-detection. Working around a CAPTCHA is
 # out of bounds regardless of the broader scraping decision, so this stays
-# indeed-only until/unless a legitimate way to query Naukri appears. Add it
+# excluded until/unless a legitimate way to query Naukri appears. Add it
 # back via JOBSPY_SITES if you want to try anyway, but expect 0 results.
-DEFAULT_SITES = ["indeed"]
+#
+# 2026-09-21 decision: every other JobSpy-supported site is now on by
+# default, including LinkedIn — see CLAUDE.md §7's 2026-09-21 clarification
+# and this directory's README "Site selection" section. bayt/bdjobs and
+# zip_recruiter aren't India-focused (Middle East, Bangladesh, US/Canada
+# respectively) so expect thin-to-zero results from them for an
+# India-scoped search, but they're harmless to leave on — a 0-result site
+# just logs "0 raw rows" like Naukri would.
+DEFAULT_SITES = ["indeed", "linkedin", "zip_recruiter", "glassdoor", "google", "bayt", "bdjobs"]
 COUNTRY = "India"  # per the 2026-09-12 decision: India-only for now
+
+# LinkedIn-specific throttling (JobSpy's own docs + this repo's prior
+# experience: LinkedIn rate-limits after roughly 10 pages from one IP, and
+# linkedin_fetch_description=True below means one extra request per job on
+# top of pagination, so LinkedIn burns through that budget faster than a
+# plain listing scrape would). A longer per-title pause and a smaller
+# results_wanted specifically for LinkedIn keeps each run under that
+# threshold instead of tripping it every time.
+DEFAULT_LINKEDIN_SLEEP_SECONDS = 35
+DEFAULT_LINKEDIN_RESULTS_PER_SEARCH = 15
 
 
 def env_list(name: str, default: list) -> list:
@@ -78,6 +96,14 @@ SITES = env_list("JOBSPY_SITES", DEFAULT_SITES)
 RESULTS_PER_SEARCH = env_int("JOBSPY_RESULTS_PER_SEARCH", 30)
 HOURS_OLD = env_int("JOBSPY_HOURS_OLD", 24)
 SLEEP_SECONDS = env_int("JOBSPY_SLEEP_SECONDS", 8)
+LINKEDIN_SLEEP_SECONDS = env_int("JOBSPY_LINKEDIN_SLEEP_SECONDS", DEFAULT_LINKEDIN_SLEEP_SECONDS)
+LINKEDIN_RESULTS_PER_SEARCH = env_int("JOBSPY_LINKEDIN_RESULTS_PER_SEARCH", DEFAULT_LINKEDIN_RESULTS_PER_SEARCH)
+# Retries apply per (title, site) call — a single 429/transient failure no
+# longer just gets logged and skipped; it backs off and tries again so a
+# rate-limited site still ends up fully scraped by the end of the run
+# rather than silently under-covered.
+MAX_RETRIES = env_int("JOBSPY_MAX_RETRIES", 4)
+RETRY_BACKOFF_SECONDS = env_int("JOBSPY_RETRY_BACKOFF_SECONDS", 45)
 BACKEND_INGEST_URL = os.environ.get("BACKEND_INGEST_URL", "").strip()
 INTERNAL_INGEST_TOKEN = os.environ.get("INTERNAL_INGEST_TOKEN", "").strip()
 # Small on purpose: the backend runs a sequential LLM skill-extraction call
@@ -250,22 +276,56 @@ def normalize_row(row: dict, site_hint: str) -> dict | None:
     }
 
 
-def scrape_for_title(title: str, hours_old: int | None):
+def scrape_one(title: str, site: str, hours_old: int | None):
     from jobspy import scrape_jobs  # imported lazily so --help works without jobspy installed
 
+    results_wanted = LINKEDIN_RESULTS_PER_SEARCH if site == "linkedin" else RESULTS_PER_SEARCH
     kwargs = dict(
-        site_name=SITES,
+        site_name=[site],
         search_term=title,
         location=COUNTRY,
         country_indeed=COUNTRY,
-        results_wanted=RESULTS_PER_SEARCH,
-        linkedin_fetch_description=True,  # only affects the run if "linkedin" is in SITES
+        results_wanted=results_wanted,
+        linkedin_fetch_description=True,  # only affects the call when site == "linkedin"
     )
     if hours_old is not None:
         kwargs["hours_old"] = hours_old
 
     df = scrape_jobs(**kwargs)
     return df.to_dict("records") if df is not None and len(df) else []
+
+
+def scrape_for_title(title: str, site: str, hours_old: int | None):
+    """One (title, site) pair, scraped one site at a time (rather than
+    handing JobSpy the whole SITES list in one call) so a single site's
+    rate limit or transient error can't wipe out the other sites' results
+    for this title, and so each site gets its own retry/backoff and sleep
+    tuning below. Retries with exponential backoff on failure — a 429 from
+    LinkedIn (or any site) gets retried rather than immediately counted as
+    "0 rows for this title", so a rate-limited run still ends up fully
+    scraped rather than silently thin. Only gives up (returns []) after
+    JOBSPY_MAX_RETRIES attempts, and logs when that happens so it's visible
+    in the run output rather than silently missing jobs.
+    """
+    attempt = 0
+    while True:
+        try:
+            return scrape_one(title, site, hours_old)
+        except Exception as exc:
+            attempt += 1
+            if attempt > MAX_RETRIES:
+                print(
+                    f"  ! giving up on title={title!r} site={site!r} after {MAX_RETRIES} retries: {exc}",
+                    file=sys.stderr,
+                )
+                return []
+            backoff = RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(
+                f"  ! title={title!r} site={site!r} failed (attempt {attempt}/{MAX_RETRIES}): {exc} "
+                f"— backing off {backoff}s before retrying",
+                file=sys.stderr,
+            )
+            time.sleep(backoff)
 
 
 def post_batch(jobs: list) -> dict:
@@ -293,20 +353,19 @@ def run_once(dry_run: bool = False) -> None:
           f"(first_run={is_first_run}, hours_old={hours_old}, sites={SITES}, titles={len(load_titles())})")
 
     all_jobs = []
-    for title in load_titles():
-        try:
-            rows = scrape_for_title(title, hours_old)
-        except Exception as exc:  # a single title/site hiccup shouldn't kill the whole run
-            print(f"  ! scrape failed for title={title!r}: {exc}", file=sys.stderr)
-            rows = []
+    titles = load_titles()
+    for title in titles:
+        for site in SITES:
+            rows = scrape_for_title(title, site, hours_old)
 
-        for row in rows:
-            normalized = normalize_row(row, site_hint=SITES[0])
-            if normalized:
-                all_jobs.append(normalized)
+            for row in rows:
+                normalized = normalize_row(row, site_hint=site)
+                if normalized:
+                    all_jobs.append(normalized)
 
-        print(f"  - {title!r}: {len(rows)} raw rows")
-        time.sleep(SLEEP_SECONDS + random.uniform(0, 2))
+            print(f"  - {title!r} [{site}]: {len(rows)} raw rows")
+            sleep_seconds = LINKEDIN_SLEEP_SECONDS if site == "linkedin" else SLEEP_SECONDS
+            time.sleep(sleep_seconds + random.uniform(0, 2))
 
     # de-dupe by url within this run before posting — the backend also
     # dedupes, but there's no reason to send the same URL twice
@@ -352,7 +411,7 @@ def run_once(dry_run: bool = False) -> None:
 
 def run_inspect() -> None:
     titles = load_titles()
-    rows = scrape_for_title(titles[0], hours_old=None)
+    rows = scrape_for_title(titles[0], SITES[0], hours_old=None)
     if not rows:
         print("No rows returned — try a broader title or check your jobspy install.")
         return

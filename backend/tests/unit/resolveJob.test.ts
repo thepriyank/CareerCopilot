@@ -11,8 +11,11 @@ function job(overrides: Partial<JobView>): JobView {
   return {
     id: 'uj-1', userId: 'u1', jobListingId: 'jl-1', source: 'manual', url: null,
     title: 'Backend Engineer', company: 'Acme', location: null, salary: null,
+    salaryMin: null, salaryMax: null, salaryCurrency: null,
+    minYearsExperience: null, maxYearsExperience: null,
     description: '', normalizedFields: {}, skills: [], experienceLevel: null,
     isRemote: null, createdAt: new Date(), matchScore: null, appliedAt: null,
+    notInterestedAt: null, notInterestedReason: null, notInterestedNote: null,
     ...overrides,
   }
 }

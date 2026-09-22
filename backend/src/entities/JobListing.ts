@@ -58,6 +58,34 @@ export class JobListing {
   @Column({ nullable: true, type: 'varchar' })
   salary!: string | null
 
+  // 2026-09-21 matching redesign: structured salary, extracted once by the
+  // same LLM call as skills/seniority (services/skills/extractJobSkills.ts)
+  // from whichever of the JD text or the scraper-provided `salary` string
+  // actually states it. Replaces regex-parsing `salary` at match time
+  // (matchScore.ts's old parseSalaryRange-on-job-salary path) with a number
+  // computed once, correctly, at ingestion — and lets matching reject a
+  // currency the candidate never asked about instead of comparing raw
+  // digits across currencies. Null when neither source states a figure.
+  @Column({ type: 'int', nullable: true })
+  salaryMin!: number | null
+
+  @Column({ type: 'int', nullable: true })
+  salaryMax!: number | null
+
+  @Column({ nullable: true, type: 'varchar' })
+  salaryCurrency!: string | null
+
+  // Explicit years-of-experience range the JD itself states (e.g. "5-8
+  // years", "8+ years" -> {min: 8, max: null}) — extracted by the same LLM
+  // call, only populated when the JD is actually explicit about it. When
+  // null, matching falls back to a tier-based band derived from
+  // `experienceLevel` below. See services/matching/experienceFit.ts.
+  @Column({ type: 'int', nullable: true })
+  minYearsExperience!: number | null
+
+  @Column({ type: 'int', nullable: true })
+  maxYearsExperience!: number | null
+
   @Column({ type: 'text' })
   description!: string
 
@@ -71,6 +99,16 @@ export class JobListing {
   @Column({ type: 'text', array: true, default: '{}' })
   skills!: string[]
 
+  // Seniority tier — one of classifyTier.ts's SeniorityTier values (intern /
+  // entry / mid / senior / staff / principal / director / manager). Prior to
+  // the 2026-09-21 matching redesign this was always `classifyTier(title)`
+  // (a title-keyword regex). It's now the LLM's holistic judgment from the
+  // full JD + title + any stated years of experience
+  // (services/skills/extractJobSkills.ts), which is what lets it actually
+  // tell "Senior" from "Staff" from "Director" — classifyTier(title) only
+  // remains as the ingestion-time fallback when every LLM provider fails
+  // (see discoveryService.ts's upsertJobListing). Plain varchar, not an
+  // enum column, so classifyTier.ts's tier set can grow without a migration.
   @Column({ nullable: true, type: 'varchar' })
   experienceLevel!: string | null
 

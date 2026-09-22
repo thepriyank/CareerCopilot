@@ -177,6 +177,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
 // undefined, or that round-trip 400s on every profile that hasn't set them yet.
 const upsertProfileSchema = z.object({
   targetRoles: z.array(z.string()).optional(),
+  yearsOfExperience: z.number().int().min(0).max(60).nullable().optional(),
   industries: z.array(z.string()).optional(),
   locations: z.array(z.string()).optional(),
   avoidTechnologies: z.array(z.string()).optional(),

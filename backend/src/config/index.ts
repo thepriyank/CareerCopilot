@@ -95,6 +95,15 @@ export const config = {
   // dominant weight — the neutral default dropped from 0.5 to 0.3 to fix
   // it (see matchScore.ts). Not a proof this holds for every résumé/pool
   // combination — revisit if real usage shows it's too strict or too loose.
+  //
+  // 2026-09-21: matchScore.ts's v4 formula changed the shape of the score
+  // distribution again — skillCoverage × seniorityFit × salaryFit is now
+  // multiplicative (a bad mismatch on any one crushes the score) rather than
+  // a weighted sum, so 38 was NOT re-derived from real data against this
+  // formula (there's no live candidate usage yet to calibrate against — see
+  // docs/F4_job_search_and_match_plan.md's 2026-09-21 entry). Kept as the
+  // existing value rather than guessing a new one; revisit once real
+  // match-score data exists under v4, the same way 38 itself was derived.
   matching: {
     minScoreToSurface: parseInt(process.env.JOB_MATCH_MIN_SCORE ?? '38', 10),
     maxListingsToScore: parseInt(process.env.JOB_MATCH_MAX_LISTINGS_TO_SCORE ?? '500', 10),

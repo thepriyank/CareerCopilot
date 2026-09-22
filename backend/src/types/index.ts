@@ -96,6 +96,12 @@ export interface ParsedResumeData {
   extractedEntities: ExtractedEntities
   confidenceScores: ConfidenceScores
   rawText: string
+  // Computed once at parse time from the résumé's own experience date
+  // ranges (see services/parsing/entityExtractor.ts) — the resume-derived
+  // default for CandidateProfile.yearsOfExperience (routes/resume.routes.ts
+  // pre-fills it on upload). Null when the résumé's dates were too vague to
+  // compute this reliably.
+  totalYearsOfExperience: number | null
 }
 
 // ─── Candidate Profile Types ──────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { computeMatchScore, parseSalaryRange, MatchableJob } from '../../src/services/matching/matchScore'
+import { computeMatchScore, parseSalaryRange, detectCurrencyCode, MatchableJob } from '../../src/services/matching/matchScore'
 import { CandidateProfile } from '../../src/entities/CandidateProfile'
 import { RemotePreference } from '../../src/entities/enums'
 
@@ -20,16 +20,39 @@ describe('parseSalaryRange', () => {
   })
 })
 
-// Job skills are AI-extracted once at ingestion (services/skills/extractJobSkills.ts)
-// and persisted on JobListing.skills — matchScore.ts just compares this list
-// against the résumé's own skills, no live extraction from `description` any more.
-// MatchableJob is structural, so this same shape works whether the caller has
-// a full JobView (a candidate's already-attached job) or a raw JobListing
-// (the shared pool, before any candidate has it — see surfaceJobs.ts).
+describe('detectCurrencyCode', () => {
+  it('recognizes ₹/Rs/INR/LPA as INR', () => {
+    expect(detectCurrencyCode('₹12L - ₹18L')).toBe('INR')
+    expect(detectCurrencyCode('Rs. 12,00,000')).toBe('INR')
+    expect(detectCurrencyCode('18 LPA')).toBe('INR')
+  })
+
+  it('recognizes $/USD as USD', () => {
+    expect(detectCurrencyCode('$120k - $150k')).toBe('USD')
+  })
+
+  it('returns null when no currency marker is present', () => {
+    expect(detectCurrencyCode('1,200,000 - 1,800,000')).toBeNull()
+  })
+})
+
+// Job skills/seniority/years/salary are AI-extracted once at ingestion
+// (services/skills/extractJobSkills.ts) and persisted on JobListing —
+// matchScore.ts just compares that structured data against the résumé/
+// profile, no live extraction from `description` any more. MatchableJob is
+// structural, so this same shape works whether the caller has a full
+// JobView (a candidate's already-attached job) or a raw JobListing (the
+// shared pool, before any candidate has it — see surfaceJobs.ts).
 function buildJob(overrides: Partial<MatchableJob> = {}): MatchableJob {
   return {
     location: 'Bengaluru, India',
     salary: null,
+    salaryMin: null,
+    salaryMax: null,
+    salaryCurrency: null,
+    experienceLevel: 'staff',
+    minYearsExperience: 8,
+    maxYearsExperience: 12,
     description:
       'We are looking for a backend engineer to join our platform team, deploying production services on Kubernetes and writing Python microservices for payments. Rust experience is a plus.',
     isRemote: false,
@@ -42,12 +65,14 @@ function buildProfile(overrides: Partial<CandidateProfile> = {}): CandidateProfi
   return {
     id: 'profile-1',
     userId: 'user-1',
-    targetRoles: ['Backend Engineer'],
+    targetRoles: ['Staff Engineer'],
     industries: [],
     locations: ['Bengaluru'],
+    avoidTechnologies: [],
     remotePreference: RemotePreference.OPEN,
-    salaryMin: 1_000_000,
-    salaryMax: 1_800_000,
+    yearsOfExperience: 10,
+    salaryMin: 4_000_000,
+    salaryMax: 5_500_000,
     salaryCurrency: 'INR',
     urgency: 'ACTIVELY_LOOKING' as any,
     noticePeriod: null,
@@ -64,28 +89,26 @@ function buildProfile(overrides: Partial<CandidateProfile> = {}): CandidateProfi
 const strongResumeSkills = ['Python', 'Kubernetes', 'PostgreSQL']
 
 describe('computeMatchScore', () => {
-  // 2026-09-13: whole-document text similarity was removed from the formula
-  // by explicit product decision — a real case showed 100% skill coverage
-  // still landing around 60% overall purely because of a weak lexical
-  // signal, with skills/preferences (the things that actually determine
-  // relevance) diluted by a much larger, blunter weight. This is the
-  // headline case the removal exists to fix: full skill + preference match
-  // now scores at (or very near) 100, not held back by anything else.
-  it('scores a perfect skill + location + salary match at (or near) 100 — the case that prompted removing text similarity', () => {
+  it('scores a perfect skill + seniority + location + salary match at (or near) 100', () => {
     const result = computeMatchScore(
       ['Python', 'Kubernetes', 'Rust'],
-      buildJob({ salary: '12,00,000 - 18,00,000' }),
+      buildJob({ salaryMin: 4_500_000, salaryMax: 5_500_000, salaryCurrency: 'INR' }),
       buildProfile()
     )
     expect(result.score).toBeGreaterThanOrEqual(95)
     expect(result.rationale.skillCoverage).toBe(1)
-    expect(result.rationale.preferenceFit).toBe(1)
+    expect(result.rationale.seniorityFit).toBe(1)
+    expect(result.rationale.experienceFit).toBe('closely-matched')
     expect(result.rationale.locationFit).toBe('location-match')
     expect(result.rationale.salaryFit).toBe('within-range')
   })
 
   it('scores a strong skill + location match highly, reporting the real skill gap', () => {
-    const result = computeMatchScore(strongResumeSkills, buildJob({ salary: '12,00,000 - 18,00,000' }), buildProfile())
+    const result = computeMatchScore(
+      strongResumeSkills,
+      buildJob({ salaryMin: 4_500_000, salaryMax: 5_500_000, salaryCurrency: 'INR' }),
+      buildProfile()
+    )
     expect(result.score).toBeGreaterThan(50)
     expect(result.rationale.matchedSkills).toEqual(expect.arrayContaining(['Python', 'Kubernetes']))
     expect(result.rationale.missingSkills).toContain('Rust')
@@ -117,6 +140,7 @@ describe('computeMatchScore', () => {
     const result = computeMatchScore(strongResumeSkills, buildJob(), null)
     expect(result.rationale.locationFit).toBe('unknown')
     expect(result.rationale.salaryFit).toBe('unknown')
+    expect(result.rationale.experienceFit).toBe('unknown')
     expect(Number.isFinite(result.score)).toBe(true)
   })
 
@@ -126,20 +150,10 @@ describe('computeMatchScore', () => {
     expect(Number.isFinite(noSkillsResult.score)).toBe(true)
     expect(noSkillsResult.rationale.skillCoverage).toBe(0.3)
 
-    // 2026-09-13 calibration finding: a job with zero verified skill data
-    // must never outscore one with real, if partial, overlap — the old 0.5
-    // neutral default did exactly that once skillCoverage became 2/3 of
-    // the total weight (see computeSkillCoverage's comment).
     const partialMatchResult = computeMatchScore(['Python'], buildJob({ skills: ['Python', 'Kubernetes', 'Rust'] }), buildProfile())
     expect(partialMatchResult.score).toBeGreaterThan(noSkillsResult.score)
   })
 
-  // 2026-09-12: a real diagnostic run (see git history / session notes) found
-  // a genuinely strong Engineering Manager match scoring one point under the
-  // surfacing threshold, entirely because the job's "People Leadership" and
-  // the résumé's "Technical leadership" are the same fact worded differently
-  // by two independent AI extractions — exact-string skill coverage counted
-  // that as zero overlap. These lock in the fuzzy-matching fix.
   describe('computeSkillCoverage fuzzy matching (via computeMatchScore)', () => {
     it('matches suffix/prefix skill-name variants (e.g. "React" / "React.js")', () => {
       const result = computeMatchScore(['React'], buildJob({ skills: ['React.js'] }), buildProfile())
@@ -161,6 +175,94 @@ describe('computeMatchScore', () => {
       const result = computeMatchScore(['ai'], buildJob({ skills: ['Rails'] }), buildProfile())
       expect(result.rationale.matchedSkills).toEqual([])
       expect(result.rationale.missingSkills).toEqual(['Rails'])
+    })
+  })
+
+  // 2026-09-21: the headline case this v4 redesign exists to fix — a highly
+  // experienced candidate with 100% skill overlap against a junior/intern
+  // role must NOT score as a high match, because skills alone used to be
+  // enough (v3's failure mode this whole rewrite was reported for).
+  describe('seniority gate — the real reported bug', () => {
+    it('scores a 100%-skill-match Intern/Junior role low for a 10-YOE Staff-track candidate', () => {
+      const juniorJob = buildJob({
+        experienceLevel: 'entry',
+        minYearsExperience: 0,
+        maxYearsExperience: 2,
+        skills: ['Python', 'SQL'],
+      })
+      const result = computeMatchScore(['Python', 'SQL', 'Kubernetes', 'Leadership'], juniorJob, buildProfile({ yearsOfExperience: 10 }))
+      expect(result.rationale.skillCoverage).toBe(1) // skills alone would say "perfect match"
+      expect(result.rationale.experienceFit).toBe('overqualified')
+      expect(result.rationale.seniorityFit).toBeLessThan(0.3)
+      expect(result.score).toBeLessThan(38) // below config.matching.minScoreToSurface — never surfaced
+    })
+
+    it('is symmetric: an underqualified candidate against a senior role is penalized the same way', () => {
+      const staffJob = buildJob({ experienceLevel: 'staff', minYearsExperience: 8, maxYearsExperience: 12 })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], staffJob, buildProfile({ yearsOfExperience: 1 }))
+      expect(result.rationale.experienceFit).toBe('underqualified')
+      expect(result.rationale.seniorityFit).toBeLessThan(0.3)
+    })
+
+    it('treats a 1-2 year gap as still closely matched, not penalized', () => {
+      const seniorJob = buildJob({ experienceLevel: 'senior', minYearsExperience: 5, maxYearsExperience: 8 })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], seniorJob, buildProfile({ yearsOfExperience: 9 }))
+      expect(result.rationale.experienceFit).toBe('closely-matched')
+      expect(result.rationale.seniorityFit).toBe(1)
+    })
+
+    it('falls back to the tier-based band when the JD states no explicit years', () => {
+      const internJob = buildJob({ experienceLevel: 'intern', minYearsExperience: null, maxYearsExperience: null })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], internJob, buildProfile({ yearsOfExperience: 10 }))
+      expect(result.rationale.experienceFit).toBe('overqualified')
+    })
+
+    it('does not penalize when the candidate has not stated years of experience yet', () => {
+      const juniorJob = buildJob({ experienceLevel: 'entry', minYearsExperience: 0, maxYearsExperience: 2 })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], juniorJob, buildProfile({ yearsOfExperience: null }))
+      expect(result.rationale.experienceFit).toBe('unknown')
+      expect(result.rationale.seniorityFit).toBeGreaterThan(0.5)
+    })
+  })
+
+  describe('salary gate', () => {
+    it('scores a job paying well below the candidate\'s minimum low, even with perfect skills', () => {
+      const lowPayJob = buildJob({ salaryMin: 600_000, salaryMax: 800_000, salaryCurrency: 'INR' })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], lowPayJob, buildProfile())
+      expect(result.rationale.salaryFit).toBe('below-range')
+      expect(result.rationale.salaryFitScore).toBeLessThan(0.5)
+    })
+
+    it('never penalizes a job paying more than the candidate asked for', () => {
+      const highPayJob = buildJob({ salaryMin: 8_000_000, salaryMax: 10_000_000, salaryCurrency: 'INR' })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], highPayJob, buildProfile())
+      expect(result.rationale.salaryFit).toBe('above-range')
+      expect(result.rationale.salaryFitScore).toBe(1)
+    })
+
+    it('does not penalize when the job discloses no salary at all', () => {
+      const noSalaryJob = buildJob({ salaryMin: null, salaryMax: null, salaryCurrency: null })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], noSalaryJob, buildProfile())
+      expect(result.rationale.salaryFit).toBe('unknown')
+      expect(result.rationale.salaryFitScore).toBeGreaterThan(0.5)
+    })
+
+    it('treats a currency mismatch as unknown rather than comparing raw numbers across currencies', () => {
+      const usdJob = buildJob({ salaryMin: 40_000, salaryMax: 60_000, salaryCurrency: 'USD' })
+      const result = computeMatchScore(['Python', 'Kubernetes', 'Rust'], usdJob, buildProfile({ salaryCurrency: 'INR' }))
+      expect(result.rationale.salaryFit).toBe('unknown')
+    })
+  })
+
+  describe('location — negotiable, never a hard gate', () => {
+    it('still scores reasonably even on a location mismatch, given a strong match otherwise', () => {
+      const result = computeMatchScore(
+        ['Python', 'Kubernetes', 'Rust'],
+        buildJob({ salaryMin: 4_500_000, salaryMax: 5_500_000, salaryCurrency: 'INR' }),
+        buildProfile({ locations: ['Mumbai'] })
+      )
+      expect(result.rationale.locationFit).toBe('location-mismatch')
+      expect(result.score).toBeGreaterThanOrEqual(80) // location costs a little, not a gate
     })
   })
 })

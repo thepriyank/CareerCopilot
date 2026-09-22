@@ -112,6 +112,70 @@
 >   deliberate candidate action, always shown regardless of score.
 >   Tests: `backend/tests/unit/jobs.routes.test.ts`'s "auto-surfacing matched
 >   pool jobs" block.
+> - **2026-09-21 — matching v4: skills/seniority/salary are gates, not just
+>   weighted inputs.** A real complaint exposed v3's failure mode (skillCoverage
+>   2/3 + preferenceFit 1/3, no seniority signal at all): a 10-YOE Staff/Senior-
+>   Staff/EM candidate's résumé contains enough generic skills that Intern/
+>   Junior postings needing only a handful of them still scored as a match —
+>   `JobListing.experienceLevel` was already computed at ingestion
+>   (`classifyTier(title)`) and simply never read by scoring. Fixed by making
+>   `computeMatchScore` (`matchScore.ts`) multiply skillCoverage × seniorityFit
+>   × salaryFit (each 0-1) rather than average them — a bad mismatch on any one
+>   crushes the score regardless of the other two, because real candidates
+>   don't compromise on these. Location is the one exception: additive, capped
+>   at 10% of the score, never gates — "location is sometimes negotiable."
+>   Job title is deliberately NOT a scored signal (titles for the same role
+>   vary too much across companies to be reliable); `CandidateProfile.
+>   targetRoles` stays used only for résumé-enhancement/cover-letter prompts.
+>   **New candidate data:** `CandidateProfile.yearsOfExperience` (int) — the
+>   one direct "how senior am I" signal matching now uses, compared against a
+>   job's years-of-experience band in `services/matching/experienceFit.ts`
+>   (within 2 years = full credit, decays symmetrically beyond that — being
+>   wildly overqualified is exactly as poor a match as being underqualified).
+>   **Same-day follow-up (2026-09-21, later):** initially added as a cold
+>   onboarding-chat question, then reverted in favor of pre-filling it from
+>   the résumé — "we ask for resume as the first thing... we should be able
+>   to fill the years of experience... from the resume first, then show the
+>   user their profile filled with the details, and then they can change
+>   something if they want and then save." `services/parsing/
+>   entityExtractor.ts`'s existing résumé-parsing LLM call now also computes
+>   `totalYearsOfExperience` from the résumé's own experience date ranges
+>   (reasoning over overlaps/"Present"/gaps — the same "let the LLM judge it
+>   holistically" philosophy as the job-side extraction below, not a date-math
+>   regex); `routes/resume.routes.ts` pre-fills `CandidateProfile.
+>   yearsOfExperience` with it right after upload (via `services/profile/
+>   applyResumeDefaults.ts`), before onboarding chat ever starts, and only
+>   as a default — never overwrites a value already set. The candidate
+>   reviews/corrects it (pre-filled, editable) on the existing onboarding
+>   completion screen (`ProfileCompletion.tsx`) or later in Settings, never
+>   asked cold in chat.
+>   **Seniority/years/salary are all LLM-judged, not regex-guessed:**
+>   `services/skills/extractJobSkills.ts`'s single ingestion-time LLM call now
+>   also returns `seniorityTier` (judged holistically from title+description+
+>   years together, not from the title alone — `classifyTier.ts`'s regex
+>   classifier is now only the emergency fallback when every LLM provider
+>   fails), `minYearsExperience`/`maxYearsExperience` (only when the JD states
+>   them explicitly), and `salaryMin`/`salaryMax`/`salaryCurrency` (from the JD
+>   text when the scraper's own `salary` string is empty). `classifyTier.ts`
+>   itself was also expanded from 4 tiers (intern/entry/mid/senior — Staff/
+>   Principal/Director/VP/Chief all used to collapse into one "senior" bucket)
+>   to 8 (adding staff/principal/director/manager), since matching now needs
+>   to actually tell them apart.
+>   **Salary fit is now currency-aware and continuous:** `JobListing` gained
+>   structured `salaryMin`/`salaryMax`/`salaryCurrency` columns (replacing a
+>   match-time regex parse of free text), a mismatched currency is treated as
+>   "unknown" rather than compared as raw numbers, a job paying more than
+>   asked is never penalized, and paying less decays smoothly with the size of
+>   the shortfall instead of a flat below-range penalty. A job disclosing no
+>   salary anywhere is treated as neutral, not a mismatch — per product
+>   decision, this is exactly when the seniority/skill gates are supposed to
+>   carry the weight instead.
+>   Migration: `1790000000000-AddExperienceAndStructuredSalary`. Tests:
+>   `matchScore.test.ts`'s "seniority gate — the real reported bug" and
+>   "salary gate" blocks, `experienceFit.test.ts`, `classifyTier.test.ts`,
+>   `extractJobSkills.test.ts`. See `CLAUDE.md` §7's 2026-09-21 clarification
+>   for the unrelated-but-adjacent LinkedIn-scraping decision made the same
+>   day.
 
 ## Context
 

@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
   ManyToOne, JoinColumn, OneToMany, Unique
 } from 'typeorm'
-import { JobOrigin } from './enums'
+import { JobOrigin, NotInterestedReason } from './enums'
 import { User } from './User'
 import { JobListing } from './JobListing'
 import { MatchResult } from './MatchResult'
@@ -65,6 +65,23 @@ export class UserJob {
   // this on its own.
   @Column({ type: 'timestamp', nullable: true })
   appliedAt!: Date | null
+
+  // 2026-09-21: lets a candidate hide a bad-match job from their board (see
+  // routes/jobs.routes.ts's PUT/DELETE /:id/not-interested and
+  // services/jobs/jobView.ts's listJobViews, which excludes these by
+  // default). `notInterestedReason` is a structured category (not just a
+  // free-text note) specifically so this signal can feed the matching
+  // algorithm later — captured now, NOT yet consumed by matchScore.ts (see
+  // Jira NM-27). `notInterestedNote` is optional free-text elaboration on
+  // top of the category.
+  @Column({ type: 'timestamp', nullable: true })
+  notInterestedAt!: Date | null
+
+  @Column({ type: 'enum', enum: NotInterestedReason, nullable: true })
+  notInterestedReason!: NotInterestedReason | null
+
+  @Column({ type: 'text', nullable: true })
+  notInterestedNote!: string | null
 
   @CreateDateColumn()
   createdAt!: Date

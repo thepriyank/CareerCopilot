@@ -9,6 +9,7 @@ import { requireAuth } from '../middleware/auth'
 import { uploadMiddleware } from '../middleware/upload'
 import { createError } from '../middleware/errorHandler'
 import { parseResume } from '../services/parsing/resumeParser'
+import { applyResumeDerivedProfileDefaults } from '../services/profile/applyResumeDefaults'
 import {
   getFileUrl,
   deleteFile,
@@ -95,6 +96,11 @@ router.post(
         parsedResume.rawText = parsed.rawText.slice(0, 100_000)
         parsedResume.status = finalStatus
         await parsedResumeRepo.save(parsedResume)
+
+        // Pre-fill years-of-experience from the résumé's own dates, rather
+        // than asking a cold onboarding-chat question for data this parse
+        // already computed — see applyResumeDefaults.ts's header.
+        await applyResumeDerivedProfileDefaults(userId, parsed.totalYearsOfExperience)
 
         res.status(201).json({ resumeFile, parsedResume })
       } catch (parseErr) {

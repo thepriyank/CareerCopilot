@@ -67,6 +67,23 @@ export default function ProfileCompletion() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Years of Experience</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  className="w-full border p-2 rounded shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  value={profile.yearsOfExperience ?? ''}
+                  placeholder="e.g. 10"
+                  onChange={(e) => setProfile({ ...profile, yearsOfExperience: e.target.value === '' ? null : parseInt(e.target.value) || null })}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  {profile.yearsOfExperience != null
+                    ? 'Pre-filled from your résumé — adjust if it looks off. Used to filter out jobs well below or above your level, even when they list skills you have.'
+                    : "We couldn't tell this from your résumé — add it so we can filter out jobs well below or above your level, even when they list skills you have."}
+                </p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Industries</label>
                 <input
                   type="text"

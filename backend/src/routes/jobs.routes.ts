@@ -8,7 +8,7 @@ import { GeneratedCoverLetter } from '../entities/GeneratedCoverLetter'
 import { SkillGapReport } from '../entities/SkillGapReport'
 import { MatchResult } from '../entities/MatchResult'
 import { CandidateProfile } from '../entities/CandidateProfile'
-import { ResumeVersionType, JobOrigin, Plan } from '../entities/enums'
+import { ResumeVersionType, JobOrigin, Plan, NotInterestedReason } from '../entities/enums'
 import { requireAuth } from '../middleware/auth'
 import { llmRateLimit } from '../middleware/rateLimit'
 import { createError } from '../middleware/errorHandler'
@@ -85,7 +85,9 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
 // résumé to be worth showing (see services/matching/surfaceJobs.ts) — never
 // the raw, unfiltered pool. A candidate with no master résumé yet sees only
 // whatever they've pasted (if anything) and `needsMasterResume: true`,
-// since there's nothing meaningful to match against yet.
+// since there's nothing meaningful to match against yet. Excludes jobs the
+// candidate has marked "not interested" unless `?includeNotInterested=true`
+// is passed (see PUT/DELETE /:id/not-interested below).
 router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
@@ -102,7 +104,8 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       await ensureMatchedJobsForCandidate(userId, profile, masterResume)
     }
 
-    const jobs = await listJobViews(userId)
+    const includeNotInterested = req.query.includeNotInterested === 'true'
+    const jobs = await listJobViews(userId, { includeNotInterested })
     res.json({ jobs, needsMasterResume: !masterResume })
   } catch (err) {
     next(err)
@@ -135,6 +138,60 @@ router.put('/:id/applied', async (req: AuthRequest, res: Response, next: NextFun
     if (!userJob) throw jobNotFoundError()
 
     userJob.appliedAt = applied ? new Date() : null
+    await userJobRepo.save(userJob)
+
+    const job = await loadJobView(userId, userJob.id)
+    res.json({ job })
+  } catch (err) {
+    next(err)
+  }
+})
+
+const setNotInterestedSchema = z.object({
+  reason: z.nativeEnum(NotInterestedReason),
+  note: z.string().max(2000).optional(),
+})
+
+// PUT /api/jobs/:id/not-interested — hides this job from the caller's board
+// (see services/jobs/jobView.ts's listJobViews) and records why, as a
+// structured category plus an optional free-text note. Capturing *why* is
+// the whole point — this is meant to become a real preference signal for
+// the matching algorithm later (see UserJob.ts's comment / Jira NM-27), not
+// consumed by scoring yet, just recorded.
+router.put('/:id/not-interested', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId!
+    const { reason, note } = setNotInterestedSchema.parse(req.body)
+
+    const userJobRepo = AppDataSource.getRepository(UserJob)
+    const userJob = await userJobRepo.findOneBy({ id: req.params.id as string, userId })
+    if (!userJob) throw jobNotFoundError()
+
+    userJob.notInterestedAt = new Date()
+    userJob.notInterestedReason = reason
+    userJob.notInterestedNote = note ?? null
+    await userJobRepo.save(userJob)
+
+    const job = await loadJobView(userId, userJob.id)
+    res.json({ job })
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /api/jobs/:id/not-interested — undo: clears the dismissal so the
+// job reappears on the board.
+router.delete('/:id/not-interested', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.userId!
+
+    const userJobRepo = AppDataSource.getRepository(UserJob)
+    const userJob = await userJobRepo.findOneBy({ id: req.params.id as string, userId })
+    if (!userJob) throw jobNotFoundError()
+
+    userJob.notInterestedAt = null
+    userJob.notInterestedReason = null
+    userJob.notInterestedNote = null
     await userJobRepo.save(userJob)
 
     const job = await loadJobView(userId, userJob.id)
@@ -322,8 +379,8 @@ router.get('/:id/cover-letter/pdf', async (req: AuthRequest, res: Response, next
 })
 
 // POST /api/jobs/:id/match — scores the caller's master resume against this
-// job (skill coverage + preference fit — see services/matching/matchScore.ts
-// for the v3-scoring-approach note) and persists a MatchResult.
+// job (skills/seniority/salary gates + a minor location nudge — see
+// services/matching/matchScore.ts's v4 header) and persists a MatchResult.
 router.post('/:id/match', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!

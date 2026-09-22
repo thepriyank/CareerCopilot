@@ -67,14 +67,15 @@ export async function parseResume(
         skills: 0,
       },
       rawText: '',
+      totalYearsOfExperience: null,
     }
   }
 
   const sections = detectSections(rawText)
-  const extractedEntities = await extractEntities(rawText, options)
+  const { entities: extractedEntities, totalYearsOfExperience } = await extractEntities(rawText, options)
   const confidenceScores = computeConfidenceScores(extractedEntities)
 
   logger.debug(`Parsing complete overallConfidence=${confidenceScores.overall}`)
 
-  return { sections, extractedEntities, confidenceScores, rawText }
+  return { sections, extractedEntities, confidenceScores, rawText, totalYearsOfExperience }
 }

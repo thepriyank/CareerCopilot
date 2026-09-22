@@ -8,6 +8,7 @@ import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
+import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
 
 const FIT_LABEL: Record<string, string> = {
   'remote-ok': 'Remote-friendly',
@@ -16,6 +17,9 @@ const FIT_LABEL: Record<string, string> = {
   'within-range': 'Within your range',
   'below-range': 'Below your range',
   'above-range': 'Above your range',
+  'closely-matched': 'Experience matches',
+  underqualified: 'Needs more experience',
+  overqualified: 'Overqualified',
   unknown: 'Not enough data',
 }
 
@@ -30,6 +34,9 @@ const FIT_MATCHES: Record<string, boolean | undefined> = {
   'within-range': true,
   'below-range': false,
   'above-range': false,
+  'closely-matched': true,
+  underqualified: false,
+  overqualified: false,
   unknown: undefined,
 }
 
@@ -279,9 +286,27 @@ export default function JobDetailPage() {
                 <Icon.Send size={12} /> Apply
               </a>
             )}
+            {!job.notInterestedAt && (
+              <NotInterestedControl
+                jobId={job.id}
+                notInterestedAt={job.notInterestedAt}
+                onChange={(update) => setJob({ ...job, ...update })}
+              />
+            )}
           </>
         }
       />
+      {job.notInterestedAt && (
+        <div style={{ padding: '10px 16px', margin: '10px 16px 0', background: 'var(--ochre-100)', borderRadius: 10 }}>
+          <NotInterestedControl
+            jobId={job.id}
+            notInterestedAt={job.notInterestedAt}
+            notInterestedReason={job.notInterestedReason}
+            onChange={(update) => setJob({ ...job, ...update })}
+            showDismissedState
+          />
+        </div>
+      )}
       {appliedError && (
         <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--error)' }}>{appliedError}</div>
       )}
@@ -315,20 +340,26 @@ export default function JobDetailPage() {
                     ))}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {FIT_LABEL[matchResult.rationale.locationFit]} · {FIT_LABEL[matchResult.rationale.salaryFit]}
+                    {FIT_LABEL[matchResult.rationale.experienceFit ?? 'unknown']} · {FIT_LABEL[matchResult.rationale.locationFit]} · {FIT_LABEL[matchResult.rationale.salaryFit]}
                   </div>
-                  {matchResult.rationale.skillCoverage !== undefined && matchResult.rationale.preferenceFit !== undefined && (
+                  {matchResult.rationale.skillCoverage !== undefined && matchResult.rationale.seniorityFit !== undefined && (
                     <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px solid var(--line-2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Score breakdown</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        Score breakdown <span style={{ color: 'var(--text-soft)' }}>— skills × experience × salary, plus a small location nudge</span>
+                      </div>
                       {[
-                        { label: 'Skill coverage', value: matchResult.rationale.skillCoverage, weight: 2 / 3 },
-                        { label: 'Preference fit', value: matchResult.rationale.preferenceFit, weight: 1 / 3 },
-                      ].map((row) => (
-                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)' }}>
-                          <span>{row.label} <span style={{ color: 'var(--text-muted)' }}>({Math.round(row.weight * 100)}% weight)</span></span>
-                          <span className="mono">{Math.round(row.value * 100)}%</span>
-                        </div>
-                      ))}
+                        { label: 'Skill coverage', value: matchResult.rationale.skillCoverage, gate: true },
+                        { label: 'Experience fit', value: matchResult.rationale.seniorityFit, gate: true },
+                        { label: 'Salary fit', value: matchResult.rationale.salaryFitScore, gate: true },
+                        { label: 'Location fit', value: matchResult.rationale.locationFitScore, gate: false },
+                      ]
+                        .filter((row): row is typeof row & { value: number } => row.value !== undefined)
+                        .map((row) => (
+                          <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)' }}>
+                            <span>{row.label} <span style={{ color: 'var(--text-muted)' }}>({row.gate ? 'gate' : 'minor, 10% weight'})</span></span>
+                            <span className="mono">{Math.round(row.value * 100)}%</span>
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
@@ -373,6 +404,14 @@ export default function JobDetailPage() {
               <div style={{ marginTop: skillGap ? 4 : 0, paddingTop: skillGap ? 8 : 0, borderTop: skillGap ? '1px solid var(--line-2)' : 'none' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Preferences</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {matchResult.rationale.experienceFit && (
+                    <Chip
+                      tone={FIT_MATCHES[matchResult.rationale.experienceFit] === true ? 'match' : FIT_MATCHES[matchResult.rationale.experienceFit] === false ? 'missing' : 'default'}
+                      icon={FIT_MATCHES[matchResult.rationale.experienceFit] === true ? <Icon.Check size={10} /> : undefined}
+                    >
+                      {FIT_LABEL[matchResult.rationale.experienceFit]}
+                    </Chip>
+                  )}
                   <Chip
                     tone={FIT_MATCHES[matchResult.rationale.locationFit] === true ? 'match' : FIT_MATCHES[matchResult.rationale.locationFit] === false ? 'missing' : 'default'}
                     icon={FIT_MATCHES[matchResult.rationale.locationFit] === true ? <Icon.Check size={10} /> : undefined}

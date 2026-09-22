@@ -48,6 +48,7 @@ interface RawClaudeEntities {
     technologies?: string[]
     url?: string
   }>
+  totalYearsOfExperience?: number | null
 }
 
 const EXTRACTION_PROMPT = `You are a professional resume parser. Extract structured information from this resume text.
@@ -58,6 +59,15 @@ CRITICAL RULES:
 - If a field is absent, omit it or use null.
 - Preserve the exact wording of bullet points.
 - For dates, preserve original format (e.g., "Jan 2020", "2018–2021", "Present").
+- "totalYearsOfExperience" is the one exception to "don't infer": compute the
+  candidate's total years of professional (post-education, paid) work
+  experience by reasoning over the date ranges in the experience entries
+  themselves — add up distinct roles, don't double-count overlapping/
+  concurrent roles (count overlapping time once), treat "Present"/"Current"
+  as today, and ignore internships/education unless the resume itself
+  presents them as professional experience. Round to the nearest whole
+  number. If the resume states dates too vaguely to compute this (e.g. no
+  years given at all), return null — do not guess.
 
 Return valid JSON with this exact structure:
 {
@@ -104,16 +114,35 @@ Return valid JSON with this exact structure:
       "technologies": ["string"],
       "url": "string or null"
     }
-  ]
+  ],
+  "totalYearsOfExperience": "integer or null"
 }
 
 RESUME TEXT:
 {RESUME_TEXT}`
 
+export interface ExtractionResult {
+  entities: ExtractedEntities
+  // Computed by the same LLM call, from the experience entries' own date
+  // ranges — see EXTRACTION_PROMPT's "totalYearsOfExperience" rule. Null
+  // when the resume's dates are too vague/absent to compute it reliably.
+  // Feeds CandidateProfile.yearsOfExperience's resume-derived default (see
+  // routes/resume.routes.ts) — the 2026-09-21 product decision that this
+  // should be pre-filled from the résumé rather than asked cold in
+  // onboarding chat, since the data needed to answer it already exists.
+  totalYearsOfExperience: number | null
+}
+
+function coerceTotalYears(value: unknown): number | null {
+  if (value == null) return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) && n >= 0 && n <= 60 ? Math.round(n) : null
+}
+
 export async function extractEntities(
   rawText: string,
   options: { userId?: string; userApiKey?: string } = {}
-): Promise<ExtractedEntities> {
+): Promise<ExtractionResult> {
   const truncated = rawText.slice(0, MAX_TEXT_LENGTH)
   const prompt = EXTRACTION_PROMPT.replace('{RESUME_TEXT}', truncated)
 
@@ -173,20 +202,23 @@ export async function extractEntities(
   }))
 
   return {
-    contact: {
-      name: raw.contact?.name ?? undefined,
-      email: raw.contact?.email ?? undefined,
-      phone: raw.contact?.phone ?? undefined,
-      location: raw.contact?.location ?? undefined,
-      linkedin: raw.contact?.linkedin ?? undefined,
-      website: raw.contact?.website ?? undefined,
+    entities: {
+      contact: {
+        name: raw.contact?.name ?? undefined,
+        email: raw.contact?.email ?? undefined,
+        phone: raw.contact?.phone ?? undefined,
+        location: raw.contact?.location ?? undefined,
+        linkedin: raw.contact?.linkedin ?? undefined,
+        website: raw.contact?.website ?? undefined,
+      },
+      summary: raw.summary ?? undefined,
+      experience,
+      education,
+      skills,
+      certifications,
+      projects,
     },
-    summary: raw.summary ?? undefined,
-    experience,
-    education,
-    skills,
-    certifications,
-    projects,
+    totalYearsOfExperience: coerceTotalYears(raw.totalYearsOfExperience),
   }
 }
 

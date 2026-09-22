@@ -342,6 +342,115 @@ describe('PUT /api/jobs/:id/applied', () => {
   })
 })
 
+describe('PUT /api/jobs/:id/not-interested', () => {
+  it('rejects a job posting that does not belong to the caller', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Mine', description: 'desc' })
+
+    const otherToken = signToken(OTHER_USER_ID, 'FREE')
+    const res = await request(app)
+      .put(`/api/jobs/${created.body.job.id}/not-interested`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ reason: 'ROLE_TOO_JUNIOR' })
+    expect(res.status).toBe(404)
+  })
+
+  it('marks a job not interested with a structured reason and optional note, setting a timestamp', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Junior Data Engineer', description: 'desc' })
+    expect(created.body.job.notInterestedAt).toBeNull()
+
+    const res = await request(app)
+      .put(`/api/jobs/${created.body.job.id}/not-interested`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: 'ROLE_TOO_JUNIOR', note: 'I have 10 years of experience, this is an entry-level role' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.job.notInterestedAt).not.toBeNull()
+    expect(res.body.job.notInterestedReason).toBe('ROLE_TOO_JUNIOR')
+    expect(res.body.job.notInterestedNote).toBe('I have 10 years of experience, this is an entry-level role')
+  })
+
+  it('rejects an unrecognized reason value', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Mine', description: 'desc' })
+
+    const res = await request(app)
+      .put(`/api/jobs/${created.body.job.id}/not-interested`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: 'NOT_A_REAL_REASON' })
+    expect(res.status).toBe(400)
+  })
+
+  it('excludes a not-interested job from GET /api/jobs by default, but includes it with ?includeNotInterested=true', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Junior Data Engineer', description: 'desc' })
+    await request(app)
+      .put(`/api/jobs/${created.body.job.id}/not-interested`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: 'ROLE_TOO_JUNIOR' })
+
+    const hidden = await request(app).get('/api/jobs').set('Authorization', `Bearer ${token}`)
+    expect(hidden.body.jobs).toHaveLength(0)
+
+    const shown = await request(app).get('/api/jobs?includeNotInterested=true').set('Authorization', `Bearer ${token}`)
+    expect(shown.body.jobs).toHaveLength(1)
+    expect(shown.body.jobs[0].notInterestedReason).toBe('ROLE_TOO_JUNIOR')
+  })
+})
+
+describe('DELETE /api/jobs/:id/not-interested', () => {
+  it('undoes a not-interested dismissal, clearing all three fields', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Junior Data Engineer', description: 'desc' })
+    await request(app)
+      .put(`/api/jobs/${created.body.job.id}/not-interested`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: 'SALARY_TOO_LOW', note: 'pays too little' })
+
+    const res = await request(app)
+      .delete(`/api/jobs/${created.body.job.id}/not-interested`)
+      .set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.body.job.notInterestedAt).toBeNull()
+    expect(res.body.job.notInterestedReason).toBeNull()
+    expect(res.body.job.notInterestedNote).toBeNull()
+
+    const list = await request(app).get('/api/jobs').set('Authorization', `Bearer ${token}`)
+    expect(list.body.jobs).toHaveLength(1)
+  })
+
+  it('rejects a job posting that does not belong to the caller', async () => {
+    const app = buildApp()
+    const created = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Mine', description: 'desc' })
+
+    const otherToken = signToken(OTHER_USER_ID, 'FREE')
+    const res = await request(app)
+      .delete(`/api/jobs/${created.body.job.id}/not-interested`)
+      .set('Authorization', `Bearer ${otherToken}`)
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('POST /api/jobs/:id/skill-gap', () => {
   it('requires a master resume to exist first', async () => {
     const app = buildApp()

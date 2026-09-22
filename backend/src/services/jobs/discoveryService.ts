@@ -29,6 +29,7 @@ import { classifyTier } from './classifyTier'
 import { hashJobUrl } from './jobIdentity'
 import { JobView, toJobView } from './jobView'
 import { extractJobSkills, flattenJobSkills } from '../skills/extractJobSkills'
+import { parseSalaryRange, detectCurrencyCode } from '../matching/matchScore'
 import { cleanMarkdownArtifacts } from './cleanJobDescription'
 import { atsProviders, remoteBoardProviders, aggregatorProviders, NormalizedJob } from './providers'
 import { makeHttpContext } from './providers/http'
@@ -188,6 +189,15 @@ export async function upsertJobListing(input: JobInput): Promise<{ listing: JobL
     return { listing, isNew }
   }
 
+  // The scraper-provided `salary` string (when present) is already a clean,
+  // machine-generated format (scrape_and_post.py's build_salary) — a
+  // deterministic regex parse of OUR OWN fixed format is a formatting
+  // concern, not a judgment call, so it doesn't need the LLM. This is the
+  // baseline; only filled in from the LLM's own JD-text reading below when
+  // this string is absent (most jobs — see extractJobSkills.ts's header).
+  const knownSalary = input.salary ? parseSalaryRange(input.salary) : null
+  const knownCurrency = input.salary ? detectCurrencyCode(input.salary) : null
+
   isNew = true
   listing = await listingRepo.save(
     listingRepo.create({
@@ -198,6 +208,9 @@ export async function upsertJobListing(input: JobInput): Promise<{ listing: JobL
       company: input.company,
       location: input.location,
       salary: input.salary,
+      salaryMin: knownSalary?.min ?? null,
+      salaryMax: knownSalary?.max ?? null,
+      salaryCurrency: knownCurrency,
       description: input.description,
       normalizedFields: {},
       skills: [],
@@ -208,15 +221,49 @@ export async function upsertJobListing(input: JobInput): Promise<{ listing: JobL
   )
 
   if (input.preExtractedSkills && input.preExtractedSkills.length > 0) {
-    const extraction = { requiredSkills: input.preExtractedSkills, niceToHaveSkills: [], seniorityLevel: null }
+    // No LLM call in this branch (source already gave us structured skills)
+    // — so no seniority/years/salary judgment either; classifyTier(title) is
+    // the same fallback used when the LLM path fails outright below.
+    const extraction = {
+      requiredSkills: input.preExtractedSkills,
+      niceToHaveSkills: [],
+      seniorityLevel: null,
+      seniorityTier: classifyTier(input.title),
+      minYearsExperience: null,
+      maxYearsExperience: null,
+      salaryMin: null,
+      salaryMax: null,
+      salaryCurrency: null,
+    }
     listing.skills = flattenJobSkills(extraction)
     listing.normalizedFields = { ...extraction }
+    listing.experienceLevel = extraction.seniorityTier
     listing = await listingRepo.save(listing)
   } else if (input.description) {
     try {
-      const extraction = await extractJobSkills(input.description)
+      const extraction = await extractJobSkills(input.description, {
+        title: input.title,
+        knownSalaryText: input.salary,
+      })
       listing.skills = flattenJobSkills(extraction)
       listing.normalizedFields = { ...extraction }
+      // `|| classifyTier(...)` guards against an extraction that omits
+      // seniorityTier entirely (e.g. an older/partial mock or a caller on a
+      // stale contract) clobbering the already-good classifyTier(title)
+      // fallback this listing was created with above with `undefined`.
+      listing.experienceLevel = extraction.seniorityTier || classifyTier(input.title)
+      listing.minYearsExperience = extraction.minYearsExperience ?? null
+      listing.maxYearsExperience = extraction.maxYearsExperience ?? null
+      // Only take the LLM's salary reading when the deterministic parse of
+      // the scraper-provided string (above) found nothing — most jobs have
+      // no `salary` string at all, but the JD text itself sometimes states
+      // a figure inline, which only the LLM (reading the full description)
+      // can find.
+      if (!knownSalary) {
+        listing.salaryMin = extraction.salaryMin ?? null
+        listing.salaryMax = extraction.salaryMax ?? null
+        listing.salaryCurrency = extraction.salaryCurrency ?? null
+      }
       listing = await listingRepo.save(listing)
     } catch (err) {
       // extractJobSkills already falls back internally on LLM failure —
@@ -253,7 +300,17 @@ export async function ensureUserHasJob(
   let isNewToUser = false
   if (!userJob) {
     isNewToUser = true
-    userJob = await userJobRepo.save(userJobRepo.create({ userId, jobListingId: listing.id, origin, appliedAt: null }))
+    userJob = await userJobRepo.save(
+      userJobRepo.create({
+        userId,
+        jobListingId: listing.id,
+        origin,
+        appliedAt: null,
+        notInterestedAt: null,
+        notInterestedReason: null,
+        notInterestedNote: null,
+      })
+    )
   }
 
   return { jobView: toJobView(userJob, listing), isNewListing, isNewToUser }

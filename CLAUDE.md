@@ -152,6 +152,7 @@ If requirements are ambiguous:
 - Do not implement fully autonomous job submissions in MVP (user approval is mandatory).
 - Do not implement LinkedIn automation that might violate platform terms (MVP is review/feedback only).
 - Both of the above explicitly cover storing a user's third-party credentials (Naukri, Indeed, LinkedIn, Wellfound, or any other site) to scrape or auto-apply on their behalf — that's a hard no regardless of user consent, not just an MVP timing issue. See `BRD.md` §11 (Phase 3) for the gated conditions that would have to be met before any of this is reconsidered.
+- **2026-09-21 clarification**: the above is about credential-based automation (logging in as the user, auto-applying, auto-messaging) — it does NOT cover unauthenticated, public job-listing scraping. The user has explicitly approved including LinkedIn (and every other JobSpy-supported site except Naukri, which is hard-blocked by reCAPTCHA) in `scripts/jobspy-ingest/`'s default site list — this scraper never logs in, stores no LinkedIn credentials, and only reads public job postings into the shared job pool. See `scripts/jobspy-ingest/README.md`'s "Site selection" section for the current defaults and rate-limit handling.
 - Do not store sensitive data in logs (avoid full resumes in logs).
 - Do not introduce breaking changes without explaining them and updating docs.
 
