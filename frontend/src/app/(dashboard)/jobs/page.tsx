@@ -8,6 +8,7 @@ import { jobs as jobsApi } from '@/lib/api'
 import { ApiError } from '@/lib/api'
 import { ExperienceLevel, JobPosting } from '@/types'
 import Link from 'next/link'
+import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
 
 const TIER_LABEL: Record<ExperienceLevel, string> = {
   intern: 'Intern',
@@ -296,6 +297,11 @@ export default function JobBoardPage() {
                         <Icon.Eye size={12} />
                       </a>
                     )}
+                    <NotInterestedControl
+                      jobId={job.id}
+                      notInterestedAt={job.notInterestedAt}
+                      onChange={() => setJobList((prev) => prev.filter((j) => j.id !== job.id))}
+                    />
                   </div>
                 </div>
               ))}

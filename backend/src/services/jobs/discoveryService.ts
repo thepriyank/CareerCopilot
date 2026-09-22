@@ -300,7 +300,17 @@ export async function ensureUserHasJob(
   let isNewToUser = false
   if (!userJob) {
     isNewToUser = true
-    userJob = await userJobRepo.save(userJobRepo.create({ userId, jobListingId: listing.id, origin, appliedAt: null }))
+    userJob = await userJobRepo.save(
+      userJobRepo.create({
+        userId,
+        jobListingId: listing.id,
+        origin,
+        appliedAt: null,
+        notInterestedAt: null,
+        notInterestedReason: null,
+        notInterestedNote: null,
+      })
+    )
   }
 
   return { jobView: toJobView(userJob, listing), isNewListing, isNewToUser }

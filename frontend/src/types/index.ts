@@ -323,7 +323,23 @@ export interface JobPosting {
   // Set once the candidate marks this job as applied (PUT /:id/applied);
   // null when they haven't. Separate from opening the original posting.
   appliedAt: string | null
+  // Set once the candidate dismisses this job as not interested (PUT/DELETE
+  // /:id/not-interested) — GET /api/jobs excludes these by default. Not yet
+  // used by matching itself (see Jira NM-27).
+  notInterestedAt: string | null
+  notInterestedReason: NotInterestedReason | null
+  notInterestedNote: string | null
 }
+
+export type NotInterestedReason =
+  | 'ROLE_TOO_JUNIOR'
+  | 'ROLE_TOO_SENIOR'
+  | 'SALARY_TOO_LOW'
+  | 'LOCATION_MISMATCH'
+  | 'SKILLS_MISMATCH'
+  | 'WRONG_ROLE_TYPE'
+  | 'COMPANY'
+  | 'OTHER'
 
 // ─── Match scoring (F4) ─────────────────────────────────────────────────────────
 

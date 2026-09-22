@@ -15,6 +15,7 @@ function job(overrides: Partial<JobView>): JobView {
     minYearsExperience: null, maxYearsExperience: null,
     description: '', normalizedFields: {}, skills: [], experienceLevel: null,
     isRemote: null, createdAt: new Date(), matchScore: null, appliedAt: null,
+    notInterestedAt: null, notInterestedReason: null, notInterestedNote: null,
     ...overrides,
   }
 }

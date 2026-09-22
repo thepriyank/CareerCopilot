@@ -8,6 +8,7 @@ import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
+import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
 
 const FIT_LABEL: Record<string, string> = {
   'remote-ok': 'Remote-friendly',
@@ -285,9 +286,27 @@ export default function JobDetailPage() {
                 <Icon.Send size={12} /> Apply
               </a>
             )}
+            {!job.notInterestedAt && (
+              <NotInterestedControl
+                jobId={job.id}
+                notInterestedAt={job.notInterestedAt}
+                onChange={(update) => setJob({ ...job, ...update })}
+              />
+            )}
           </>
         }
       />
+      {job.notInterestedAt && (
+        <div style={{ padding: '10px 16px', margin: '10px 16px 0', background: 'var(--ochre-100)', borderRadius: 10 }}>
+          <NotInterestedControl
+            jobId={job.id}
+            notInterestedAt={job.notInterestedAt}
+            notInterestedReason={job.notInterestedReason}
+            onChange={(update) => setJob({ ...job, ...update })}
+            showDismissedState
+          />
+        </div>
+      )}
       {appliedError && (
         <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--error)' }}>{appliedError}</div>
       )}

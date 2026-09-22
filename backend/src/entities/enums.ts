@@ -77,6 +77,25 @@ export enum JobListingStatus {
   EXPIRED = 'EXPIRED',
 }
 
+// Why a candidate marked a job "not interested" (see UserJob.notInterestedAt
+// et al.) — a structured category, not just a free-text note, specifically
+// so this data can later feed the matching algorithm as a real preference
+// signal (2026-09-21 product decision: capture it now, wire it into scoring
+// later — see NM-27 in Jira). Named to line up with the axes matchScore.ts
+// already reasons about (seniority, salary, location, skills) rather than
+// inventing a separate taxonomy — ROLE_TOO_JUNIOR/ROLE_TOO_SENIOR map
+// directly to experienceFit.ts's 'overqualified'/'underqualified'.
+export enum NotInterestedReason {
+  ROLE_TOO_JUNIOR = 'ROLE_TOO_JUNIOR',
+  ROLE_TOO_SENIOR = 'ROLE_TOO_SENIOR',
+  SALARY_TOO_LOW = 'SALARY_TOO_LOW',
+  LOCATION_MISMATCH = 'LOCATION_MISMATCH',
+  SKILLS_MISMATCH = 'SKILLS_MISMATCH',
+  WRONG_ROLE_TYPE = 'WRONG_ROLE_TYPE',
+  COMPANY = 'COMPANY',
+  OTHER = 'OTHER',
+}
+
 // How a user came to have a given JobListing in their list — see UserJob.
 export enum JobOrigin {
   // System-wide discovery cron found it in the shared pool and it scored

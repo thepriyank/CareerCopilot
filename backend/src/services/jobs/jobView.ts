@@ -18,6 +18,7 @@ import { AppDataSource } from '../../config/dataSource'
 import { UserJob } from '../../entities/UserJob'
 import { JobListing } from '../../entities/JobListing'
 import { MatchResult } from '../../entities/MatchResult'
+import { NotInterestedReason } from '../../entities/enums'
 
 export interface JobView {
   id: string // UserJob.id — what routes and other tables' `jobId` columns reference
@@ -42,6 +43,13 @@ export interface JobView {
   createdAt: Date // when THIS user got this job — UserJob's own createdAt, not the listing's
   matchScore: number | null // latest computed MatchResult.score, if one exists yet
   appliedAt: Date | null // when the candidate marked this job as applied, if they have
+  // Set once the candidate dismisses this job as not interested (see
+  // routes/jobs.routes.ts's PUT/DELETE /:id/not-interested) — excluded from
+  // listJobViews' default list below. Not yet consumed by matching itself
+  // (see UserJob.ts's comment / Jira NM-27).
+  notInterestedAt: Date | null
+  notInterestedReason: NotInterestedReason | null
+  notInterestedNote: string | null
 }
 
 export function toJobView(userJob: UserJob, listing: JobListing, matchScore: number | null = null): JobView {
@@ -68,6 +76,9 @@ export function toJobView(userJob: UserJob, listing: JobListing, matchScore: num
     createdAt: userJob.createdAt,
     matchScore,
     appliedAt: userJob.appliedAt,
+    notInterestedAt: userJob.notInterestedAt,
+    notInterestedReason: userJob.notInterestedReason,
+    notInterestedNote: userJob.notInterestedNote,
   }
 }
 
@@ -101,14 +112,24 @@ export async function loadJobView(userId: string, userJobId: string): Promise<Jo
 /**
  * Every job in one user's list, best match first (a pasted job with no
  * score yet sorts after every scored one, then by most recently added).
+ * Excludes jobs marked "not interested" by default (see
+ * routes/jobs.routes.ts's PUT/DELETE /:id/not-interested) — pass
+ * `includeNotInterested: true` for the rare case a caller wants those too
+ * (e.g. an "undo" view), which nothing currently uses but costs nothing to
+ * support here.
  */
-export async function listJobViews(userId: string): Promise<JobView[]> {
+export async function listJobViews(
+  userId: string,
+  options: { includeNotInterested?: boolean } = {}
+): Promise<JobView[]> {
   const userJobRepo = AppDataSource.getRepository(UserJob)
   const userJobs = await userJobRepo.find({
     where: { userId },
     relations: ['jobListing'],
   })
-  const withListing = userJobs.filter((uj) => uj.jobListing)
+  const withListing = userJobs.filter(
+    (uj) => uj.jobListing && (options.includeNotInterested || !uj.notInterestedAt)
+  )
 
   const scores = await latestScoresByUserJobId(userId, withListing.map((uj) => uj.id))
   const views = withListing.map((uj) => toJobView(uj, uj.jobListing, scores.get(uj.id) ?? null))

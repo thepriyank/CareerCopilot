@@ -18,6 +18,7 @@ import {
   AggregatedGap,
   DashboardData,
   ExtensionTokenSummary,
+  NotInterestedReason,
 } from '../types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -234,7 +235,10 @@ export const jobs = {
   // against an admin-configured pool), never something a candidate
   // triggers. `needsMasterResume` is true until they've generated one —
   // nothing gets matched before that.
-  list: () => request<{ jobs: JobPosting[]; needsMasterResume: boolean }>('/api/jobs'),
+  list: (options: { includeNotInterested?: boolean } = {}) =>
+    request<{ jobs: JobPosting[]; needsMasterResume: boolean }>(
+      `/api/jobs${options.includeNotInterested ? '?includeNotInterested=true' : ''}`
+    ),
 
   get: (id: string) => request<{ job: JobPosting }>(`/api/jobs/${id}`),
 
@@ -257,6 +261,18 @@ export const jobs = {
       method: 'PUT',
       body: JSON.stringify({ applied }),
     }),
+
+  // Hides this job from the board and records why — a structured reason so
+  // this can feed the matching algorithm later (see Jira NM-27); not
+  // consumed by scoring yet.
+  markNotInterested: (jobId: string, reason: NotInterestedReason, note?: string) =>
+    request<{ job: JobPosting }>(`/api/jobs/${jobId}/not-interested`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason, note }),
+    }),
+
+  clearNotInterested: (jobId: string) =>
+    request<{ job: JobPosting }>(`/api/jobs/${jobId}/not-interested`, { method: 'DELETE' }),
 
   getMatch: (jobId: string) => request<{ matchResult: MatchResult | null }>(`/api/jobs/${jobId}/match`),
 
