@@ -19,6 +19,7 @@ import {
   DashboardData,
   ExtensionTokenSummary,
   NotInterestedReason,
+  Notification,
 } from '../types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
@@ -235,8 +236,12 @@ export const jobs = {
   // against an admin-configured pool), never something a candidate
   // triggers. `needsMasterResume` is true until they've generated one —
   // nothing gets matched before that.
+  // `matchingPaused` is true once a FREE user's pass has lapsed with no
+  // custom API key configured — existing `jobs` still list (nothing is
+  // deleted), but no *new* pool listing gets surfaced until they add a
+  // key or upgrade. See backend jobs.routes.ts's GET / handler.
   list: (options: { includeNotInterested?: boolean } = {}) =>
-    request<{ jobs: JobPosting[]; needsMasterResume: boolean }>(
+    request<{ jobs: JobPosting[]; needsMasterResume: boolean; matchingPaused: boolean }>(
       `/api/jobs${options.includeNotInterested ? '?includeNotInterested=true' : ''}`
     ),
 
@@ -365,6 +370,17 @@ export const account = {
   activatePass: () => request<{ user: User }>('/api/account/activate-pass', { method: 'POST' }),
 
   dismissPassBanner: () => request<{ message: string }>('/api/account/dismiss-pass-banner', { method: 'POST' }),
+}
+
+// ─── Notifications (sidebar bell) ──────────────────────────────────────────
+
+export const notifications = {
+  list: () => request<{ notifications: Notification[]; unreadCount: number }>('/api/notifications'),
+
+  markRead: (id: string) =>
+    request<{ notification: Notification }>(`/api/notifications/${id}/read`, { method: 'POST' }),
+
+  markAllRead: () => request<{ ok: boolean }>('/api/notifications/read-all', { method: 'POST' }),
 }
 
 // ─── Assisted Apply extension (Settings: Connected extensions) ─────────────

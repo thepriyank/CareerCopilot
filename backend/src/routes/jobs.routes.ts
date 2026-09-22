@@ -13,6 +13,7 @@ import { requireAuth } from '../middleware/auth'
 import { llmRateLimit } from '../middleware/rateLimit'
 import { createError } from '../middleware/errorHandler'
 import { resolveEffectivePlan, currentWindowStart } from '../services/plan/resolveEffectivePlan'
+import { canUserMatch, hasCustomModelConnection } from '../services/plan/matchingAccess'
 import {
   FREE_MONTHLY_TAILOR_LIMIT, FREE_MONTHLY_COVER_LETTER_LIMIT,
   countTailoredResumesInWindow, countCoverLettersInWindow,
@@ -91,6 +92,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
 router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
+    const userRepo = AppDataSource.getRepository(User)
     const resumeRepo = AppDataSource.getRepository(GeneratedResumeVersion)
     const profileRepo = AppDataSource.getRepository(CandidateProfile)
 
@@ -99,14 +101,24 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       order: { createdAt: 'DESC' },
     })
 
-    if (masterResume) {
+    // A lapsed FREE user (no active pass, no custom key) keeps whatever
+    // was already matched — nothing here deletes past MatchResult/UserJob
+    // rows — but stops getting *new* jobs surfaced from the shared pool
+    // until they upgrade or add their own key. See services/plan/
+    // matchingAccess.ts's canUserMatch() comment for why matching (unlike
+    // tailored résumés/cover letters) gates on the key's mere presence
+    // rather than actually spending it.
+    const user = await userRepo.findOneBy({ id: userId })
+    const matchingAllowed = user ? await canUserMatch(user) : false
+
+    if (masterResume && matchingAllowed) {
       const profile = await profileRepo.findOneBy({ userId })
       await ensureMatchedJobsForCandidate(userId, profile, masterResume)
     }
 
     const includeNotInterested = req.query.includeNotInterested === 'true'
     const jobs = await listJobViews(userId, { includeNotInterested })
-    res.json({ jobs, needsMasterResume: !masterResume })
+    res.json({ jobs, needsMasterResume: !masterResume, matchingPaused: !matchingAllowed })
   } catch (err) {
     next(err)
   }
@@ -289,8 +301,14 @@ async function loadJobAndMasterResume(userId: string, jobId: string): Promise<{ 
  * Throws 402 if this user is on FREE and has already used up their rolling
  * monthly allowance of `limit` for whatever `countInWindow` counts — a
  * no-op entirely for a PREMIUM user (trial or paid, see
- * resolveEffectivePlan()). Same shape as extension.routes.ts's
- * `remainingFills` check, generalized — see services/plan/freeTierQuota.ts.
+ * resolveEffectivePlan()) *or* a FREE user with their own model connection
+ * configured (2026-09-22 — see services/plan/matchingAccess.ts): unlike
+ * matching, tailoring/cover-letter generation genuinely calls an LLM, and
+ * anthropicClient.ts's resolveConnection() already transparently routes
+ * that call through the user's own key when one's saved, so their usage
+ * costs the platform nothing and the monthly cap doesn't apply. Same shape
+ * as extension.routes.ts's `remainingFills` check, generalized — see
+ * services/plan/freeTierQuota.ts.
  */
 async function assertUnderFreeQuota(
   userId: string,
@@ -302,6 +320,7 @@ async function assertUnderFreeQuota(
   const user = await userRepo.findOneBy({ id: userId })
   if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
   if (resolveEffectivePlan(user) === Plan.PREMIUM) return
+  if (await hasCustomModelConnection(userId)) return
 
   const windowStart = currentWindowStart(user.createdAt)
   const used = await countInWindow(userId, windowStart)
@@ -384,6 +403,17 @@ router.get('/:id/cover-letter/pdf', async (req: AuthRequest, res: Response, next
 router.post('/:id/match', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.userId!
+    const userRepo = AppDataSource.getRepository(User)
+    const user = await userRepo.findOneBy({ id: userId })
+    if (!user) throw createError(404, 'USER_NOT_FOUND', 'User not found')
+    if (!(await canUserMatch(user))) {
+      throw createError(
+        402,
+        'MATCHING_UNAVAILABLE',
+        'Your free pass has ended, so job matching is paused. Add your own API key in Settings, or upgrade to keep matching.'
+      )
+    }
+
     const { job, masterResume } = await loadJobAndMasterResume(userId, req.params.id as string)
 
     const profileRepo = AppDataSource.getRepository(CandidateProfile)

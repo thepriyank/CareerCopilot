@@ -314,3 +314,57 @@ module "link_check_schedule" {
   cloud_run_job_name            = module.link_check_job.name
   invoker_service_account_email = module.link_check_scheduler_sa.email
 }
+
+# ── Daily pass-expiry notification check (2026-09-22) ────────────────────
+# Same Cloud Run Job + Cloud Scheduler pattern as the jobs above — see
+# backend/src/services/notifications/passExpiryNotifier.ts for the rule
+# (warn a PREMIUM user once, 3 days before planExpiresAt). Scheduled after
+# discovery/link-check so it doesn't compete with them for the same
+# min_instances=0 cold-start window, though nothing here shares state with
+# either.
+#
+# STAGING-ONLY BY DELIBERATE DESIGN, same reasoning as link_check_job
+# above — a still-settling background job stays off production until it's
+# proven out. Do not copy into environments/production/main.tf as part of
+# a routine "keep production mirrored" pass; see that file's own
+# top-of-file comment.
+module "pass_expiry_scheduler_sa" {
+  source        = "../../modules/service-account"
+  project_id    = var.project_id
+  account_id    = "jobmagnate-expiry-sched-${var.environment}" # google_service_account account_id caps at 30 chars
+  display_name  = "Jobmagnate pass-expiry-job invoker (${var.environment}) — Cloud Scheduler only, no runtime DB/secret access"
+  project_roles = []
+}
+
+module "pass_expiry_job" {
+  source     = "../../modules/cloud-run-job"
+  project_id = var.project_id
+  region     = var.region
+  job_name   = "jobmagnate-pass-expiry-${var.environment}"
+  image      = var.backend_image
+  # Same runtime SA as the backend service/discovery job — already holds
+  # the Secret Manager grants this job needs (just DATABASE_URL, really).
+  service_account_email = module.backend_sa.email
+  command               = ["node"]
+  args                  = ["dist/scripts/runPassExpiryCheck.js"]
+  labels                = { app = "jobmagnate", environment = var.environment, service = "pass-expiry-job" }
+
+  env_vars = {
+    NODE_ENV = "production"
+  }
+
+  # Reuses the full secret set for the same reason discovery_job does —
+  # see that module's comment.
+  secret_env_vars = { for k, m in module.secrets : k => m.secret_id }
+}
+
+module "pass_expiry_schedule" {
+  source                        = "../../modules/cloud-scheduler-job"
+  project_id                    = var.project_id
+  region                        = var.region
+  name                          = "jobmagnate-pass-expiry-${var.environment}"
+  schedule                      = "0 4 * * *" # 4:00 UTC = 9:30am IST, once daily
+  time_zone                     = "Etc/UTC"
+  cloud_run_job_name            = module.pass_expiry_job.name
+  invoker_service_account_email = module.pass_expiry_scheduler_sa.email
+}

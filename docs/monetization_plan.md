@@ -13,6 +13,24 @@
 > 5/month) — see "Tiering" below, which previously described this as a
 > paid-only gate that the code didn't actually enforce yet.
 
+> **2026-09-22 update — matching is no longer unconditionally free.**
+> Product decision: once a user's trial (or a paid pass) lapses, job
+> matching pauses — no new pool listing gets surfaced, though nothing
+> already matched is removed or hidden. This reverses "the governing
+> principle" below as originally written, which is worth stating plainly
+> rather than quietly editing around. **The escape hatch**: a FREE user who
+> adds their own model API key (Settings → API keys) keeps matching working
+> indefinitely, along with tailored résumés/cover letters (which already
+> route generation through that key automatically, at no cost to the
+> platform — matching itself calls no LLM at all, so the key's *presence*
+> is what the gate checks, not its usage). Extension autofill and every
+> other pro feature stay gated behind an actual paid/trial pass regardless
+> of a configured key. See `backend/src/services/plan/matchingAccess.ts`
+> and the in-app pass-expiry notification (`entities/Notification.ts`,
+> fired 3 days before expiry). `docs/marketing_ads_plan.md`'s "finding a
+> job is free, permanently" campaign claim needs updating to match before
+> that plan goes live — flagged there, not yet edited.
+
 | Phase | Contents | State |
 |---|---|---|
 | **A — now** | The 15-day trial, shipped alongside the Assisted Apply extension | Shipped; shortened from 30 to 15 days 2026-09-19 |
@@ -24,11 +42,14 @@ that touches money is Phase B.
 
 ## The governing principle
 
-**Finding a job is never gated.** Discovery, matching, match explanations,
-the job board, skill-gap identification, LinkedIn review and application
-tracking stay free permanently — for every user, unmetered. The product's
-reason to exist is that a candidate who cannot pay still gets matched to
-work they're qualified for.
+**Finding a job is never gated — while a trial or pass is active, or a
+user supplies their own model key.** Discovery, matching, match
+explanations, the job board, skill-gap identification, LinkedIn review and
+application tracking stay free and unmetered for as long as either of
+those is true (see the 2026-09-22 update above). The product's reason to
+exist is that a candidate who cannot pay, but can either use the trial or
+plug in a free-tier key of their own, still gets matched to work they're
+qualified for — the bar to clear is "bring any working key," not "pay us."
 
 What can eventually carry a price is the **output artifacts and the
 leverage** — the things that save a candidate an hour of writing per
@@ -44,7 +65,7 @@ version of it — the good version is what sells the subscription.
 | Feature | Today | Eventually |
 |---|---|---|
 | Résumé ingestion, onboarding, master résumé enhancement | Free | **Free permanently** |
-| Job discovery, match scoring, match explanations, job board | Free | **Free permanently** |
+| Job discovery, match scoring, match explanations, job board | Free during trial/pass; free with a custom key otherwise; paused when neither applies (shipped 2026-09-22) | Same — this is the shipped, final behavior, not a placeholder |
 | Skill-gap identification + course recommendations | Free | **Free permanently** |
 | LinkedIn review | Free | **Free permanently** |
 | Application tracking | Free | **Free permanently** |

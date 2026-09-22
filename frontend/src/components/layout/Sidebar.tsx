@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { auth as authApi } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
 import { PassBanner } from '@/components/layout/PassBanner'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import type { User } from '@/types'
 
 const MAIN_NAV = [
@@ -99,6 +100,7 @@ export function Sidebar({ active }: SidebarProps) {
           <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName || '…'}</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{planLabel}</div>
         </div>
+        {user && <NotificationBell />}
         <Link href="/settings" title="Settings" style={{ color: 'var(--text-muted)', display: 'flex' }}>
           <Icon.Settings size={14} />
         </Link>
