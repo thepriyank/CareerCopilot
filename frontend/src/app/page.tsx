@@ -3,6 +3,8 @@ import { Icon } from '@/components/ui/Icon'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
 import { CHROME_WEBSTORE_URL } from '@/lib/extension'
+import { SIGNED_IN_REDIRECT_SCRIPT } from '@/lib/auth'
+import { SignedInRedirect } from '@/components/auth/SignedInRedirect'
 
 const WORKFLOW = [
   { n: '01', h: 'Upload',  desc: 'Drop your resume. We parse and structure everything.' },
@@ -14,7 +16,12 @@ const WORKFLOW = [
 
 export default function LandingPage() {
   return (
+    <SignedInRedirect renderWhileChecking>
     <div className="app-root" style={{ minHeight: '100vh', background: 'var(--paper)' }}>
+      {/* Signed-in visitors skip the guest landing page — this runs before
+          first paint on a full page load; SignedInRedirect covers client-side
+          navigation. */}
+      <script dangerouslySetInnerHTML={{ __html: SIGNED_IN_REDIRECT_SCRIPT }} />
       {/* Nav */}
       <nav className="landing-nav landing-section-px" style={{
         height: 64, display: 'flex', alignItems: 'center',
@@ -154,5 +161,6 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+    </SignedInRedirect>
   )
 }

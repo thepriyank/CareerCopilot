@@ -30,7 +30,7 @@ export function GoogleSignInButton({ onError }: { onError: (message: string) => 
       const idToken = await signInWithGoogle()
       const { token, isNewUser } = await authApi.google(idToken)
       setToken(token)
-      router.push(isNewUser ? '/resume/upload' : '/dashboard')
+      router.replace(isNewUser ? '/resume/upload' : '/dashboard')
     } catch (err: unknown) {
       // A closed popup/cancelled sign-in isn't a real error worth showing.
       if (err instanceof Error && err.message.includes('popup-closed-by-user')) return

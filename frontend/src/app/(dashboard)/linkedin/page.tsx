@@ -22,12 +22,10 @@ const FIELD_PLACEHOLDERS: Record<LinkedInSectionKey, string> = {
   skills: 'Comma-separated skills as they appear on your profile…',
 }
 
-// Paused 2026-09-23: the PDF-extract + review calls were the first to fall
-// over when the free LLM provider chain broke on production, and they're
-// among the heaviest prompts we send. The page (and sidebar entry) stays so
-// the feature is still visible; flip this back to true to re-enable it —
-// LinkedInReview below is untouched.
-const LINKEDIN_REVIEW_ENABLED = false
+// Kill switch for the LinkedIn review. Paused and re-enabled 2026-09-23 (the
+// free LLM chain broke on production; Groq now serves a LinkedIn-sized
+// extraction in ~5s). Set to false to show the "Coming soon" card instead.
+const LINKEDIN_REVIEW_ENABLED = true
 
 export default function LinkedInPage() {
   return LINKEDIN_REVIEW_ENABLED ? <LinkedInReview /> : <LinkedInComingSoon />
@@ -126,7 +124,7 @@ function LinkedInReview() {
   if (loading) {
     return (
       <>
-        <Topbar eyebrow="LinkedIn review · MVP · feedback only" title="Your profile, read like a recruiter would" />
+        <Topbar eyebrow="LinkedIn review · feedback only" title="Your profile, read like a recruiter would" />
         <div style={{ padding: 24 }} className="mono">Loading…</div>
       </>
     )
@@ -135,7 +133,7 @@ function LinkedInReview() {
   return (
     <>
       <Topbar
-        eyebrow="LinkedIn review · MVP · feedback only"
+        eyebrow="LinkedIn review · feedback only"
         title="Your profile, read like a recruiter would"
         right={
           <>
@@ -177,7 +175,7 @@ function LinkedInReview() {
           </div>
           <div style={{ marginTop: 14, padding: 14, background: 'var(--info-bg)', borderRadius: 10, fontSize: 12.5, color: 'var(--info)', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <Icon.Bell size={14} />
-            <div><strong>MVP scope</strong> — JobMagnate doesn&rsquo;t post or edit LinkedIn directly. Paste your current profile, review the feedback, and update your profile manually.</div>
+            <div><strong>How this works</strong> — JobMagnate doesn&rsquo;t post or edit LinkedIn directly. Paste your current profile, review the feedback, and update your profile manually.</div>
           </div>
         </div>
 
