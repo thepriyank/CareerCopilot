@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { isAuthenticated } from '@/lib/auth'
 import { extension as extensionApi, ApiError } from '@/lib/api'
+import { EXTENSION_ID, CHROME_WEBSTORE_URL } from '@/lib/extension'
 
 // Chrome injects this typing at runtime; declared loosely here rather than
 // pulling in @types/chrome for one optional call.
@@ -11,15 +12,14 @@ declare const chrome:
   | { runtime?: { sendMessage?: (extensionId: string, message: unknown, callback?: (response: unknown) => void) => void } }
   | undefined
 
-const EXTENSION_ID = process.env.NEXT_PUBLIC_EXTENSION_ID ?? ''
-
 type Step = 'loading' | 'signed-out' | 'consent' | 'connecting' | 'connected' | 'manual' | 'error'
 
 // The consent screen POST /api/extension/tokens's callers land on before a
 // token is minted — see "Authentication" in docs/assisted_apply_extension_plan.md.
 // Names exactly what's granted; on approve, hands the token to the
 // extension automatically when it can, and falls back to "copy this token"
-// when it can't (extension not installed, or NEXT_PUBLIC_EXTENSION_ID unset).
+// when it can't (extension not installed, or a local unpacked build whose id
+// doesn't match EXTENSION_ID).
 export default function ExtensionConnectPage() {
   const [step, setStep] = useState<Step>('loading')
   const [token, setToken] = useState('')
@@ -75,7 +75,11 @@ export default function ExtensionConnectPage() {
 
           {step === 'signed-out' && (
             <div style={{ fontSize: 13.5, lineHeight: 1.55 }}>
-              Sign in first, then come back to this page.
+              Sign in first, then come back to this page. Need the extension?{' '}
+              <a href={CHROME_WEBSTORE_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+                Add it to Chrome
+              </a>
+              .
               <div style={{ marginTop: 16 }}>
                 <Link href="/login" className="btn btn-primary btn-sm">Sign in</Link>
               </div>
@@ -115,6 +119,13 @@ export default function ExtensionConnectPage() {
                 {token}
               </code>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>This won&rsquo;t be shown again — copy it now. You can always generate a new one from Settings → Extensions.</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
+                Don&rsquo;t have the extension yet?{' '}
+                <a href={CHROME_WEBSTORE_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+                  Add it from the Chrome Web Store
+                </a>
+                , then paste this token into its popup.
+              </div>
             </div>
           )}
 
