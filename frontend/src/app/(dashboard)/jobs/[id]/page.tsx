@@ -7,7 +7,7 @@ import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { LockedHint } from '@/components/ui/LockedHint'
-import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError } from '@/lib/api'
+import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError, userMessage } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
 import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
 
@@ -175,7 +175,7 @@ export default function JobDetailPage() {
       setMatchResult(matchRes.matchResult)
       setSkillToAdd(null)
     } catch (err) {
-      setAddSkillError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not add this skill to your resume')
+      setAddSkillError(userMessage(err, 'Could not add this skill to your resume'))
     } finally {
       setAddingSkill(false)
     }

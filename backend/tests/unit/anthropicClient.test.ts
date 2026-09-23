@@ -70,7 +70,7 @@ function loadGenerate(providers: Provider[]) {
       config: {
         anthropic: { apiKey: 'sk-ant-placeholder', model: 'claude-haiku-4-5-20251001', generationModel: 'claude-sonnet-4-6' },
         openrouter: { apiKey: '', model: '' },
-        llm: { providers, cooldownMs: 900_000, allowPaid: providers.some((p) => p.tier === 'paid') },
+        llm: { providers, cooldownMs: 900_000, billingCooldownMs: 3_600_000, fatalCooldownMs: 21_600_000, allowPaid: providers.some((p) => p.tier === 'paid') },
         settingsEncryptionKey: 'x'.repeat(64),
         redis: { url: '', llmCacheTtlSeconds: 3600 }, // unset → llmCache.ts no-ops, same as no caching existed
       },
@@ -120,6 +120,64 @@ describe('generate() platform provider chain', () => {
     expect(second).toBe('hi from gemini')
     expect(mockOpenAiCreate).toHaveBeenCalledTimes(3)
     expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'gemini-2.5-flash-lite' }))
+  })
+
+  it("tries the provider's next model when one is rate-limited, and benches only that model", async () => {
+    const openrouter = {
+      id: 'openrouter', label: 'OpenRouter', tier: 'free', protocol: 'openai', baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey: 'or', model: 'a:free', models: ['a:free', 'b:free'],
+    } as Provider & { models: string[] }
+    const { generate } = loadGenerate([openrouter, P.gemini])
+    mockOpenAiCreate
+      .mockRejectedValueOnce(Object.assign(new Error('a:free is temporarily rate-limited upstream'), { status: 429 }))
+      .mockResolvedValueOnce(openAiReply('hi from b'))
+      .mockResolvedValueOnce(openAiReply('hi from b again'))
+
+    expect(await generate('one')).toBe('hi from b')
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'b:free' }))
+    // a:free is benched, but the provider isn't — the next call goes straight to b:free, not gemini.
+    expect(await generate('two')).toBe('hi from b again')
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'b:free' }))
+  })
+
+  it("skips a provider's remaining models on a 402 (billing is account-wide)", async () => {
+    const cerebras = {
+      id: 'cerebras', label: 'Cerebras', tier: 'free', protocol: 'openai', baseUrl: 'https://api.cerebras.ai/v1',
+      apiKey: 'cb', model: 'm1', models: ['m1', 'm2'],
+    } as Provider & { models: string[] }
+    const { generate } = loadGenerate([cerebras, P.gemini])
+    mockOpenAiCreate
+      .mockRejectedValueOnce(Object.assign(new Error('402 status code (no body)'), { status: 402 }))
+      .mockResolvedValueOnce(openAiReply('hi from gemini'))
+
+    expect(await generate('a prompt')).toBe('hi from gemini')
+    expect(mockOpenAiCreate).toHaveBeenCalledTimes(2)
+    expect(mockOpenAiCreate).not.toHaveBeenCalledWith(expect.objectContaining({ model: 'm2' }))
+  })
+
+  it('falls through on an empty response without benching that provider', async () => {
+    const { generate } = loadGenerate([P.ollama, P.gemini])
+    mockOpenAiCreate
+      .mockResolvedValueOnce({ choices: [{ message: { content: '' }, finish_reason: 'length' }], usage: { total_tokens: 4096 } })
+      .mockResolvedValueOnce(openAiReply('hi from gemini'))
+      .mockResolvedValueOnce(openAiReply('hi from ollama'))
+
+    expect(await generate('prompt one')).toBe('hi from gemini')
+    // ollama wasn't benched — the next call tries it first again.
+    expect(await generate('prompt two')).toBe('hi from ollama')
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'gpt-oss:20b' }))
+  })
+
+  it('asks gpt-oss models for low reasoning effort, and nothing else', async () => {
+    const { generate } = loadGenerate([P.ollama, P.gemini])
+    mockOpenAiCreate
+      .mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 503 }))
+      .mockResolvedValueOnce(openAiReply('ok'))
+
+    await generate('a prompt')
+
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'gpt-oss:20b', reasoning_effort: 'low' }))
+    expect(mockOpenAiCreate.mock.calls[1][0]).not.toHaveProperty('reasoning_effort')
   })
 
   it('reaches a paid provider only after every free provider has failed', async () => {

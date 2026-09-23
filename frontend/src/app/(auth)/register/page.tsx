@@ -3,7 +3,7 @@
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { auth as authApi } from '@/lib/api'
+import { auth as authApi, userMessage } from '@/lib/api'
 import { setToken } from '@/lib/auth'
 import { isGoogleSignInAvailable } from '@/lib/firebase'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
@@ -25,7 +25,7 @@ export default function RegisterPage() {
       setToken(token)
       router.push('/resume/upload')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(userMessage(err, 'Registration failed. Please try again.'))
     } finally {
       setLoading(false)
     }

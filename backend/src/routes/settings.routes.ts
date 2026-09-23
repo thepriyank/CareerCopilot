@@ -70,7 +70,7 @@ router.put('/model-connection', async (req: AuthRequest, res: Response, next: Ne
       throw createError(
         503,
         'ENCRYPTION_NOT_CONFIGURED',
-        'The server is not set up to store this yet (SETTINGS_ENCRYPTION_KEY is missing)'
+        "Saving a model connection isn't available right now. Please try again later."
       )
     }
 

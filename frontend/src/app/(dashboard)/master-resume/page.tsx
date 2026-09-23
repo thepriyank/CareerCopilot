@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { GeneratedResumeVersion } from '@/types'
-import { masterResume as masterResumeApi } from '@/lib/api'
+import { masterResume as masterResumeApi, userMessage } from '@/lib/api'
 import { Topbar } from '@/components/layout/Topbar'
 import MasterResumeEditor from '@/components/resume/MasterResumeEditor'
 import Button from '@/components/ui/Button'
@@ -17,8 +17,8 @@ export default function MasterResumePage() {
     try {
       const res = await masterResumeApi.get()
       setMasterResume(res.masterResume)
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch master resume')
+    } catch (err) {
+      setError(userMessage(err, 'Failed to fetch master resume'))
     } finally {
       setLoading(false)
     }
@@ -34,8 +34,8 @@ export default function MasterResumePage() {
     try {
       const res = await masterResumeApi.generate()
       setMasterResume(res.masterResume)
-    } catch (err: any) {
-      setError(err.message || 'Generation failed')
+    } catch (err) {
+      setError(userMessage(err, 'Generation failed'))
     } finally {
       setGenerating(false)
     }

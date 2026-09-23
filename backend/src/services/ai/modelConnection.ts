@@ -48,7 +48,7 @@ function parseLocalConnection(raw: string): LocalModelConnection {
   try {
     url = new URL(raw)
   } catch {
-    throw new Error(`Invalid URL in model connection: ${raw}`)
+    throw new Error("That doesn't look like a valid URL.")
   }
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
@@ -57,13 +57,13 @@ function parseLocalConnection(raw: string): LocalModelConnection {
 
   const hostname = url.hostname.toLowerCase()
   if (BLOCKED_HOSTNAMES.has(hostname)) {
-    throw new Error(`Refusing to connect to a cloud metadata address: ${hostname}`)
+    throw new Error("That address can't be used for a model connection.")
   }
 
   const model = new URLSearchParams(url.hash.replace(/^#/, '')).get('model')
   if (!model) {
     throw new Error(
-      'Local model endpoints need a model name in a #model= fragment, e.g. "http://localhost:11434/v1#model=gemma4:e4b"'
+      'Add the model name to the end of the address, like #model=gemma4:e4b'
     )
   }
 

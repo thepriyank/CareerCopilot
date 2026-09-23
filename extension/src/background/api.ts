@@ -34,18 +34,31 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   const token = await getToken()
   if (!token) throw new ApiError(401, 'NOT_CONNECTED', 'Connect the extension to JobMagnate first')
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      ...(options.headers as Record<string, string> | undefined),
-    },
-  })
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(options.headers as Record<string, string> | undefined),
+      },
+    })
+  } catch {
+    // Raw fetch errors ("Failed to fetch", "NetworkError…") aren't user copy.
+    throw new ApiError(0, 'NETWORK_ERROR', "Can't reach JobMagnate right now. Check your connection and try again.")
+  }
 
   if (!res.ok) {
+    // The backend only ever sends user-safe messages (see
+    // backend/src/middleware/errorHandler.ts); a non-JSON body means a proxy
+    // / platform error page, so fall back to generic copy, never the status.
     const body = await res.json().catch(() => null)
-    throw new ApiError(res.status, body?.error?.code ?? 'UNKNOWN_ERROR', body?.error?.message ?? `Request failed: ${res.status}`)
+    throw new ApiError(
+      res.status,
+      body?.error?.code ?? 'UNKNOWN_ERROR',
+      body?.error?.message ?? 'Something went wrong on our side. Please try again in a moment.'
+    )
   }
 
   return res.json() as Promise<T>

@@ -5,7 +5,7 @@ import { LinkedInReviewReport } from '../entities/LinkedInReviewReport'
 import { requireAuth } from '../middleware/auth'
 import { llmRateLimit } from '../middleware/rateLimit'
 import { pdfUploadMiddleware } from '../middleware/upload'
-import { createError } from '../middleware/errorHandler'
+import { createError, tagError } from '../middleware/errorHandler'
 import { reviewLinkedInProfile } from '../services/ai/linkedinReviewer'
 import { extractLinkedInProfileFromPdf } from '../services/ai/linkedinPdfExtractor'
 import { AuthRequest } from '../types'
@@ -44,17 +44,16 @@ router.post(
       const extracted = await extractLinkedInProfileFromPdf(req.file.buffer, req.userId!)
       res.json({ extracted })
     } catch (err) {
-      // The NO_FILE guard above already produced a proper AppError (a
-      // statusCode/code pair via createError) — pass that through as-is.
-      // Anything else here comes from extractLinkedInProfileFromPdf itself
-      // (bad PDF, unreadable text, AI call failure), which only ever throws
-      // plain Errors, so wrap those as a 422 with the real message rather
-      // than letting them fall through to a generic 500.
+      // User-facing PDF problems (NO_FILE, EXTRACT_FAILED) and AI-chain
+      // failures (AI_UNAVAILABLE, tagged in anthropicClient) already carry a
+      // statusCode/code — the error handler turns those into safe copy.
+      // Anything else is unexpected; never forward its raw message (this is
+      // where "Every LLM provider in the chain failed…" used to leak).
       if (err && typeof err === 'object' && 'statusCode' in err) {
         next(err)
         return
       }
-      next(createError(422, 'EXTRACT_FAILED', err instanceof Error ? err.message : 'Could not extract this profile'))
+      next(tagError(err instanceof Error ? err : new Error(String(err)), 422, 'EXTRACT_FAILED_INTERNAL'))
     }
   }
 )

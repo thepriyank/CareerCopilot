@@ -1,4 +1,5 @@
 import { generateJson } from './anthropicClient'
+import { createError } from '../../middleware/errorHandler'
 import { logger } from '../../utils/logger'
 import type { LinkedInProfileInput } from './linkedinReviewer'
 
@@ -59,11 +60,11 @@ export async function extractLinkedInProfileFromPdf(
     rawText = await extractPdfText(buffer)
   } catch (err) {
     logger.error('LinkedIn PDF text extraction failed', { err: (err as Error).message })
-    throw new Error('Could not read this PDF. Make sure it is a LinkedIn "Save to PDF" profile export.')
+    throw createError(422, 'EXTRACT_FAILED', 'Could not read this PDF. Make sure it is a LinkedIn "Save to PDF" profile export.')
   }
 
   if (!rawText || rawText.trim().length < 20) {
-    throw new Error('This PDF has no readable text — make sure it is a LinkedIn "Save to PDF" profile export, not a scanned image.')
+    throw createError(422, 'EXTRACT_FAILED', 'This PDF has no readable text — make sure it is a LinkedIn "Save to PDF" profile export, not a scanned image.')
   }
 
   const prompt = EXTRACT_PROMPT.replace('{RAW_TEXT}', rawText.slice(0, 15_000))
@@ -72,6 +73,10 @@ export async function extractLinkedInProfileFromPdf(
     const result = await generateJson<LinkedInProfileInput>(prompt, {
       userId,
       feature: 'linkedin_pdf_extract',
+      // Output restates most of the (up to 15k-char) input — about/experience
+      // are near-verbatim — so the 4096 default was too tight; see
+      // resumeEnhancer.ts for the same reasoning.
+      maxTokens: 8192,
     })
 
     return {

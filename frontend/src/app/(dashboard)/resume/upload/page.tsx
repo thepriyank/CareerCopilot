@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Topbar } from '@/components/layout/Topbar'
 import { Icon } from '@/components/ui/Icon'
-import { resumes as resumesApi } from '@/lib/api'
+import { resumes as resumesApi, userMessage } from '@/lib/api'
 
 export default function ResumeUploadPage() {
   const router = useRouter()
@@ -34,7 +34,7 @@ export default function ResumeUploadPage() {
       router.push(`/resume/${resumeFile.id}`)
     } catch (err: unknown) {
       clearInterval(tick)
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      setError(userMessage(err, 'Upload failed. Please try again.'))
       setPhase('idle')
     }
   }

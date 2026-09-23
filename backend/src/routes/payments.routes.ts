@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import { z } from 'zod'
 import { config } from '../config'
 import { requireAuth } from '../middleware/auth'
-import { createError } from '../middleware/errorHandler'
+import { createError, tagError } from '../middleware/errorHandler'
 import { logger } from '../utils/logger'
 import { getRazorpayClient } from '../services/payments/razorpayClient'
 import { PASS_PRICING, isPassType } from '../services/payments/passPricing'
@@ -152,7 +152,7 @@ router.post('/verify', async (req: AuthRequest, res: Response, next: NextFunctio
     try {
       result = await applyPassPayment(req.userId!, razorpay_payment_id, passType)
     } catch (err) {
-      throw createError(404, 'USER_NOT_FOUND', (err as Error).message)
+      throw tagError(err as Error, 404, 'USER_NOT_FOUND')
     }
 
     res.json({ success: true, planExpiresAt: result.planExpiresAt, alreadyProcessed: result.alreadyProcessed })

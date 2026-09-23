@@ -76,5 +76,5 @@ variable "enabled_secrets" {
 
 variable "llm_provider_order" {
   type    = string
-  default = "groq,cerebras,gemini,ollama,openrouter,deepseek,anthropic,openai"
+  default = "groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai"
 }

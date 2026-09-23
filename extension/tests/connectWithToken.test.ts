@@ -51,7 +51,8 @@ describe('connectWithToken', () => {
     const result = await connectWithToken('ext_whatever')
 
     expect(result.ok).toBe(false)
-    expect(result.message).toBe('Failed to fetch')
+    // Friendly copy, never the raw browser error text.
+    expect(result.message).toBe('Could not reach JobMagnate.')
     expect(storage.has('jobmagnateExtensionToken')).toBe(false)
   })
 })

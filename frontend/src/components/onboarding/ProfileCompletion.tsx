@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { profile as profileApi } from '@/lib/api'
+import { profile as profileApi, userMessage } from '@/lib/api'
 import { CandidateProfile, RemotePreference, SearchUrgency } from '@/types'
 import { Topbar } from '@/components/layout/Topbar'
 import Card from '@/components/ui/Card'
@@ -39,7 +39,7 @@ export default function ProfileCompletion() {
       await profileApi.upsert(profile)
       router.push('/dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save your profile')
+      setError(userMessage(err, 'Failed to save your profile'))
     } finally {
       setSaving(false)
     }

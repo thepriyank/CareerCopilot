@@ -47,6 +47,14 @@ export const config = {
     // How long a rate-limited / quota-exhausted provider stays benched when the
     // response carries no Retry-After header. Default 15 minutes.
     cooldownMs: parseInt(process.env.LLM_COOLDOWN_MS ?? String(15 * 60 * 1000), 10),
+    // How long a provider stays benched after a 402 (account out of credit /
+    // billing required). Longer than `cooldownMs` since it needs a human to
+    // fix, but still bounded so it recovers without a restart. Default 1 hour.
+    billingCooldownMs: parseInt(process.env.LLM_BILLING_COOLDOWN_MS ?? String(60 * 60 * 1000), 10),
+    // How long a provider stays benched after a "fatal" failure (400/404,
+    // model retired). Used to be the whole process lifetime, which let one
+    // bad response take a provider out until the next deploy. Default 6 hours.
+    fatalCooldownMs: parseInt(process.env.LLM_FATAL_COOLDOWN_MS ?? String(6 * 60 * 60 * 1000), 10),
     // Paid providers (Anthropic, OpenAI) are only ever used when this is set —
     // guards against surprise spend during local dev.
     allowPaid: /^(1|true|yes|on)$/i.test((process.env.LLM_ALLOW_PAID ?? '').trim()),

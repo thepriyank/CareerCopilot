@@ -22,7 +22,37 @@ const FIELD_PLACEHOLDERS: Record<LinkedInSectionKey, string> = {
   skills: 'Comma-separated skills as they appear on your profile…',
 }
 
+// Paused 2026-09-23: the PDF-extract + review calls were the first to fall
+// over when the free LLM provider chain broke on production, and they're
+// among the heaviest prompts we send. The page (and sidebar entry) stays so
+// the feature is still visible; flip this back to true to re-enable it —
+// LinkedInReview below is untouched.
+const LINKEDIN_REVIEW_ENABLED = false
+
 export default function LinkedInPage() {
+  return LINKEDIN_REVIEW_ENABLED ? <LinkedInReview /> : <LinkedInComingSoon />
+}
+
+function LinkedInComingSoon() {
+  return (
+    <>
+      <Topbar eyebrow="LinkedIn review · feedback only" title="Your profile, read like a recruiter would" />
+      <div style={{ padding: 28 }}>
+        <div className="card" style={{ padding: 28, maxWidth: 640 }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>Coming soon</div>
+          <div className="serif" style={{ fontSize: 22, marginBottom: 10 }}>LinkedIn profile review is on its way</div>
+          <div style={{ fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Upload your LinkedIn &ldquo;Save to PDF&rdquo; export and get recruiter-style feedback on your headline,
+            About section, experience and skills, with suggested rewrites you can copy across yourself. We&rsquo;re
+            finishing it off and it&rsquo;ll be available here shortly.
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function LinkedInReview() {
   const [fields, setFields] = useState<Record<LinkedInSectionKey, string>>({
     headline: '', about: '', experience: '', skills: '',
   })

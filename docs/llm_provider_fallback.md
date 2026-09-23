@@ -63,7 +63,7 @@ All of these live in `backend/.env` (and are also read from the repo-root
 
 | Var | Default | Meaning |
 |---|---|---|
-| `LLM_PROVIDER_ORDER` | `groq,cerebras,gemini,ollama,openrouter,deepseek,anthropic,openai` | priority order |
+| `LLM_PROVIDER_ORDER` | `groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai` | priority order |
 | `LLM_COOLDOWN_MS` | `900000` | bench time for a rate-limited provider with no `Retry-After` |
 | `LLM_ALLOW_PAID` | `false` | must be `true` for any paid provider to be used |
 | `<PROVIDER>_API_KEY` | — | presence activates the provider |
@@ -75,9 +75,9 @@ All of these live in `backend/.env` (and are also read from the repo-root
 |---|---|---|---|---|
 | `groq` | free | `GROQ_API_KEY` (alias `GROK_API_KEY`) | `api.groq.com/openai/v1` | `openai/gpt-oss-20b` |
 | `cerebras` | free | `CEREBRAS_API_KEY` | `api.cerebras.ai/v1` | `gpt-oss-120b` |
-| `gemini` | free | `GEMINI_API_KEY` | `generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash-lite` |
+| `gemini` | free | `GEMINI_API_KEY` | `generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.5-flash-lite` (2.5 retired for new users, 2026-09-23) |
 | `ollama` | free | `OLLAMA_API_KEY` | `ollama.com/v1` | `gpt-oss:20b` |
-| `openrouter` | free | `OPENROUTER_API_KEY` | `openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct:free` (or `OPENROUTER_PRESET`) |
+| `openrouter` | free | `OPENROUTER_API_KEY` | `openrouter.ai/api/v1` | `nvidia/nemotron-3-super-120b-a12b:free` (llama-3.3 `:free` removed 2026-09-23; or `OPENROUTER_PRESET`) |
 | `deepseek` | paid | `DEEPSEEK_API_KEY` | `api.deepseek.com` | `deepseek-chat` |
 | `anthropic` | paid | `ANTHROPIC_API_KEY` | (native SDK) | `claude-haiku-4-5-20251001` |
 | `openai` | paid | `OPENAI_API_KEY` | `api.openai.com/v1` | `gpt-4o-mini` |
@@ -114,3 +114,29 @@ Probed with the keys currently in `.env`:
 Net: the chain degrades correctly to Gemini. The other providers slot in with no
 code change the moment their keys are made valid. The dead-key providers each log
 one `fatal` bench line per process start — expected, not a regression.
+
+## Production outage — 2026-09-23
+
+Every free provider on production failed on one LinkedIn PDF extraction:
+Cerebras `402` (account needs billing — all models), Gemini `404` on
+`gemini-2.5-*` (retired for new users) and `402` "prepayment credits
+depleted" on every newer model, OpenRouter `404` (llama-3.3 `:free` removed),
+Ollama `gpt-oss:20b` empty content (reasoning ate the 4096-token budget).
+Fixes: 402 → `quota` benched for `LLM_BILLING_COOLDOWN_MS` (1h); `fatal`
+benched for `LLM_FATAL_COOLDOWN_MS` (6h) instead of the whole process;
+empty responses are `transient` (never bench); gpt-oss calls send
+`reasoning_effort: "low"`; LinkedIn extraction gets `maxTokens: 8192`; new
+Gemini/OpenRouter defaults. Cerebras and Gemini still need account action
+(billing / a free-tier AI Studio project) — that's not fixable in code.
+
+**Also 2026-09-23:** Ollama Cloud is the preferred channel for paid usage
+(the account gets topped up with credit when free quotas run out), so it now
+sits *last* among the free providers — after Groq/Cerebras/Gemini/OpenRouter,
+before any `paid`-tier provider. Groq key added to production; its free tier
+is 30 RPM / 1K RPD / 8K TPM / 200K TPD on `openai/gpt-oss-120b` (new default)
+and `-20b`, so a big request can exceed one minute's token budget — Groq
+answers `413`, which is now `transient` (skip this call, don't bench).
+User-facing errors: see `backend/src/middleware/errorHandler.ts` — only
+`createError` copy reaches the client, filtered once more by `looksTechnical`;
+AI-chain failures surface as `AI_UNAVAILABLE` friendly copy.
+
