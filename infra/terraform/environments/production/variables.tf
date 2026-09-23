@@ -51,13 +51,11 @@ variable "enabled_secrets" {
     "RAZORPAY_KEY_ID",
     "RAZORPAY_KEY_SECRET",
     "RAZORPAY_WEBHOOK_SECRET",
-    # GROQ_API_KEY: real free-tier key provided 2026-09-23, NOT enabled yet —
-    # the secret must exist with a value before this list references it (a
-    # zero-version secret breaks the Cloud Run deploy). To enable: create +
-    # populate `jobmagnate-production-groq-api-key` via gcloud, then
-    # `terraform import 'module.secrets["GROQ_API_KEY"].google_secret_manager_secret.this'
-    # projects/jobmagnet-6a1ab/secrets/jobmagnate-production-groq-api-key`
-    # and add "GROQ_API_KEY" here. See INFRASTRUCTURE.md.
+    # Free-tier Groq key, enabled 2026-09-23. The secret was created and
+    # populated outside Terraform (value never touches state), then adopted
+    # with `terraform import 'module.secrets["GROQ_API_KEY"].google_secret_manager_secret.this'
+    # projects/jobmagnet-6a1ab/secrets/jobmagnate-production-groq-api-key`.
+    "GROQ_API_KEY",
   ]
 }
 
