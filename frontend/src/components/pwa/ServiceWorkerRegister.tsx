@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
+// Imported for its side effect: attaches the beforeinstallprompt listener as
+// early as possible (see lib/pwaInstall.ts).
+import '@/lib/pwaInstall'
 
 /**
  * Registers /sw.js once, on the client, in production only — a service
