@@ -5,4 +5,4 @@
 # updates it.
 
 backend_image  = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/backend:234462b521d7e50a8df93d2fc5dd600498b5571f"
-frontend_image = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend:234462b521d7e50a8df93d2fc5dd600498b5571f"
+frontend_image = "asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate/frontend:37f01f7f643723ce2ccaea9989fd42e8acbebd97"
