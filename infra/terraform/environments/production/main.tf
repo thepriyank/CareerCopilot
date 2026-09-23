@@ -184,7 +184,7 @@ resource "google_cloud_run_domain_mapping" "backend" {
 # frontend/src/middleware.ts answers every www request with a 308 to the apex
 # (path + query kept); serving the app on both hosts would split sign-in
 # sessions, PWA installs and SEO across two origins. Added 2026-09-23: before
-# this, www had GoDaddy's default CNAME -> apex, which reached Google's
+# this, www had a default CNAME -> apex, which reached Google's
 # frontends with no mapping/cert for the host, so TLS failed outright. Same
 # Search Console verification as the mappings above (Domain property covers
 # subdomains). DNS: CNAME www -> ghs.googlehosted.com (see output below).
