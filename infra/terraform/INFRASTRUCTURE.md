@@ -288,7 +288,10 @@ secrets first, per the runbook).
 
 - **~~The committed source on `main` predated the real app~~ — RESOLVED (2026-09-09).** The real application (TypeORM migration, F1–F8, auth, GCS, tests) has been committed to `main` since `31c2d73` / `08b1e3a`. `ci-backend.yml`, `ci-frontend.yml`, `deploy-backend.yml`, and `deploy-frontend.yml` now run green on every push to `main`, and staging is continuously deployed from those workflows. The failing state originally described here applied only to the pre-`31c2d73` snapshot that still imported `@prisma/client`.
 - **Migrations still run in-process on every backend boot** (`backend/src/index.ts`) — no advisory lock; only mitigated by `max_instances=1`. Discovery is no longer in this bucket — it moved to the dedicated Cloud Run Job + Cloud Scheduler (see "Daily discovery job" above), verified running 2026-09-10. The rest of Phase E (an advisory lock around the in-process migration run, so `max_instances` could be raised) still hasn't landed.
-- **No custom domain mapped** — every service uses its auto-generated `*.run.app` URL. `jobmagnate.com` mapping is straightforward to add to `modules/cloud-run-service` when there's a domain to verify.
+- **Custom domains (production only; staging stays on `*.run.app`)** — all `google_cloud_run_domain_mapping` in `environments/production/main.tf`, DNS at GoDaddy:
+  - `jobmagnate.com` → frontend (apex A/AAAA records from `terraform output custom_domain_dns_records`)
+  - `api.jobmagnate.com` → backend (CNAME `ghs.googlehosted.com`, added 2026-09-21)
+  - `www.jobmagnate.com` → frontend, **redirect only** (CNAME `ghs.googlehosted.com`, added 2026-09-23). `frontend/src/middleware.ts` 308s every www request to the apex, path + query kept, so sessions/PWA installs/SEO stay on one origin. Before this, www had GoDaddy's default CNAME → apex and failed TLS (no mapping/cert for the host).
 - **`GROQ_API_KEY` has no real value** — add it back to `enabled_secrets` in both environments' `variables.tf` once one exists.
 - **`production` environment exists in Terraform but has never been applied** — see the section above.
 
