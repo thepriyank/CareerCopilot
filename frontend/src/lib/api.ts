@@ -1,4 +1,4 @@
-import { getToken } from './auth'
+import { getToken, clearToken } from './auth'
 import {
   User,
   ResumeFile,
@@ -102,6 +102,13 @@ async function request<T>(
       message = body?.error?.message
     } catch {
       // not JSON (proxy / load-balancer error page) — fall back to status copy
+    }
+    // The session middleware rejected the token we sent (expired / revoked):
+    // drop it and go to sign-in, rather than leaving the user on a page where
+    // every call fails. Only these codes — not e.g. a wrong-password 401.
+    if (res.status === 401 && token && (code === 'INVALID_TOKEN' || code === 'UNAUTHORIZED') && typeof window !== 'undefined') {
+      clearToken()
+      window.location.replace('/login')
     }
     throw new ApiError(res.status, code, toUserMessage(res.status, message))
   }

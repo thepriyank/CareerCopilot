@@ -22,7 +22,7 @@ export default function LoginPage() {
     try {
       const { token } = await authApi.login(email, password)
       setToken(token)
-      router.push('/dashboard')
+      router.replace('/dashboard')
     } catch (err: unknown) {
       setError(userMessage(err, 'Login failed. Please check your details and try again.'))
     } finally {

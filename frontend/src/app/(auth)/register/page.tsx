@@ -23,7 +23,7 @@ export default function RegisterPage() {
     try {
       const { token } = await authApi.register(email, password, name)
       setToken(token)
-      router.push('/resume/upload')
+      router.replace('/resume/upload')
     } catch (err: unknown) {
       setError(userMessage(err, 'Registration failed. Please try again.'))
     } finally {
