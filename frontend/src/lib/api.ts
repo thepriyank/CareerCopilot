@@ -24,6 +24,44 @@ import {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
+// ─── User-facing error copy ───────────────────────────────────────────────────
+// The backend already sends only safe, friendly messages (see
+// backend/src/middleware/errorHandler.ts). This is the second net: whatever
+// reaches the UI through ApiError is re-checked here, so a stack trace,
+// provider name, status line or env var can never be rendered to a user even
+// if a backend path slips through (or the response isn't ours at all — a
+// proxy error page, a Cloud Run 503, a network failure).
+
+const FRIENDLY_BY_STATUS: Record<number, string> = {
+  0: "We can't reach JobMagnate right now. Check your connection and try again.",
+  400: "Something about that request wasn't quite right. Please check it and try again.",
+  401: 'Please sign in again to continue.',
+  403: "You don't have access to that.",
+  404: "We couldn't find what you were looking for.",
+  413: 'That file or request is too large.',
+  429: "You're going a bit fast. Please wait a moment and try again.",
+  503: 'Our AI assistant is busy right now. Please try again in a few minutes.',
+}
+const GENERIC_ERROR = 'Something went wrong on our side. Please try again in a moment.'
+
+const TECHNICAL_PATTERN =
+  /\b(status code|stack|ECONN\w*|ETIMEDOUT|ENOTFOUND|LLM|providers?|openrouter|ollama|cerebras|gemini|groq|deepseek|anthropic|razorpay|redis|postgres|typeorm|sql|TypeError|ReferenceError|SyntaxError|Unexpected token|undefined|Request failed|Failed to fetch|NetworkError|[A-Z][A-Z0-9]*_[A-Z0-9_]{2,})\b|https?:\/\/|<\/?[a-z][\s\S]*>/i
+
+function toUserMessage(status: number, message: string | undefined): string {
+  if (message && message.length <= 300 && !TECHNICAL_PATTERN.test(message)) return message
+  return FRIENDLY_BY_STATUS[status] ?? GENERIC_ERROR
+}
+
+/**
+ * The one way UI code should turn a caught error into text. ApiError
+ * messages are already sanitized; anything else (a thrown TypeError, a
+ * third-party SDK error) is never shown verbatim — the caller's own
+ * context-specific fallback is used instead.
+ */
+export function userMessage(err: unknown, fallback: string): string {
+  return err instanceof ApiError ? err.message : fallback
+}
+
 class ApiError extends Error {
   constructor(
     public status: number,
@@ -48,19 +86,24 @@ async function request<T>(
     ...(options.headers as Record<string, string> | undefined),
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', toUserMessage(0, undefined))
+  }
 
   if (!res.ok) {
     let code = 'UNKNOWN_ERROR'
-    let message = `Request failed: ${res.status}`
+    let message: string | undefined
     try {
       const body = await res.json()
       code = body?.error?.code ?? code
-      message = body?.error?.message ?? message
+      message = body?.error?.message
     } catch {
-      // ignore parse error
+      // not JSON (proxy / load-balancer error page) — fall back to status copy
     }
-    throw new ApiError(res.status, code, message)
+    throw new ApiError(res.status, code, toUserMessage(res.status, message))
   }
 
   if (res.status === 204) return undefined as unknown as T
@@ -315,21 +358,26 @@ export const jobs = {
 
 export async function downloadFile(path: string, filename: string): Promise<void> {
   const token = getToken()
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', toUserMessage(0, undefined))
+  }
 
   if (!res.ok) {
     let code = 'DOWNLOAD_FAILED'
-    let message = `Download failed: ${res.status}`
+    let message: string | undefined
     try {
       const body = await res.json()
       code = body?.error?.code ?? code
-      message = body?.error?.message ?? message
+      message = body?.error?.message
     } catch {
-      // ignore parse error
+      // not JSON — fall back to status copy
     }
-    throw new ApiError(res.status, code, message)
+    throw new ApiError(res.status, code, toUserMessage(res.status, message))
   }
 
   const blob = await res.blob()

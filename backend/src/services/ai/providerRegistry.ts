@@ -28,10 +28,14 @@ export interface ProviderDef {
   apiKeyEnv: string
   /** Accepted misspellings / older names for `apiKeyEnv` (e.g. GROK_API_KEY for Groq). */
   apiKeyEnvAliases?: string[]
-  /** Env var that overrides the model, if the operator wants a different one. */
+  /** Env var that overrides the model list — one id, or a comma-separated
+   * list tried in order (e.g. `OPENROUTER_MODEL=a:free,b:free`). */
   modelEnv?: string
   /** Model used when `modelEnv` is unset. */
   defaultModel: string
+  /** Tried in order after `defaultModel` when it's rate-limited / retired —
+   * see runPlatformChain. Only used when `modelEnv` is unset. */
+  fallbackModels?: string[]
 }
 
 /**
@@ -52,7 +56,9 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     apiKeyEnv: 'GROQ_API_KEY',
     apiKeyEnvAliases: ['GROK_API_KEY'], // Groq keys are gsk_… ; "Grok" is a common mixup
     modelEnv: 'GROQ_MODEL',
-    defaultModel: 'openai/gpt-oss-20b',
+    // Free tier (2026-09-23): 30 RPM, 1K RPD, 8K TPM, 200K TPD — same for
+    // 20b and 120b, so take the stronger one.
+    defaultModel: 'openai/gpt-oss-120b',
   },
   {
     id: 'cerebras',
@@ -72,7 +78,7 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/',
     apiKeyEnv: 'GEMINI_API_KEY',
     modelEnv: 'GEMINI_MODEL',
-    defaultModel: 'gemini-2.5-flash-lite',
+    defaultModel: 'gemini-3.5-flash-lite', // 2.5 retired for new users (404), verified 2026-09-23
   },
   {
     id: 'ollama',
@@ -92,7 +98,29 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     baseUrl: 'https://openrouter.ai/api/v1',
     apiKeyEnv: 'OPENROUTER_API_KEY',
     modelEnv: 'OPENROUTER_MODEL',
-    defaultModel: 'meta-llama/llama-3.3-70b-instruct:free',
+    // Free models are individually rate-limited upstream (most 429 at any
+    // given moment), so a list matters far more here than anywhere else.
+    // Probed 2026-09-23 with a JSON-extraction prompt: the first seven
+    // answered correctly (fastest-good first); the last five were 429ing at
+    // the time but are solid general models. Excluded: inkling/inkling-small
+    // (403, agentic harnesses only), nex-n2.5-pro and nemotron-3.5-lightning
+    // (23s / 95s), the specialist ones (content-safety, code, fin, sante)
+    // and lfm-2.5-2.6b (too small). NM-29 replaces this hand-kept list with
+    // a DB catalog refreshed weekly.
+    defaultModel: 'nvidia/nemotron-3-super-120b-a12b:free',
+    fallbackModels: [
+      'nex-agi/nex-n2.5-mini:free',
+      'inclusionai/ling-3.0-flash-vl:free',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+      'dots-studio/dots-3-note-preview:free',
+      'poolside/laguna-xs-2.1:free',
+      'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'google/gemma-4-31b-it:free',
+      'qwen/qwen3.8-27b:free',
+      'z-ai/glm-5.2:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'poolside/laguna-s-2.1:free',
+    ],
   },
   {
     id: 'deepseek',
@@ -132,10 +160,18 @@ export interface ActiveProvider {
   protocol: WireProtocol
   baseUrl?: string
   apiKey: string
+  /** The model this call uses — `models[0]` from resolveChain; runPlatformChain
+   * passes a copy with the specific fallback model it's trying. */
   model: string
+  /** Every model to try on this provider, in order. */
+  models: string[]
 }
 
-const DEFAULT_ORDER = 'groq,cerebras,gemini,ollama,openrouter,deepseek,anthropic,openai'
+// Ollama sits last among the free tier on purpose: it's the account we top
+// up with paid credit when free quotas run dry (decided 2026-09-23), so it's
+// the backstop for the genuinely-free providers and is always reached before
+// any `paid`-tier provider (DeepSeek / Anthropic / OpenAI, LLM_ALLOW_PAID).
+const DEFAULT_ORDER = 'groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai'
 
 function truthy(v: string | undefined): boolean {
   return v !== undefined && /^(1|true|yes|on)$/i.test(v.trim())
@@ -175,7 +211,10 @@ export function resolveChain(env: NodeJS.ProcessEnv = process.env): ActiveProvid
 
     // OpenRouter historically used OPENROUTER_PRESET for the model id.
     const legacyModel = def.id === 'openrouter' ? env.OPENROUTER_PRESET?.trim() : undefined
-    const model = (def.modelEnv ? env[def.modelEnv]?.trim() : undefined) || legacyModel || def.defaultModel
+    const override = (def.modelEnv ? env[def.modelEnv]?.trim() : undefined) || legacyModel
+    const models = override
+      ? override.split(',').map((m) => m.trim()).filter(Boolean)
+      : [def.defaultModel, ...(def.fallbackModels ?? [])]
 
     active.push({
       id: def.id,
@@ -184,7 +223,8 @@ export function resolveChain(env: NodeJS.ProcessEnv = process.env): ActiveProvid
       protocol: def.protocol,
       baseUrl: def.baseUrl,
       apiKey,
-      model,
+      model: models[0],
+      models,
     })
   }
 

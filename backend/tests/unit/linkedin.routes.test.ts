@@ -1,7 +1,7 @@
 import express from 'express'
 import request from 'supertest'
 import { signToken } from '../../src/middleware/auth'
-import { errorHandler } from '../../src/middleware/errorHandler'
+import { errorHandler, createError } from '../../src/middleware/errorHandler'
 import { LinkedInReviewReport } from '../../src/entities/LinkedInReviewReport'
 import { createFakeRepo } from './testUtils/fakeRepo'
 
@@ -143,8 +143,10 @@ describe('POST /api/linkedin/extract-pdf', () => {
     expect(reportRepo.rows).toHaveLength(0) // review isn't run/saved until the user separately confirms via POST /review
   })
 
-  it('surfaces an extraction failure as a 422 with the real message', async () => {
-    mockExtractLinkedInProfileFromPdf.mockRejectedValueOnce(new Error('This PDF has no readable text'))
+  it("surfaces a user-facing PDF problem (createError) with its message", async () => {
+    mockExtractLinkedInProfileFromPdf.mockRejectedValueOnce(
+      createError(422, 'EXTRACT_FAILED', 'This PDF has no readable text')
+    )
 
     const res = await request(buildApp())
       .post('/api/linkedin/extract-pdf')
@@ -154,5 +156,19 @@ describe('POST /api/linkedin/extract-pdf', () => {
     expect(res.status).toBe(422)
     expect(res.body.error.code).toBe('EXTRACT_FAILED')
     expect(res.body.error.message).toBe('This PDF has no readable text')
+  })
+
+  it('never forwards the raw message of an unexpected failure (e.g. the LLM chain)', async () => {
+    mockExtractLinkedInProfileFromPdf.mockRejectedValueOnce(
+      new Error('Every LLM provider in the chain failed for this call. Last attempt "openrouter": 404 ...')
+    )
+
+    const res = await request(buildApp())
+      .post('/api/linkedin/extract-pdf')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from('%PDF-1.4 fake'), { filename: 'profile.pdf', contentType: 'application/pdf' })
+
+    expect(res.status).toBe(422)
+    expect(res.body.error.message).not.toMatch(/LLM|openrouter|404/i)
   })
 })

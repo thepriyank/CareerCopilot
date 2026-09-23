@@ -10,6 +10,9 @@ This is v1: **Tier 2 only** — generic LLM-based field mapping for any
 employer-hosted form, no per-ATS adapters. Text fields only; résumé/cover-
 letter file attachment is a follow-up (see "What's not here yet" below).
 
+**Install (users):** [Chrome Web Store listing](https://chromewebstore.google.com/detail/jobmagnate-%E2%80%94-assisted-app/gkfhjcfjdpaipbmhjgcjdpldeojimdfi)
+— extension id `gkfhjcfjdpaipbmhjgcjdpldeojimdfi`.
+
 ## Local dev
 
 ```bash
@@ -29,12 +32,13 @@ unpacked** → select `extension/dist`.
 
 Two ways to get a token into the extension — same underlying token either way:
 
-**A — via the connect page (nicer, needs `NEXT_PUBLIC_EXTENSION_ID` set):**
+**A — via the connect page (nicer; automatic for the store install):**
 1. Log in on the web app, visit `/extension/connect`, click **Approve**.
-2. If `NEXT_PUBLIC_EXTENSION_ID` (frontend `.env.local`) is set to this
-   unpacked extension's real id (`chrome://extensions` shows it once
-   loaded), the page hands the token to the extension automatically.
-   Otherwise it falls back to showing the token once — copy it and use B.
+2. The page hands the token to the extension automatically. It targets the
+   published store id by default; for an unpacked build, set
+   `NEXT_PUBLIC_EXTENSION_ID` (frontend `.env.local`) to its id
+   (`chrome://extensions` shows it once loaded). If the ids don't match, it
+   falls back to showing the token once — copy it and use B.
 
 **B — paste it directly into the popup (always works, no setup):**
 1. Mint a token from Settings → Extensions in the web app (or from the

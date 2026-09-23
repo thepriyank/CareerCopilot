@@ -9,6 +9,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { settings as settingsApi, profile as profileApi, account as accountApi, auth as authApi, extension as extensionApi, payments as paymentsApi, ApiError, PassType, PassPlan } from '@/lib/api'
 import { clearToken } from '@/lib/auth'
 import { loadRazorpayCheckout } from '@/lib/razorpay'
+import { CHROME_WEBSTORE_URL } from '@/lib/extension'
 import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency, User, ExtensionTokenSummary } from '@/types'
 
 function ModelConnectionCard() {
@@ -780,27 +781,35 @@ function ExtensionsTab() {
 // there's no API left that installs an extension straight from a third-
 // party page. The honest version of "add it from our site" is a link to
 // the extension's own Chrome Web Store listing, where the user clicks
-// Google's own "Add to Chrome" button. Hidden (shows a "coming soon" note
-// instead) until NEXT_PUBLIC_CHROME_WEBSTORE_URL is set, which only
-// happens once the extension is actually published there.
+// Google's own "Add to Chrome" button.
 function GetExtensionCard() {
-  const storeUrl = process.env.NEXT_PUBLIC_CHROME_WEBSTORE_URL
-
   return (
     <div className="card" style={{ padding: 22, maxWidth: 760, marginBottom: 18 }}>
       <div className="eyebrow" style={{ marginBottom: 4 }}>Get the extension</div>
       <div className="serif" style={{ fontSize: 20, marginBottom: 10 }}>Assisted Apply for Chrome</div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: storeUrl ? 16 : 0 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 12 }}>
         Fills job application forms on company career sites using your JobMagnate profile — you review
         every field and click submit yourself.
       </div>
-      {storeUrl ? (
-        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">
+      <ul style={{ fontSize: 12.5, color: 'var(--text-soft)', lineHeight: 1.7, paddingLeft: 18, marginBottom: 16 }}>
+        <li>Works on almost any employer&rsquo;s application form, not a fixed list of sites</li>
+        <li>Fills name, email, phone, location, LinkedIn and other profile fields it recognizes</li>
+        <li>Leaves screening questions and EEO fields blank for you to answer in your own words</li>
+        <li>Never submits a form for you</li>
+      </ul>
+      <div style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 16 }}>
+        <strong style={{ color: 'var(--text-soft)' }}>Setup:</strong> 1. Add it from the Chrome Web Store.
+        2. <Link href="/extension/connect" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>Connect it to your account</Link>.
+        3. Open a job application and click the JobMagnate icon → <em>Fill this form</em>.
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <a href={CHROME_WEBSTORE_URL} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm">
           Add to Chrome
         </a>
-      ) : (
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Coming soon — not yet published to the Chrome Web Store.</div>
-      )}
+        <Link href="/extension/connect" className="btn btn-ghost btn-sm">
+          Connect extension
+        </Link>
+      </div>
       <div style={{ marginTop: 12 }}>
         <Link href="/privacy" target="_blank" style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'underline' }}>
           Privacy policy

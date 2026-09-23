@@ -1,5 +1,5 @@
 jest.mock('../../src/config', () => ({
-  config: { llm: { providers: [], cooldownMs: 900_000, allowPaid: false } },
+  config: { llm: { providers: [], cooldownMs: 900_000, billingCooldownMs: 3_600_000, fatalCooldownMs: 21_600_000, allowPaid: false } },
 }))
 jest.mock('../../src/utils/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -12,6 +12,7 @@ import {
   benchProvider,
   resetBench,
   handleProviderFailure,
+  EmptyResponseError,
 } from '../../src/services/ai/providerChain'
 
 afterEach(() => resetBench())
@@ -22,6 +23,18 @@ describe('classifyFailure()', () => {
     expect(classifyFailure({ message: 'Rate limit exceeded for requests' })).toBe('quota')
     expect(classifyFailure({ error: { message: 'You have insufficient credits' } })).toBe('quota')
     expect(classifyFailure({ message: 'quota exceeded' })).toBe('quota')
+  })
+
+  it('treats HTTP 402 (billing / prepaid credits depleted) as quota, even with no body', () => {
+    expect(classifyFailure({ status: 402, message: '402 status code (no body)' })).toBe('quota')
+  })
+
+  it("treats 413 (request bigger than the provider's per-minute token budget) as transient", () => {
+    expect(classifyFailure({ status: 413, message: 'Request too large for model on tokens per minute (TPM): Limit 8000' })).toBe('transient')
+  })
+
+  it('treats an empty model response as transient', () => {
+    expect(classifyFailure(new EmptyResponseError('No response text from ollama model "gpt-oss:20b"'))).toBe('transient')
   })
 
   it('treats 401/403 and auth messages as auth', () => {
@@ -93,6 +106,24 @@ describe('handleProviderFailure()', () => {
   it('disables a provider for the process on an auth failure', () => {
     handleProviderFailure('openrouter', { status: 401 })
     expect(isBenched('openrouter', Date.now() + 10 ** 12)).toBe(true)
+  })
+
+  it('benches a 402 for the longer billing cooldown', () => {
+    handleProviderFailure('cerebras', { status: 402 })
+    expect(isBenched('cerebras', Date.now() + 30 * 60_000)).toBe(true)
+    expect(isBenched('cerebras', Date.now() + 2 * 3_600_000)).toBe(false)
+  })
+
+  it('benches a fatal failure for a bounded window, not the whole process', () => {
+    handleProviderFailure('gemini', { status: 404, message: 'model no longer available' })
+    expect(isBenched('gemini', Date.now() + 3_600_000)).toBe(true)
+    expect(isBenched('gemini', Date.now() + 7 * 3_600_000)).toBe(false)
+  })
+
+  it('does not bench a provider on an empty response', () => {
+    const kind = handleProviderFailure('ollama', new EmptyResponseError('empty'))
+    expect(kind).toBe('transient')
+    expect(isBenched('ollama')).toBe(false)
   })
 
   it('does not bench a provider on a transient failure', () => {

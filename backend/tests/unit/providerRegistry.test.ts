@@ -34,6 +34,14 @@ describe('resolveChain()', () => {
     expect(chain.map((p) => p.id)).toEqual(['groq', 'anthropic'])
   })
 
+  it('by default puts Ollama (the topped-up paid backstop) last among free, before any paid provider', () => {
+    const chain = resolveChain({
+      OLLAMA_API_KEY: 'ol', GROQ_API_KEY: 'gq', GEMINI_API_KEY: 'gm', OPENROUTER_API_KEY: 'or',
+      CEREBRAS_API_KEY: 'cb', ANTHROPIC_API_KEY: 'sk', LLM_ALLOW_PAID: 'true',
+    })
+    expect(chain.map((p) => p.id)).toEqual(['groq', 'cerebras', 'gemini', 'openrouter', 'ollama', 'anthropic'])
+  })
+
   it('honors LLM_PROVIDER_ORDER for providers within the same tier', () => {
     const chain = resolveChain({
       GROQ_API_KEY: 'q',
@@ -58,7 +66,7 @@ describe('resolveChain()', () => {
   it('resolves each provider model from its *_MODEL env var, then a default', () => {
     const chain = resolveChain({ GEMINI_API_KEY: 'g', GROQ_API_KEY: 'q', GEMINI_MODEL: 'gemini-2.5-pro' })
     expect(chain.find((p) => p.id === 'gemini')?.model).toBe('gemini-2.5-pro')
-    expect(chain.find((p) => p.id === 'groq')?.model).toBe('openai/gpt-oss-20b')
+    expect(chain.find((p) => p.id === 'groq')?.model).toBe('openai/gpt-oss-120b')
   })
 
   it('falls back to the legacy OPENROUTER_PRESET for the OpenRouter model', () => {
@@ -73,5 +81,20 @@ describe('resolveChain()', () => {
     const anthropic = chain.find((p) => p.id === 'anthropic')
     expect(anthropic).toMatchObject({ protocol: 'anthropic' })
     expect(anthropic?.baseUrl).toBeUndefined()
+  })
+})
+
+describe('resolveChain() model lists', () => {
+  it('gives OpenRouter its default model plus the fallback list', () => {
+    const [or] = resolveChain({ OPENROUTER_API_KEY: 'or' })
+    expect(or.model).toBe(or.models[0])
+    expect(or.models.length).toBeGreaterThan(1)
+    expect(or.models.every((m) => m.endsWith(':free'))).toBe(true)
+  })
+
+  it('accepts a comma-separated *_MODEL override, replacing the defaults', () => {
+    const [or] = resolveChain({ OPENROUTER_API_KEY: 'or', OPENROUTER_MODEL: ' x:free , y:free ' })
+    expect(or.models).toEqual(['x:free', 'y:free'])
+    expect(or.model).toBe('x:free')
   })
 })

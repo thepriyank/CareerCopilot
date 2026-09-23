@@ -3,7 +3,7 @@
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { auth as authApi } from '@/lib/api'
+import { auth as authApi, userMessage } from '@/lib/api'
 import { setToken } from '@/lib/auth'
 import { isGoogleSignInAvailable } from '@/lib/firebase'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
@@ -24,7 +24,7 @@ export default function LoginPage() {
       setToken(token)
       router.push('/dashboard')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(userMessage(err, 'Login failed. Please check your details and try again.'))
     } finally {
       setLoading(false)
     }

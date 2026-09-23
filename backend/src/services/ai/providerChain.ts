@@ -2,9 +2,9 @@
  * Per-process "which providers are currently usable" state for the LLM chain.
  *
  * When a provider fails, `generate()` classifies the failure and benches the
- * provider for a while (rate limit / quota) or for the rest of the process
- * (bad key, model doesn't exist) so subsequent calls skip straight to the next
- * one instead of re-hitting a dead endpoint on every request.
+ * provider for a while (rate limit / quota / billing / model retired) or for
+ * the rest of the process (bad key) so subsequent calls skip straight to the
+ * next one instead of re-hitting a dead endpoint on every request.
  *
  * State is deliberately in-memory only: a process restart re-reads the env and
  * gives every provider a fresh chance.
@@ -24,6 +24,11 @@ export function isBenched(id: string, now: number = Date.now()): boolean {
   if (until > now) return true
   benchedUntil.delete(id)
   return false
+}
+
+/** Bench key for one model on one provider (vs. the bare provider id). */
+export function modelKey(providerId: string, model: string): string {
+  return `${providerId}::${model}`
 }
 
 export function benchProvider(id: string, ms: number): void {
@@ -46,11 +51,24 @@ export function benchStatus(): Record<string, number> {
 export type FailureKind = 'quota' | 'auth' | 'transient' | 'fatal'
 
 /**
+ * Thrown when a provider answers 200 but with no content — e.g. a reasoning
+ * model (gpt-oss) that spent its whole token budget "thinking". That's a
+ * property of this one call, not of the provider, so it's classified
+ * `transient` and never benches anything.
+ */
+export class EmptyResponseError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'EmptyResponseError'
+  }
+}
+
+/**
  * Buckets an SDK/HTTP error so the chain knows what to do with the provider:
- *  - `quota`     rate limited or out of credit  -> bench for a cooldown, retry later
- *  - `auth`      bad / missing / revoked key     -> bench for the process
- *  - `fatal`     bad request, model not found    -> bench for the process (config bug)
- *  - `transient` 5xx, network blip, timeout      -> skip for this call only
+ *  - `quota`     rate limited / out of credit / 402 -> bench for a cooldown, retry later
+ *  - `auth`      bad / missing / revoked key         -> bench for the process
+ *  - `fatal`     bad request, model not found        -> bench for `fatalCooldownMs`
+ *  - `transient` 5xx, network, timeout, empty, 413   -> skip for this call only
  */
 export function classifyFailure(err: unknown): FailureKind {
   const e = err as {
@@ -66,7 +84,14 @@ export function classifyFailure(err: unknown): FailureKind {
   const name = String(e?.name ?? '')
   const msg = `${e?.message ?? ''} ${e?.error?.message ?? ''} ${e?.error?.type ?? ''}`.toLowerCase()
 
+  if (name === 'EmptyResponseError') return 'transient'
+  // 413: this request is bigger than the provider's per-minute token budget
+  // (Groq free tier: 8K TPM on gpt-oss). A smaller call would succeed, so it's
+  // not the provider's fault — skip it for this call only, don't bench.
+  if (status === 413) return 'transient'
+
   if (
+    status === 402 ||
     status === 429 ||
     /rate.?limit|quota|exceed(ed)?|insufficient|balance|billing|credits?\b|out of (credit|quota)|too many requests/.test(
       msg
@@ -116,16 +141,26 @@ export function retryAfterMs(err: unknown): number | null {
 /**
  * Applies the bench policy for a classified failure and logs it. Returns the
  * failure kind so the caller can decide whether to keep a "last error".
+ *
+ * With `model` given, rate limits and "model retired" bench only that model
+ * (OpenRouter's free models are each throttled upstream, so the provider's
+ * next model still gets a chance). Billing (402) and bad keys are
+ * account-wide, so those always bench the whole provider.
  */
-export function handleProviderFailure(providerId: string, err: unknown): FailureKind {
+export function handleProviderFailure(providerId: string, err: unknown, model?: string): FailureKind {
   const kind = classifyFailure(err)
   const message = (err as Error)?.message ?? String(err)
+  const isBilling = (err as { status?: number })?.status === 402
+  const perModel = model !== undefined && (kind === 'fatal' || (kind === 'quota' && !isBilling))
+  const benchId = perModel ? modelKey(providerId, model) : providerId
+  const label = perModel ? `${providerId}" model "${model}` : providerId
 
   switch (kind) {
     case 'quota': {
-      const ms = retryAfterMs(err) ?? config.llm.cooldownMs
-      benchProvider(providerId, ms)
-      logger.warn(`LLM provider "${providerId}" rate-limited; benched for ${Math.round(ms / 1000)}s`, {
+      // A 402 means "go fix billing" — no point re-trying every 15 minutes.
+      const ms = retryAfterMs(err) ?? (isBilling ? config.llm.billingCooldownMs : config.llm.cooldownMs)
+      benchProvider(benchId, ms)
+      logger.warn(`LLM provider "${label}" rate-limited; benched for ${Math.round(ms / 1000)}s`, {
         err: message,
       })
       break
@@ -136,14 +171,19 @@ export function handleProviderFailure(providerId: string, err: unknown): Failure
         err: message,
       })
       break
-    case 'fatal':
-      benchProvider(providerId, Infinity)
-      logger.error(`LLM provider "${providerId}" failed fatally (bad request / model unavailable); disabled for this process`, {
-        err: message,
-      })
+    case 'fatal': {
+      // Bounded, not Infinity: a single bad response (or a model retired
+      // mid-deploy) used to take the provider out until the next restart.
+      const ms = config.llm.fatalCooldownMs
+      benchProvider(benchId, ms)
+      logger.error(
+        `LLM provider "${label}" failed fatally (bad request / model unavailable); benched for ${Math.round(ms / 60_000)}min`,
+        { err: message }
+      )
       break
+    }
     case 'transient':
-      logger.warn(`LLM provider "${providerId}" had a transient error; trying the next provider`, {
+      logger.warn(`LLM provider "${label}" had a transient error; trying the next option`, {
         err: message,
       })
       break
@@ -151,12 +191,18 @@ export function handleProviderFailure(providerId: string, err: unknown): Failure
   return kind
 }
 
+/** A provider's models in order, minus any benched individually. */
+export function usableModels(p: ActiveProvider): string[] {
+  const models = p.models?.length ? p.models : [p.model]
+  return models.filter((m) => !isBenched(modelKey(p.id, m)))
+}
+
 /**
  * The chain for the current call: the configured provider order with any
- * benched providers removed.
+ * benched providers — or providers whose every model is benched — removed.
  */
 export function usableChain(): ActiveProvider[] {
-  return config.llm.providers.filter((p) => !isBenched(p.id))
+  return config.llm.providers.filter((p) => !isBenched(p.id) && usableModels(p).length > 0)
 }
 
 /** Every configured provider, benched or not (for diagnostics / messages). */

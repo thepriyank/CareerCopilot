@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Topbar } from '@/components/layout/Topbar'
 import { StatusPill, PillStatus } from '@/components/ui/StatusPill'
-import { resumes as resumesApi, masterResume as masterResumeApi } from '@/lib/api'
+import { resumes as resumesApi, masterResume as masterResumeApi, userMessage } from '@/lib/api'
 import type { ParsedResume } from '@/types'
 import ParsedResumeView from '@/components/resume/ParsedResumeView'
 
@@ -23,8 +23,8 @@ export default function ResumeDetailPage() {
         setParsedResume(data.parsedResume ?? null)
         setLoading(false)
       })
-      .catch((err: Error) => {
-        setError(err.message)
+      .catch((err: unknown) => {
+        setError(userMessage(err, 'Failed to load this resume'))
         setLoading(false)
       })
   }, [id])
@@ -35,8 +35,8 @@ export default function ResumeDetailPage() {
     try {
       await masterResumeApi.generate()
       router.push('/master-resume')
-    } catch (err: any) {
-      setEnhanceError(err.message || 'Failed to generate master resume')
+    } catch (err) {
+      setEnhanceError(userMessage(err, 'Failed to generate master resume'))
       setEnhancing(false)
     }
   }

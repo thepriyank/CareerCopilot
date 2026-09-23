@@ -18,7 +18,7 @@ export async function connectWithToken(token: string): Promise<{ ok: boolean; me
     if (err instanceof ApiError && err.status === 401) {
       return { ok: false, message: 'That token is invalid or has been revoked.' }
     }
-    return { ok: false, message: err instanceof Error ? err.message : 'Could not reach JobMagnate.' }
+    return { ok: false, message: err instanceof ApiError ? err.message : 'Could not reach JobMagnate.' }
   }
 }
 
@@ -94,7 +94,9 @@ async function runFillFlow(tabId: number): Promise<FillFlowResult> {
     if (err instanceof ApiError && err.status === 403 && err.code === 'PLATFORM_EXCLUDED') {
       return { ok: false, message: 'JobMagnate doesn’t autofill forms on this site yet.' }
     }
-    return { ok: false, message: err instanceof Error ? err.message : 'Something went wrong.' }
+    // Only our own ApiError copy is shown; chrome.scripting / DOM errors
+    // carry browser-internal detail.
+    return { ok: false, message: err instanceof ApiError ? err.message : 'Something went wrong. Reload the page and try again.' }
   }
 }
 

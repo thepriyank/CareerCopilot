@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Icon } from '@/components/ui/Icon'
 import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
+import { CHROME_WEBSTORE_URL } from '@/lib/extension'
 
 const WORKFLOW = [
   { n: '01', h: 'Upload',  desc: 'Drop your resume. We parse and structure everything.' },
@@ -130,7 +131,10 @@ export default function LandingPage() {
         }}
       >
         <div>&copy; {new Date().getFullYear()} JobMagnate. All rights reserved.</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <a href={CHROME_WEBSTORE_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
+            Chrome extension
+          </a>
           <Link href="/privacy" style={{ color: 'var(--text-soft)', textDecoration: 'underline' }}>
             Privacy Policy
           </Link>

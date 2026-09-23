@@ -25,11 +25,11 @@ describe('parseModelConnection', () => {
   })
 
   it('rejects a cloud metadata address', () => {
-    expect(() => parseModelConnection('http://169.254.169.254/v1#model=x')).toThrow(/metadata/)
+    expect(() => parseModelConnection('http://169.254.169.254/v1#model=x')).toThrow(/can't be used/)
   })
 
   it('rejects a malformed URL', () => {
-    expect(() => parseModelConnection('http://')).toThrow(/Invalid URL/)
+    expect(() => parseModelConnection('http://')).toThrow(/valid URL/)
   })
 
   it('treats a plain string as a cloud API key', () => {

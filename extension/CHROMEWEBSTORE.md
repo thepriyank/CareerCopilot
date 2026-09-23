@@ -1,6 +1,11 @@
 # Chrome Web Store Listing — JobMagnate — Assisted Apply
 
-> Last Updated: 2026-09-21
+> Last Updated: 2026-09-23
+
+**Status: LIVE** on the Chrome Web Store (2026-09-23).
+- Listing: https://chromewebstore.google.com/detail/jobmagnate-%E2%80%94-assisted-app/gkfhjcfjdpaipbmhjgcjdpldeojimdfi
+- Extension ID: `gkfhjcfjdpaipbmhjgcjdpldeojimdfi`
+- Both are baked into the web app as defaults in `frontend/src/lib/extension.ts` (overridable via `NEXT_PUBLIC_CHROME_WEBSTORE_URL` / `NEXT_PUBLIC_EXTENSION_ID`) and linked from Settings → Extensions, `/extension/connect`, and the landing-page footer.
 
 Generated per the `modern-web-guidance:chrome-extensions` skill's
 convention — the single place to copy-paste from when filling out the
@@ -133,7 +138,7 @@ Built as a real Next.js page (`frontend/src/app/privacy/page.tsx`), not the stan
 | Version | Date | Changes | Status |
 |---------|------|---------|--------|
 | 0.1.0 | 2026-09-14 | First release candidate. Generic (Tier-2/LLM) form-field mapping for any employer-hosted form; text fields only, résumé/cover-letter attachment not yet wired (see Known Issues). Real app-icon set. | Draft |
-| 0.1.0 | 2026-09-21 | **Fixed a production-breaking bug found during this readiness audit**: the default build (`npm run build`, no flags — i.e. exactly what a real submission build uses) pointed `API_BASE_URL` at `https://api.jobmagnate.com`, which had no DNS record at all at the time (confirmed by direct lookup — `Could not resolve host`). No Cloud Run domain mapping for that subdomain existed yet; only the apex `jobmagnate.com` was mapped, to the frontend. Every API call from a real install would have failed outright. Repointed the default (`src/background/api.ts` + `scripts/build.mjs`) to the backend's actual live Cloud Run URL as an immediate fix. Submitted for Chrome Web Store review in this state. | Submitted for review |
+| 0.1.0 | 2026-09-21 | **Fixed a production-breaking bug found during this readiness audit**: the default build (`npm run build`, no flags — i.e. exactly what a real submission build uses) pointed `API_BASE_URL` at `https://api.jobmagnate.com`, which had no DNS record at all at the time (confirmed by direct lookup — `Could not resolve host`). No Cloud Run domain mapping for that subdomain existed yet; only the apex `jobmagnate.com` was mapped, to the frontend. Every API call from a real install would have failed outright. Repointed the default (`src/background/api.ts` + `scripts/build.mjs`) to the backend's actual live Cloud Run URL as an immediate fix. Submitted for Chrome Web Store review in this state. | Approved — live 2026-09-23 |
 | 0.1.1 | 2026-09-21 | **Follow-up, not urgent** — 0.1.0 already worked correctly against the Cloud Run URL. A proper `api.jobmagnate.com` Cloud Run domain mapping was added (Terraform, `google_cloud_run_domain_mapping.backend`), DNS (CNAME → `ghs.googlehosted.com`) configured at the registrar, and Google's managed cert finished provisioning (`Ready`/`CertificateProvisioned` both `True`, verified 2026-09-21). Repointed `API_BASE_URL` back to the branded `https://api.jobmagnate.com`. Also bumped `manifest.json`/`package.json` to 0.1.1. Verified: built bundle only embeds `api.jobmagnate.com` (grepped), `npm test` (38/38) and `tsc --noEmit` pass, `curl https://api.jobmagnate.com/api/payments/plans` returns the expected `401 UNAUTHORIZED` (route exists, auth required) rather than a connection/DNS error. Same-day as this fix, production also got its full Razorpay billing rollout (live keys, webhook, 3-tier pricing, Terms/Refund pages) — unrelated to the extension itself, but why `/terms` and `/refund-policy` now correctly return 200 on production. Packaged `jobmagnate-assisted-apply-0.1.1.zip`. | Ready to upload as a Package-tab update once 0.1.0 clears review |
 
 ## Review Notes
@@ -150,10 +155,10 @@ Built as a real Next.js page (`frontend/src/app/privacy/page.tsx`), not the stan
 - **Visibility decision** (Public vs. Unlisted for a soft launch first) — a launch-strategy call, not a technical one. Unlisted first is a reasonable default if you want to test the real install flow with a small group before it's publicly searchable.
 - **Confirm support@jobmagnate.com is actually a monitored inbox** (or set up a forward) before it goes out on a public listing and this privacy policy.
 - Once all of the above is done: submit for review using the production privacy policy URL (`https://jobmagnate.com/privacy`, not staging's), uploading `jobmagnate-assisted-apply-0.1.0.zip`.
-- **After the listing goes live**: set `NEXT_PUBLIC_CHROME_WEBSTORE_URL` (and `NEXT_PUBLIC_EXTENSION_ID`, needed for `/extension/connect`'s automatic token handoff) in the frontend's env — both are still empty, so Settings' "Add to Chrome" card currently shows "Coming soon" instead of a real install link.
+- ~~**After the listing goes live**: set `NEXT_PUBLIC_CHROME_WEBSTORE_URL` and `NEXT_PUBLIC_EXTENSION_ID`.~~ Done 2026-09-23 — rather than per-environment env vars, the public listing URL and extension id are now code defaults in `frontend/src/lib/extension.ts`, so Settings shows a real "Add to Chrome" link and `/extension/connect` hands the token off automatically on every environment.
 
 ### Separate, non-blocking finding from this audit: production is well behind `main`
 Not a Chrome Web Store requirement, but worth flagging since it affects what a real user reaches right after installing the extension: the `production` branch hasn't been merged since the privacy-policy merge and job-cleanup work (`72af4e5`, `8b455ad`). Everything since — the full Razorpay integration + webhook, the 3-tier pricing page, Terms of Service, Refund Policy, and the mobile-layout fix for the Plan tab — exists only on `main` (staging). Production's Secret Manager also has no Razorpay secrets provisioned at all (`infra/terraform/environments/production/` has zero references to Razorpay), so merging `main` → `production` as-is would break the production backend on deploy (missing secrets) — that merge needs its own terraform work (mirroring `5fa4735`'s staging provisioning) and a decision on live vs. test Razorpay keys first. Flagging this separately rather than bundling it into the extension launch; happy to take it on next if wanted.
 
 ### Rejection History
-None yet — first submission not made.
+None — 0.1.0 approved on first submission (live 2026-09-23).

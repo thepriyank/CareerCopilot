@@ -51,6 +51,13 @@ variable "enabled_secrets" {
     "RAZORPAY_KEY_ID",
     "RAZORPAY_KEY_SECRET",
     "RAZORPAY_WEBHOOK_SECRET",
+    # GROQ_API_KEY: real free-tier key provided 2026-09-23, NOT enabled yet —
+    # the secret must exist with a value before this list references it (a
+    # zero-version secret breaks the Cloud Run deploy). To enable: create +
+    # populate `jobmagnate-production-groq-api-key` via gcloud, then
+    # `terraform import 'module.secrets["GROQ_API_KEY"].google_secret_manager_secret.this'
+    # projects/jobmagnet-6a1ab/secrets/jobmagnate-production-groq-api-key`
+    # and add "GROQ_API_KEY" here. See INFRASTRUCTURE.md.
   ]
 }
 
@@ -61,10 +68,10 @@ variable "custom_domain" {
 }
 
 variable "llm_provider_order" {
-  # Matches staging's default exactly, including "groq" first even though
-  # it's not in enabled_secrets above — harmless, the app's provider chain
-  # skips any provider with no configured key regardless of list position.
+  # Matches staging's default exactly. Ollama is last among the free
+  # providers on purpose — it's the account topped up with paid credit, so
+  # it backstops the genuinely-free ones (see providerRegistry.ts).
   # Kept identical to staging rather than silently drifting.
   type    = string
-  default = "groq,cerebras,gemini,ollama,openrouter,deepseek,anthropic,openai"
+  default = "groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai"
 }

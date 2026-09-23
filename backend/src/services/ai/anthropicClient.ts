@@ -7,8 +7,9 @@ import { User } from '../../entities/User'
 import { decrypt } from '../../utils/encryption'
 import { parseModelConnection, ModelConnection, LocalModelConnection } from './modelConnection'
 import { ActiveProvider } from './providerRegistry'
-import { usableChain, fullChain, handleProviderFailure } from './providerChain'
+import { usableChain, usableModels, fullChain, handleProviderFailure, isBenched, EmptyResponseError } from './providerChain'
 import { logger } from '../../utils/logger'
+import { tagError } from '../../middleware/errorHandler'
 import { cacheKey, getCached, setCached } from '../cache/llmCache'
 
 export interface GenerateOptions {
@@ -154,6 +155,11 @@ async function generateViaProvider(
   const response = await client.chat.completions.create({
     model: provider.model,
     max_tokens: maxTokens,
+    // gpt-oss models "think" out of the same max_tokens budget as the answer;
+    // at their default effort a LinkedIn-sized extraction used ~4k of 4k
+    // tokens and could come back with no answer at all. Our calls are
+    // extraction/rewriting, not puzzles — low effort is plenty.
+    ...(isReasoningBudgetModel(provider.model) ? { reasoning_effort: 'low' as const } : {}),
     messages: [
       ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
       { role: 'user' as const, content: prompt },
@@ -162,10 +168,20 @@ async function generateViaProvider(
 
   const text = response.choices[0]?.message?.content
   if (!text) {
-    throw new Error(`No response text from ${provider.id} model "${provider.model}"`)
+    const finish = response.choices[0]?.finish_reason
+    throw new EmptyResponseError(
+      `No response text from ${provider.id} model "${provider.model}"` + (finish ? ` (finish_reason: ${finish})` : '')
+    )
   }
   return { text, tokensUsed: response.usage?.total_tokens ?? 0 }
 }
+
+/** OpenAI's open-weight reasoning models, served by Groq/Cerebras/Ollama/OpenRouter under slightly different ids. */
+export function isReasoningBudgetModel(model: string): boolean {
+  return /gpt-oss/i.test(model)
+}
+
+const MAX_MODELS_PER_PROVIDER_PER_CALL = 4
 
 interface ChainResult extends GenerateResult {
   provider: ActiveProvider
@@ -188,37 +204,46 @@ async function runPlatformChain(
   if (chain.length === 0) {
     const configured = fullChain()
     if (configured.length === 0) {
-      throw new Error(
+      throw tagError(new Error(
         'No LLM providers configured. Set at least one provider API key ' +
           '(e.g. GROQ_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, OLLAMA_API_KEY) in backend/.env, ' +
           'or set LLM_ALLOW_PAID=true alongside ANTHROPIC_API_KEY.'
-      )
+      ), 503, 'AI_UNAVAILABLE')
     }
-    throw new Error(
+    throw tagError(new Error(
       `All ${configured.length} configured LLM provider(s) are currently benched ` +
         `(rate-limited or disabled): ${configured.map((p) => p.id).join(', ')}. ` +
         'Wait for a cooldown to elapse or add another provider key.'
-    )
+    ), 503, 'AI_UNAVAILABLE')
   }
 
   let lastErr: unknown
   let lastProviderId = ''
   for (const provider of chain) {
-    lastProviderId = provider.id
-    try {
-      const result = await generateViaProvider(provider, prompt, systemPrompt, maxTokens)
-      logger.debug(`LLM call served by "${provider.id}" (${provider.model})`)
-      return { ...result, provider }
-    } catch (err) {
-      lastErr = err
-      handleProviderFailure(provider.id, err)
+    // Cap models per provider per call: free-tier 429s fail fast, but a long
+    // list of slow failures shouldn't hold one request hostage.
+    for (const model of usableModels(provider).slice(0, MAX_MODELS_PER_PROVIDER_PER_CALL)) {
+      lastProviderId = `${provider.id}/${model}`
+      const attempt = { ...provider, model }
+      try {
+        const result = await generateViaProvider(attempt, prompt, systemPrompt, maxTokens)
+        logger.debug(`LLM call served by "${provider.id}" (${model})`)
+        return { ...result, provider: attempt }
+      } catch (err) {
+        lastErr = err
+        handleProviderFailure(provider.id, err, model)
+        // Account-level failure (billing / bad key) — skip its other models.
+        if (isBenched(provider.id)) break
+      }
     }
   }
 
-  throw new Error(
+  // The technical detail stays in `message` for logs; tagError makes sure
+  // the client only ever sees the friendly AI_UNAVAILABLE copy.
+  throw tagError(new Error(
     `Every LLM provider in the chain failed for this call. Last attempt "${lastProviderId}": ` +
       ((lastErr as Error)?.message ?? String(lastErr))
-  )
+  ), 503, 'AI_UNAVAILABLE')
 }
 
 interface GenerateCoreResult {
@@ -245,13 +270,17 @@ async function generateCore(
 
   if (connection?.kind === 'local') {
     logger.debug(`LLM call feature=${feature ?? 'unknown'} source=user-local`)
-    result = await generateViaLocal(prompt, systemPrompt, connection, maxTokens)
+    result = await generateViaLocal(prompt, systemPrompt, connection, maxTokens).catch((err: Error) => {
+      throw tagError(err, 502, 'USER_MODEL_FAILED')
+    })
     apiKeySource = 'user-local'
     modelName = connection.model
   } else if (connection?.kind === 'cloud') {
     logger.debug(`LLM call feature=${feature ?? 'unknown'} source=user-cloud`)
     const model = options.model ?? config.anthropic.model
-    result = await generateViaAnthropic(prompt, systemPrompt, model, maxTokens, connection.apiKey)
+    result = await generateViaAnthropic(prompt, systemPrompt, model, maxTokens, connection.apiKey).catch((err: Error) => {
+      throw tagError(err, 502, 'USER_MODEL_FAILED')
+    })
     apiKeySource = 'user-cloud'
     modelName = model
   } else {
@@ -357,7 +386,7 @@ async function generateJsonUncached<T>(
       }
     }
 
-    lastErr = new Error('AI returned malformed JSON')
+    lastErr = tagError(new Error('AI returned malformed JSON'), 502, 'AI_BAD_RESPONSE')
     const canRetry = providerId !== undefined && attempt < MAX_JSON_ATTEMPTS
     logger.warn(
       `LLM provider "${providerId ?? 'unknown'}" returned malformed JSON` +
