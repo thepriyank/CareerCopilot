@@ -182,3 +182,24 @@ resource "google_cloud_run_domain_mapping" "backend" {
     route_name = module.backend_service.name
   }
 }
+
+# Maps www.<custom_domain> to the frontend service — only so it can redirect.
+# frontend/src/middleware.ts answers every www request with a 308 to the apex
+# (path + query kept); serving the app on both hosts would split sign-in
+# sessions, PWA installs and SEO across two origins. Added 2026-09-23: before
+# this, www had GoDaddy's default CNAME -> apex, which reached Google's
+# frontends with no mapping/cert for the host, so TLS failed outright. Same
+# Search Console verification as the mappings above (Domain property covers
+# subdomains). DNS: CNAME www -> ghs.googlehosted.com (see output below).
+resource "google_cloud_run_domain_mapping" "frontend_www" {
+  location = var.region
+  name     = "www.${var.custom_domain}"
+
+  metadata {
+    namespace = var.project_id
+  }
+
+  spec {
+    route_name = module.frontend_service.name
+  }
+}
