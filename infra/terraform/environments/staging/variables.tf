@@ -51,7 +51,6 @@ variable "enabled_secrets" {
     # Add DEEPSEEK/ANTHROPIC/OPENAI here too once LLM_ALLOW_PAID is ever
     # turned on for a deployed environment.
     "GEMINI_API_KEY",
-    "CEREBRAS_API_KEY",
     "OLLAMA_API_KEY",
     "OPENROUTER_API_KEY",
     # Job aggregator — real free-tier key signed up 2026-09-12, India-scoped
@@ -76,5 +75,5 @@ variable "enabled_secrets" {
 
 variable "llm_provider_order" {
   type    = string
-  default = "groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai"
+  default = "groq,gemini,openrouter,ollama,deepseek,anthropic,openai"
 }

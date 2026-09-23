@@ -30,7 +30,13 @@ than no note.
   `www.jobmagnate.com` (redirect-only, see "Custom domains"); needs the
   Cloudflare CNAME `www → ghs.googlehosted.com` (DNS only) before its
   certificate can issue. (3) `LLM_PROVIDER_ORDER` now
-  `groq,cerebras,gemini,openrouter,ollama,…` in both environments.
+  `groq,cerebras,gemini,openrouter,ollama,…` in both environments (Cerebras later removed the same day — see below).
+  (4) **Cerebras removed** from both environments (owner decision — no usable
+  free-tier models, every call 402'd): `CEREBRAS_API_KEY` dropped from
+  `enabled_secrets` + the `all_secrets` catalog, so the apply destroys the
+  `jobmagnate-{staging,production}-cerebras-api-key` secrets and their IAM
+  bindings; order is now `groq,gemini,openrouter,ollama,…`. Production's
+  `gemini-api-key` also got a new value (version 2, owner-rotated).
 
 - **2026-09-22** — Wrote Terraform for a new daily link-health-check Cloud
   Run Job + Cloud Scheduler (staging) — see "Daily link-health check"
@@ -203,7 +209,7 @@ jobmagnet-6a1ab`.
 
 ### Secrets provisioned (Secret Manager, real values populated 2026-09-08)
 
-All under `jobmagnate-staging-*`: `database-url`, `jwt-secret` (freshly generated, not reused from local dev), `settings-encryption-key` (same), `gemini-api-key`, `cerebras-api-key`, `ollama-api-key`, `openrouter-api-key` (these 4 copied from local `backend/.env`'s real free-tier keys).
+All under `jobmagnate-staging-*`: `database-url`, `jwt-secret` (freshly generated, not reused from local dev), `settings-encryption-key` (same), `gemini-api-key`, `cerebras-api-key` (removed 2026-09-23), `ollama-api-key`, `openrouter-api-key` (these 4 copied from local `backend/.env`'s real free-tier keys).
 
 **Added 2026-09-12**: `adzuna-app-id`, `adzuna-app-key` — real free-tier Adzuna credentials (India-scoped, `/v1/api/jobs/in/...`), the first job-aggregator key this project has. `providers/adzuna.ts` and `discoveryService.ts` already queried this endpoint whenever the two env vars were present; the only gap was provisioning them, via adding both names to `variables.tf`'s `enabled_secrets` and populating real values with `gcloud secrets versions add`.
 

@@ -78,7 +78,7 @@ export default function PrivacyPolicyPage() {
 
         <Section title="AI processing">
           <p style={{ marginBottom: 14 }}>Parsing, matching, tailoring, and skill-gap analysis are done by
-          large-language-model providers (Google Gemini, Groq, Cerebras, Ollama Cloud, OpenRouter, and,
+          large-language-model providers (Google Gemini, Groq, Ollama Cloud, OpenRouter, and,
           only if we&rsquo;ve explicitly enabled paid providers, DeepSeek, Anthropic, or OpenAI) — we send the
           relevant résumé, profile, or job-description text to whichever provider is active for that
           request.</p>

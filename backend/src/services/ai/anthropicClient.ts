@@ -176,7 +176,7 @@ async function generateViaProvider(
   return { text, tokensUsed: response.usage?.total_tokens ?? 0 }
 }
 
-/** OpenAI's open-weight reasoning models, served by Groq/Cerebras/Ollama/OpenRouter under slightly different ids. */
+/** OpenAI's open-weight reasoning models, served by Groq/Ollama/OpenRouter under slightly different ids. */
 export function isReasoningBudgetModel(model: string): boolean {
   return /gpt-oss/i.test(model)
 }

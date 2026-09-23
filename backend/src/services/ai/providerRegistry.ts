@@ -46,6 +46,9 @@ export interface ProviderDef {
  * billing set up. Model ids drift — override with the `*_MODEL` env var if a
  * default has been retired.
  */
+// Cerebras was removed 2026-09-23 (owner decision: its plan no longer
+// offers usable free-tier models — every model returned 402). A leftover
+// CEREBRAS_API_KEY in an environment is now simply ignored.
 export const PROVIDER_REGISTRY: ProviderDef[] = [
   {
     id: 'groq',
@@ -59,16 +62,6 @@ export const PROVIDER_REGISTRY: ProviderDef[] = [
     // Free tier (2026-09-23): 30 RPM, 1K RPD, 8K TPM, 200K TPD — same for
     // 20b and 120b, so take the stronger one.
     defaultModel: 'openai/gpt-oss-120b',
-  },
-  {
-    id: 'cerebras',
-    label: 'Cerebras',
-    tier: 'free',
-    protocol: 'openai',
-    baseUrl: 'https://api.cerebras.ai/v1',
-    apiKeyEnv: 'CEREBRAS_API_KEY',
-    modelEnv: 'CEREBRAS_MODEL',
-    defaultModel: 'gpt-oss-120b',
   },
   {
     id: 'gemini',
@@ -171,7 +164,7 @@ export interface ActiveProvider {
 // up with paid credit when free quotas run dry (decided 2026-09-23), so it's
 // the backstop for the genuinely-free providers and is always reached before
 // any `paid`-tier provider (DeepSeek / Anthropic / OpenAI, LLM_ALLOW_PAID).
-const DEFAULT_ORDER = 'groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai'
+const DEFAULT_ORDER = 'groq,gemini,openrouter,ollama,deepseek,anthropic,openai'
 
 function truthy(v: string | undefined): boolean {
   return v !== undefined && /^(1|true|yes|on)$/i.test(v.trim())
