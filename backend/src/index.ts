@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { config } from './config'
 import routes from './routes'
-import { errorHandler } from './middleware/errorHandler'
+import { errorHandler, createError } from './middleware/errorHandler'
 import { isAllowedOrigin } from './config/corsOrigin'
 import { logger } from './utils/logger'
 
@@ -42,6 +42,9 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api', routes)
+// Unknown routes: a JSON 404 through the error handler, instead of Express's
+// default HTML page (which echoed the method + path back).
+app.use((_req, _res, next) => next(createError(404, 'NOT_FOUND', "We couldn't find what you were looking for.")))
 app.use(errorHandler)
 
 import { AppDataSource } from './config/dataSource'

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
+import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 
 export const metadata: Metadata = {
   applicationName: 'JobMagnate',
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body style={{ fontFamily: '"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif' }}>
         {children}
         <ServiceWorkerRegister />
+        <InstallPrompt />
       </body>
     </html>
   )
