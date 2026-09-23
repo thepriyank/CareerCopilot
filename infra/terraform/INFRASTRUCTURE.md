@@ -22,6 +22,16 @@ than no note.
 
 **Changelog (most recent first):**
 
+- **2026-09-23** — Production, applied via `terraform-apply-production.yml`:
+  (1) `GROQ_API_KEY` enabled — `jobmagnate-production-groq-api-key` was
+  created + populated outside Terraform, then adopted with `terraform import`
+  (see the comment in `production/variables.tf`); Groq is now first in the
+  LLM chain. (2) `google_cloud_run_domain_mapping.frontend_www` created for
+  `www.jobmagnate.com` (redirect-only, see "Custom domains"); needs the
+  Cloudflare CNAME `www → ghs.googlehosted.com` (DNS only) before its
+  certificate can issue. (3) `LLM_PROVIDER_ORDER` now
+  `groq,cerebras,gemini,openrouter,ollama,…` in both environments.
+
 - **2026-09-22** — Wrote Terraform for a new daily link-health-check Cloud
   Run Job + Cloud Scheduler (staging) — see "Daily link-health check"
   below. `terraform validate`/`plan` pass; **not yet applied**, so nothing
