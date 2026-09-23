@@ -22,6 +22,22 @@ than no note.
 
 **Changelog (most recent first):**
 
+- **2026-09-23** — Production, applied via `terraform-apply-production.yml`:
+  (1) `GROQ_API_KEY` enabled — `jobmagnate-production-groq-api-key` was
+  created + populated outside Terraform, then adopted with `terraform import`
+  (see the comment in `production/variables.tf`); Groq is now first in the
+  LLM chain. (2) `google_cloud_run_domain_mapping.frontend_www` created for
+  `www.jobmagnate.com` (redirect-only, see "Custom domains"); needs the
+  Cloudflare CNAME `www → ghs.googlehosted.com` (DNS only) before its
+  certificate can issue. (3) `LLM_PROVIDER_ORDER` now
+  `groq,cerebras,gemini,openrouter,ollama,…` in both environments (Cerebras later removed the same day — see below).
+  (4) **Cerebras removed** from both environments (owner decision — no usable
+  free-tier models, every call 402'd): `CEREBRAS_API_KEY` dropped from
+  `enabled_secrets` + the `all_secrets` catalog, so the apply destroys the
+  `jobmagnate-{staging,production}-cerebras-api-key` secrets and their IAM
+  bindings; order is now `groq,gemini,openrouter,ollama,…`. Production's
+  `gemini-api-key` also got a new value (version 2, owner-rotated).
+
 - **2026-09-22** — Wrote Terraform for a new daily link-health-check Cloud
   Run Job + Cloud Scheduler (staging) — see "Daily link-health check"
   below. `terraform validate`/`plan` pass; **not yet applied**, so nothing
@@ -193,7 +209,7 @@ jobmagnet-6a1ab`.
 
 ### Secrets provisioned (Secret Manager, real values populated 2026-09-08)
 
-All under `jobmagnate-staging-*`: `database-url`, `jwt-secret` (freshly generated, not reused from local dev), `settings-encryption-key` (same), `gemini-api-key`, `cerebras-api-key`, `ollama-api-key`, `openrouter-api-key` (these 4 copied from local `backend/.env`'s real free-tier keys).
+All under `jobmagnate-staging-*`: `database-url`, `jwt-secret` (freshly generated, not reused from local dev), `settings-encryption-key` (same), `gemini-api-key`, `cerebras-api-key` (removed 2026-09-23), `ollama-api-key`, `openrouter-api-key` (these 4 copied from local `backend/.env`'s real free-tier keys).
 
 **Added 2026-09-12**: `adzuna-app-id`, `adzuna-app-key` — real free-tier Adzuna credentials (India-scoped, `/v1/api/jobs/in/...`), the first job-aggregator key this project has. `providers/adzuna.ts` and `discoveryService.ts` already queried this endpoint whenever the two env vars were present; the only gap was provisioning them, via adding both names to `variables.tf`'s `enabled_secrets` and populating real values with `gcloud secrets versions add`.
 
@@ -288,10 +304,10 @@ secrets first, per the runbook).
 
 - **~~The committed source on `main` predated the real app~~ — RESOLVED (2026-09-09).** The real application (TypeORM migration, F1–F8, auth, GCS, tests) has been committed to `main` since `31c2d73` / `08b1e3a`. `ci-backend.yml`, `ci-frontend.yml`, `deploy-backend.yml`, and `deploy-frontend.yml` now run green on every push to `main`, and staging is continuously deployed from those workflows. The failing state originally described here applied only to the pre-`31c2d73` snapshot that still imported `@prisma/client`.
 - **Migrations still run in-process on every backend boot** (`backend/src/index.ts`) — no advisory lock; only mitigated by `max_instances=1`. Discovery is no longer in this bucket — it moved to the dedicated Cloud Run Job + Cloud Scheduler (see "Daily discovery job" above), verified running 2026-09-10. The rest of Phase E (an advisory lock around the in-process migration run, so `max_instances` could be raised) still hasn't landed.
-- **Custom domains (production only; staging stays on `*.run.app`)** — all `google_cloud_run_domain_mapping` in `environments/production/main.tf`, DNS at GoDaddy:
+- **Custom domains (production only; staging stays on `*.run.app`)** — all `google_cloud_run_domain_mapping` in `environments/production/main.tf`. **DNS is in Cloudflare** (nameservers `lina`/`marty.ns.cloudflare.com`; GoDaddy is only the registrar, its DNS panel is ignored). Every record pointing at Cloud Run must be **DNS only (grey cloud)** — proxying blocks Google's managed-certificate issuance. Cloudflare also hosts the MX records for email forwarding:
   - `jobmagnate.com` → frontend (apex A/AAAA records from `terraform output custom_domain_dns_records`)
   - `api.jobmagnate.com` → backend (CNAME `ghs.googlehosted.com`, added 2026-09-21)
-  - `www.jobmagnate.com` → frontend, **redirect only** (CNAME `ghs.googlehosted.com`, added 2026-09-23). `frontend/src/middleware.ts` 308s every www request to the apex, path + query kept, so sessions/PWA installs/SEO stay on one origin. Before this, www had GoDaddy's default CNAME → apex and failed TLS (no mapping/cert for the host).
+  - `www.jobmagnate.com` → frontend, **redirect only** (CNAME `ghs.googlehosted.com`, added 2026-09-23). `frontend/src/middleware.ts` 308s every www request to the apex, path + query kept, so sessions/PWA installs/SEO stay on one origin. Before this, www had a default CNAME → apex and failed TLS (no mapping/cert for the host).
 - **`GROQ_API_KEY` has no real value** — add it back to `enabled_secrets` in both environments' `variables.tf` once one exists.
 - **`production` environment exists in Terraform but has never been applied** — see the section above.
 

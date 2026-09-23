@@ -205,7 +205,7 @@ scaffolding, sequenced into Phase A/B below.
 | `FIREBASE_PROJECT_ID` | plain env var | `jobmagnet-6a1ab` |
 | `FIREBASE_KEY_FILE` / `FIREBASE_CREDENTIALS_JSON` | **not shipped** | ADC via attached SA |
 | `LLM_PROVIDER_ORDER`, `LLM_COOLDOWN_MS`, `LLM_ALLOW_PAID` | plain env vars | tuning |
-| `GEMINI_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | **Secret Manager** (one each; unset ones simply not created — matches "absent = provider skipped") | `*_MODEL` overrides are plain env vars |
+| `GEMINI_API_KEY`, `GROQ_API_KEY`, `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | **Secret Manager** (one each; unset ones simply not created — matches "absent = provider skipped") | `*_MODEL` overrides are plain env vars |
 | `SETTINGS_ENCRYPTION_KEY` | **Secret Manager** | per-environment, never reused staging/prod — rotating it invalidates existing users' saved model connections |
 | `THEIRSTACK_API_KEY`, `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `JOOBLE_API_KEY`, `JSEARCH_RAPID_API_KEY`, `JSEARCH_OPEN_WEB_NINJA_API_KEY` | **Secret Manager** (optional; unset ones not created) | |
 | `JOB_DISCOVERY_CRON_ENABLED`, `JOB_DISCOVERY_CRON_SCHEDULE` | superseded by Cloud Scheduler config | not passed to the web service once cron moves to a Cloud Run Job |

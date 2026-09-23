@@ -51,7 +51,6 @@ locals {
     SETTINGS_ENCRYPTION_KEY        = "settings-encryption-key"
     GEMINI_API_KEY                 = "gemini-api-key"
     GROQ_API_KEY                   = "groq-api-key"
-    CEREBRAS_API_KEY               = "cerebras-api-key"
     OLLAMA_API_KEY                 = "ollama-api-key"
     OPENROUTER_API_KEY             = "openrouter-api-key"
     DEEPSEEK_API_KEY               = "deepseek-api-key"

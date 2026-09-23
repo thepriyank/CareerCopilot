@@ -37,19 +37,24 @@ describe('resolveChain()', () => {
   it('by default puts Ollama (the topped-up paid backstop) last among free, before any paid provider', () => {
     const chain = resolveChain({
       OLLAMA_API_KEY: 'ol', GROQ_API_KEY: 'gq', GEMINI_API_KEY: 'gm', OPENROUTER_API_KEY: 'or',
-      CEREBRAS_API_KEY: 'cb', ANTHROPIC_API_KEY: 'sk', LLM_ALLOW_PAID: 'true',
+      ANTHROPIC_API_KEY: 'sk', LLM_ALLOW_PAID: 'true',
     })
-    expect(chain.map((p) => p.id)).toEqual(['groq', 'cerebras', 'gemini', 'openrouter', 'ollama', 'anthropic'])
+    expect(chain.map((p) => p.id)).toEqual(['groq', 'gemini', 'openrouter', 'ollama', 'anthropic'])
+  })
+
+  it('ignores a leftover CEREBRAS_API_KEY (provider removed 2026-09-23)', () => {
+    const chain = resolveChain({ CEREBRAS_API_KEY: 'cb', GROQ_API_KEY: 'gq', LLM_PROVIDER_ORDER: 'cerebras,groq' })
+    expect(chain.map((p) => p.id)).toEqual(['groq'])
   })
 
   it('honors LLM_PROVIDER_ORDER for providers within the same tier', () => {
     const chain = resolveChain({
       GROQ_API_KEY: 'q',
       GEMINI_API_KEY: 'g',
-      CEREBRAS_API_KEY: 'c',
-      LLM_PROVIDER_ORDER: 'gemini,cerebras,groq',
+      OPENROUTER_API_KEY: 'o',
+      LLM_PROVIDER_ORDER: 'gemini,openrouter,groq',
     })
-    expect(chain.map((p) => p.id)).toEqual(['gemini', 'cerebras', 'groq'])
+    expect(chain.map((p) => p.id)).toEqual(['gemini', 'openrouter', 'groq'])
   })
 
   it('accepts a known alias env var for a provider key (GROK_API_KEY -> Groq)', () => {

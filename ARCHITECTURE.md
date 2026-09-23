@@ -160,7 +160,7 @@ POST   /api/linkedin/review               LinkedIn profile analysis (F8)
 
 #### The platform provider chain
 
-`generate()` walks `config.llm.providers` and uses the first provider that answers. A provider is *active* only when its API-key env var is set (`GEMINI_API_KEY`, `GROQ_API_KEY`, `CEREBRAS_API_KEY`, `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, …); adding a new free tier is: drop the key in `.env`, and if it's not already known, add one line to `PROVIDER_REGISTRY` in `services/ai/providerRegistry.ts`.
+`generate()` walks `config.llm.providers` and uses the first provider that answers. A provider is *active* only when its API-key env var is set (`GEMINI_API_KEY`, `GROQ_API_KEY`, `OLLAMA_API_KEY`, `OPENROUTER_API_KEY`, …); adding a new free tier is: drop the key in `.env`, and if it's not already known, add one line to `PROVIDER_REGISTRY` in `services/ai/providerRegistry.ts`.
 
 - **Order:** `LLM_PROVIDER_ORDER` (csv of provider ids) sets priority; a stable free-before-paid partition is then applied unconditionally.
 - **Paid providers** (`deepseek`, `anthropic`, `openai`) are excluded unless `LLM_ALLOW_PAID` is truthy — a guard against surprise spend in local dev.

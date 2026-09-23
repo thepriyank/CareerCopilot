@@ -63,7 +63,7 @@ All of these live in `backend/.env` (and are also read from the repo-root
 
 | Var | Default | Meaning |
 |---|---|---|
-| `LLM_PROVIDER_ORDER` | `groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai` | priority order |
+| `LLM_PROVIDER_ORDER` | `groq,gemini,openrouter,ollama,deepseek,anthropic,openai` | priority order |
 | `LLM_COOLDOWN_MS` | `900000` | bench time for a rate-limited provider with no `Retry-After` |
 | `LLM_ALLOW_PAID` | `false` | must be `true` for any paid provider to be used |
 | `<PROVIDER>_API_KEY` | — | presence activates the provider |
@@ -74,7 +74,6 @@ All of these live in `backend/.env` (and are also read from the repo-root
 | id | tier | key env | base URL | default model |
 |---|---|---|---|---|
 | `groq` | free | `GROQ_API_KEY` (alias `GROK_API_KEY`) | `api.groq.com/openai/v1` | `openai/gpt-oss-20b` |
-| `cerebras` | free | `CEREBRAS_API_KEY` | `api.cerebras.ai/v1` | `gpt-oss-120b` |
 | `gemini` | free | `GEMINI_API_KEY` | `generativelanguage.googleapis.com/v1beta/openai/` | `gemini-3.5-flash-lite` (2.5 retired for new users, 2026-09-23) |
 | `ollama` | free | `OLLAMA_API_KEY` | `ollama.com/v1` | `gpt-oss:20b` |
 | `openrouter` | free | `OPENROUTER_API_KEY` | `openrouter.ai/api/v1` | `nvidia/nemotron-3-super-120b-a12b:free` (llama-3.3 `:free` removed 2026-09-23; or `OPENROUTER_PRESET`) |
@@ -139,4 +138,10 @@ answers `413`, which is now `transient` (skip this call, don't bench).
 User-facing errors: see `backend/src/middleware/errorHandler.ts` — only
 `createError` copy reaches the client, filtered once more by `looksTechnical`;
 AI-chain failures surface as `AI_UNAVAILABLE` friendly copy.
+
+**Cerebras removed (2026-09-23).** Owner decision — its plan no longer
+offers usable free-tier models (every model returned `402` on both
+environments' keys). Dropped from `PROVIDER_REGISTRY`, the default order,
+both environments' Terraform (secrets + Cloud Run env) and the privacy
+policy's processor list. A leftover `CEREBRAS_API_KEY` is ignored.
 

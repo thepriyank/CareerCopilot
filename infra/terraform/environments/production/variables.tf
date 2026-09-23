@@ -42,7 +42,6 @@ variable "enabled_secrets" {
     "JWT_SECRET",
     "SETTINGS_ENCRYPTION_KEY",
     "GEMINI_API_KEY",
-    "CEREBRAS_API_KEY",
     "OLLAMA_API_KEY",
     "OPENROUTER_API_KEY",
     # Live Razorpay credentials — account activated 2026-09-21. Real
@@ -71,5 +70,5 @@ variable "llm_provider_order" {
   # it backstops the genuinely-free ones (see providerRegistry.ts).
   # Kept identical to staging rather than silently drifting.
   type    = string
-  default = "groq,cerebras,gemini,openrouter,ollama,deepseek,anthropic,openai"
+  default = "groq,gemini,openrouter,ollama,deepseek,anthropic,openai"
 }
