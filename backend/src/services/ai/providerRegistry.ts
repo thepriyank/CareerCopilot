@@ -158,6 +158,8 @@ export interface ActiveProvider {
   model: string
   /** Every model to try on this provider, in order. */
   models: string[]
+  /** True when `*_MODEL` pinned the list — then the model catalog is ignored. */
+  modelsPinned?: boolean
 }
 
 // Ollama sits last among the free tier on purpose: it's the account we top
@@ -218,6 +220,7 @@ export function resolveChain(env: NodeJS.ProcessEnv = process.env): ActiveProvid
       apiKey,
       model: models[0],
       models,
+      modelsPinned: Boolean(override),
     })
   }
 

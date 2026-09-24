@@ -117,3 +117,12 @@ export enum JobOrigin {
   DISCOVERED = 'DISCOVERED',
   PASTED = 'PASTED',
 }
+
+/** Health of one model in the LLM catalog (NM-29 — see docs/NM-29_plan.md). */
+export enum LlmModelStatus {
+  ACTIVE = 'ACTIVE', // passed the JSON-extraction probe
+  RATE_LIMITED = 'RATE_LIMITED', // 429 at probe time — still worth trying live
+  UNAVAILABLE = 'UNAVAILABLE', // 404/400/403-for-model, or timed out
+  FAILED_QUALITY = 'FAILED_QUALITY', // answered, but not valid/correct JSON
+  RETIRED = 'RETIRED', // no longer in the provider's model list
+}

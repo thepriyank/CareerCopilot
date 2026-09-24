@@ -13,6 +13,7 @@
 import { config } from '../../config'
 import { logger } from '../../utils/logger'
 import { ActiveProvider, resolveChain } from './providerRegistry'
+import { catalogModelsFor } from './catalog/modelCatalog'
 
 /** provider id -> epoch ms until which it is benched (Infinity = whole process). */
 const benchedUntil = new Map<string, number>()
@@ -183,6 +184,14 @@ export function handleProviderFailure(providerId: string, err: unknown, model?: 
       break
     }
     case 'transient':
+      // A model that timed out will very likely be slow again on the next
+      // call — bench just that model for the normal cooldown (NM-29) so the
+      // deadline isn't spent on it twice. Other transient errors don't bench.
+      if (model !== undefined && isTimeout(err)) {
+        benchProvider(modelKey(providerId, model), config.llm.cooldownMs)
+        logger.warn(`LLM provider "${providerId}" model "${model}" timed out; benched for ${Math.round(config.llm.cooldownMs / 1000)}s`)
+        break
+      }
       logger.warn(`LLM provider "${label}" had a transient error; trying the next option`, {
         err: message,
       })
@@ -191,9 +200,20 @@ export function handleProviderFailure(providerId: string, err: unknown, model?: 
   return kind
 }
 
-/** A provider's models in order, minus any benched individually. */
+function isTimeout(err: unknown): boolean {
+  const e = err as { name?: string; message?: string }
+  return e?.name === 'APIConnectionTimeoutError' || e?.name === 'AbortError' || /timed? ?out/i.test(e?.message ?? '')
+}
+
+/**
+ * A provider's models in order, minus any benched individually. Source, in
+ * priority order (NM-29): an operator pin via `*_MODEL` env → the model
+ * catalog's tested models (DB, refreshed weekly/daily) → the hardcoded
+ * registry defaults (empty catalog, DB down, staging).
+ */
 export function usableModels(p: ActiveProvider): string[] {
-  const models = p.models?.length ? p.models : [p.model]
+  const fromCatalog = p.modelsPinned ? undefined : catalogModelsFor(p.id)
+  const models = fromCatalog?.length ? fromCatalog : p.models?.length ? p.models : [p.model]
   return models.filter((m) => !isBenched(modelKey(p.id, m)))
 }
 

@@ -145,3 +145,15 @@ environments' keys). Dropped from `PROVIDER_REGISTRY`, the default order,
 both environments' Terraform (secrets + Cloud Run env) and the privacy
 policy's processor list. A leftover `CEREBRAS_API_KEY` is ignored.
 
+## Model catalog (NM-29, 2026-09-24)
+
+Model choice is no longer only hardcoded. `providerChain.usableModels()`
+takes, in order: a `*_MODEL` env pin → the `llm_model_catalog` table's
+ACTIVE/RATE_LIMITED models by rank (filled by production's weekly refresh
+job, checked daily) → the registry's hardcoded list. Ranking puts the
+registry's curated models first, then other passing models by speed, and
+small (<20B) models last. Every model attempt is capped at 45s and a whole
+call at 90s, with the SDKs' own retries off. Provider problems (402/401,
+fully down, too few working models, ≥80% of a daily quota) go to the owner's
+Slack. Full design: `docs/NM-29_plan.md`.
+

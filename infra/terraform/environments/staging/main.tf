@@ -62,6 +62,7 @@ locals {
     JOOBLE_API_KEY                 = "jooble-api-key"
     JSEARCH_RAPID_API_KEY          = "jsearch-rapid-api-key"
     JSEARCH_OPEN_WEB_NINJA_API_KEY = "jsearch-open-web-ninja-api-key"
+    SLACK_ALERTS_WEBHOOK_URL       = "slack-alerts-webhook"
     # Shared secret for POST /api/internal/jobs/ingest — the local JobSpy
     # scraper (scripts/jobspy-ingest/) authenticates with this. Added
     # 2026-09-17 to let that script target the shared staging pool instead

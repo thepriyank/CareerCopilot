@@ -49,6 +49,11 @@ variable "enabled_secrets" {
     # with `terraform import 'module.secrets["GROQ_API_KEY"].google_secret_manager_secret.this'
     # projects/jobmagnet-6a1ab/secrets/jobmagnate-production-groq-api-key`.
     "GROQ_API_KEY",
+    # NM-29 owner alerts (Slack incoming webhook). Created + populated by the
+    # owner outside Terraform on 2026-09-24, then adopted with
+    # `terraform import 'module.secrets["SLACK_ALERTS_WEBHOOK_URL"].google_secret_manager_secret.this'
+    # projects/jobmagnet-6a1ab/secrets/jobmagnate-production-slack-alerts-webhook`.
+    "SLACK_ALERTS_WEBHOOK_URL",
   ]
 }
 

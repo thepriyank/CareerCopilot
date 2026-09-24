@@ -18,6 +18,12 @@
 # too, treat link_check_job and pass_expiry_job as excluded on their own
 # merits, not swept in by "mirror staging" — see
 # infra/terraform/INFRASTRUCTURE.md's "Daily link-health check" section.
+#
+# EXPLICIT DECISION (2026-09-23, owner, NM-29): the LLM catalog refresh +
+# health-check jobs at the bottom of this file run on PRODUCTION ONLY, the
+# reverse of the jobs above — they exist to watch production's own LLM API
+# keys and alert the owner. Staging deliberately has no copy (it keeps the
+# hardcoded model lists as its fallback). See docs/NM-29_plan.md.
 
 data "google_project" "current" {
   project_id = var.project_id
@@ -67,6 +73,7 @@ locals {
     JOOBLE_API_KEY                 = "jooble-api-key"
     JSEARCH_RAPID_API_KEY          = "jsearch-rapid-api-key"
     JSEARCH_OPEN_WEB_NINJA_API_KEY = "jsearch-open-web-ninja-api-key"
+    SLACK_ALERTS_WEBHOOK_URL       = "slack-alerts-webhook"
   }
 
   enabled_secret_map = { for k, v in local.all_secrets : k => v if contains(var.enabled_secrets, k) }
@@ -198,4 +205,83 @@ resource "google_cloud_run_domain_mapping" "frontend_www" {
   spec {
     route_name = module.frontend_service.name
   }
+}
+
+# ─── NM-29: LLM model catalog refresh (weekly) + health check (daily) ─────────
+# Production only — see the EXPLICIT DECISION note at the top of this file.
+# Both run the backend image with a different entrypoint and write the
+# llm_model_catalog / llm_provider_alerts tables; the web service reads the
+# catalog to choose models. Alerts go to the owner's Slack webhook.
+module "llm_scheduler_sa" {
+  source        = "../../modules/service-account"
+  project_id    = var.project_id
+  account_id    = "jm-llm-sched-${var.environment}" # account_id caps at 30 chars
+  display_name  = "Jobmagnate LLM catalog/health job invoker (${var.environment}) — Cloud Scheduler only"
+  project_roles = []
+}
+
+module "llm_catalog_job" {
+  source                = "../../modules/cloud-run-job"
+  project_id            = var.project_id
+  region                = var.region
+  job_name              = "jobmagnate-llm-catalog-${var.environment}"
+  image                 = var.backend_image
+  service_account_email = module.backend_sa.email
+  command               = ["node"]
+  args                  = ["dist/scripts/runModelCatalogRefresh.js"]
+  # ~6 min in testing (Gemini is probed one model at a time to stay under its
+  # free-tier RPM); 20 min leaves headroom as providers add models.
+  timeout_seconds = 1200
+  max_retries     = 0 # a failed run just waits for next week; alerts cover outages
+  labels          = { app = "jobmagnate", environment = var.environment, service = "llm-catalog-job" }
+
+  env_vars = {
+    NODE_ENV           = "production"
+    LLM_PROVIDER_ORDER = var.llm_provider_order
+    LLM_ALLOW_PAID     = "false"
+  }
+  secret_env_vars = { for k, m in module.secrets : k => m.secret_id }
+}
+
+module "llm_catalog_schedule" {
+  source                        = "../../modules/cloud-scheduler-job"
+  project_id                    = var.project_id
+  region                        = var.region
+  name                          = "jobmagnate-llm-catalog-${var.environment}"
+  schedule                      = "0 2 * * 1" # Mondays 02:00 UTC = 07:30 IST
+  time_zone                     = "Etc/UTC"
+  cloud_run_job_name            = module.llm_catalog_job.name
+  invoker_service_account_email = module.llm_scheduler_sa.email
+}
+
+module "llm_health_job" {
+  source                = "../../modules/cloud-run-job"
+  project_id            = var.project_id
+  region                = var.region
+  job_name              = "jobmagnate-llm-health-${var.environment}"
+  image                 = var.backend_image
+  service_account_email = module.backend_sa.email
+  command               = ["node"]
+  args                  = ["dist/scripts/runLlmHealthCheck.js"]
+  timeout_seconds       = 600
+  max_retries           = 0
+  labels                = { app = "jobmagnate", environment = var.environment, service = "llm-health-job" }
+
+  env_vars = {
+    NODE_ENV           = "production"
+    LLM_PROVIDER_ORDER = var.llm_provider_order
+    LLM_ALLOW_PAID     = "false"
+  }
+  secret_env_vars = { for k, m in module.secrets : k => m.secret_id }
+}
+
+module "llm_health_schedule" {
+  source                        = "../../modules/cloud-scheduler-job"
+  project_id                    = var.project_id
+  region                        = var.region
+  name                          = "jobmagnate-llm-health-${var.environment}"
+  schedule                      = "30 2 * * *" # daily 02:30 UTC = 08:00 IST
+  time_zone                     = "Etc/UTC"
+  cloud_run_job_name            = module.llm_health_job.name
+  invoker_service_account_email = module.llm_scheduler_sa.email
 }

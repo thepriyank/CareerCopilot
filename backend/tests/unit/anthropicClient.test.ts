@@ -70,7 +70,7 @@ function loadGenerate(providers: Provider[]) {
       config: {
         anthropic: { apiKey: 'sk-ant-placeholder', model: 'claude-haiku-4-5-20251001', generationModel: 'claude-sonnet-4-6' },
         openrouter: { apiKey: '', model: '' },
-        llm: { providers, cooldownMs: 900_000, billingCooldownMs: 3_600_000, fatalCooldownMs: 21_600_000, allowPaid: providers.some((p) => p.tier === 'paid') },
+        llm: { providers, cooldownMs: 900_000, billingCooldownMs: 3_600_000, fatalCooldownMs: 21_600_000, attemptTimeoutMs: 45_000, callDeadlineMs: 90_000, catalogCacheTtlMs: 600_000, allowPaid: providers.some((p) => p.tier === 'paid') },
         settingsEncryptionKey: 'x'.repeat(64),
         redis: { url: '', llmCacheTtlSeconds: 3600 }, // unset → llmCache.ts no-ops, same as no caching existed
       },
@@ -79,6 +79,10 @@ function loadGenerate(providers: Provider[]) {
   })
   return mod
 }
+
+// Platform-chain calls always pass a per-attempt timeout and disable the
+// SDK's own retries (NM-29) — the chain is the retry policy.
+const PLATFORM_OPTS = expect.objectContaining({ maxRetries: 0, timeout: expect.any(Number) })
 
 const openAiReply = (content: string, total = 10) => ({
   choices: [{ message: { content } }],
@@ -98,7 +102,7 @@ describe('generate() platform provider chain', () => {
 
     expect(result).toBe('hi from gemini')
     expect(mockOpenAiCreate).toHaveBeenCalledTimes(1)
-    expect(mockOpenAiCreate).toHaveBeenCalledWith(expect.objectContaining({ model: 'gemini-2.5-flash-lite' }))
+    expect(mockOpenAiCreate).toHaveBeenCalledWith(expect.objectContaining({ model: 'gemini-2.5-flash-lite' }), PLATFORM_OPTS)
     expect(mockAnthropicCreate).not.toHaveBeenCalled()
   })
 
@@ -112,14 +116,14 @@ describe('generate() platform provider chain', () => {
     const first = await generate('prompt one')
     expect(first).toBe('hi from gemini')
     expect(mockOpenAiCreate).toHaveBeenCalledTimes(2)
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'llama-3.3-70b-versatile' }))
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'gemini-2.5-flash-lite' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'llama-3.3-70b-versatile' }), PLATFORM_OPTS)
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'gemini-2.5-flash-lite' }), PLATFORM_OPTS)
 
     // groq is now benched — the next call skips straight to gemini.
     const second = await generate('prompt two')
     expect(second).toBe('hi from gemini')
     expect(mockOpenAiCreate).toHaveBeenCalledTimes(3)
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'gemini-2.5-flash-lite' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'gemini-2.5-flash-lite' }), PLATFORM_OPTS)
   })
 
   it("tries the provider's next model when one is rate-limited, and benches only that model", async () => {
@@ -134,10 +138,10 @@ describe('generate() platform provider chain', () => {
       .mockResolvedValueOnce(openAiReply('hi from b again'))
 
     expect(await generate('one')).toBe('hi from b')
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'b:free' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'b:free' }), PLATFORM_OPTS)
     // a:free is benched, but the provider isn't — the next call goes straight to b:free, not gemini.
     expect(await generate('two')).toBe('hi from b again')
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'b:free' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'b:free' }), PLATFORM_OPTS)
   })
 
   it("skips a provider's remaining models on a 402 (billing is account-wide)", async () => {
@@ -152,7 +156,7 @@ describe('generate() platform provider chain', () => {
 
     expect(await generate('a prompt')).toBe('hi from gemini')
     expect(mockOpenAiCreate).toHaveBeenCalledTimes(2)
-    expect(mockOpenAiCreate).not.toHaveBeenCalledWith(expect.objectContaining({ model: 'm2' }))
+    expect(mockOpenAiCreate.mock.calls.map(([body]) => body.model)).toEqual(['m1', 'gemini-2.5-flash-lite'])
   })
 
   it('falls through on an empty response without benching that provider', async () => {
@@ -165,7 +169,7 @@ describe('generate() platform provider chain', () => {
     expect(await generate('prompt one')).toBe('hi from gemini')
     // ollama wasn't benched — the next call tries it first again.
     expect(await generate('prompt two')).toBe('hi from ollama')
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'gpt-oss:20b' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'gpt-oss:20b' }), PLATFORM_OPTS)
   })
 
   it('asks gpt-oss models for low reasoning effort, and nothing else', async () => {
@@ -176,7 +180,7 @@ describe('generate() platform provider chain', () => {
 
     await generate('a prompt')
 
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'gpt-oss:20b', reasoning_effort: 'low' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'gpt-oss:20b', reasoning_effort: 'low' }), PLATFORM_OPTS)
     expect(mockOpenAiCreate.mock.calls[1][0]).not.toHaveProperty('reasoning_effort')
   })
 
@@ -229,6 +233,53 @@ describe('generate() platform provider chain', () => {
   })
 })
 
+describe('generate() time limits (NM-29)', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('benches a model that timed out, so the next call skips it', async () => {
+    const or = { ...P.gemini, id: 'openrouter', model: 'slow:free', models: ['slow:free', 'fast:free'] } as Provider & { models: string[] }
+    const { generate } = loadGenerate([or])
+    mockOpenAiCreate
+      .mockRejectedValueOnce(Object.assign(new Error('Request timed out.'), { name: 'APIConnectionTimeoutError' }))
+      .mockResolvedValueOnce(openAiReply('from fast'))
+      .mockResolvedValueOnce(openAiReply('from fast again'))
+
+    expect(await generate('one')).toBe('from fast')
+    expect(await generate('two')).toBe('from fast again')
+    expect(mockOpenAiCreate.mock.calls.map(([body]) => body.model)).toEqual(['slow:free', 'fast:free', 'fast:free'])
+  })
+
+  it('stops trying further models once the whole-call deadline has passed', async () => {
+    let now = 1_000_000
+    jest.spyOn(Date, 'now').mockImplementation(() => now)
+    const { generate } = loadGenerate([P.groq, P.gemini])
+    // groq fails after "100 seconds" — past the 90s call deadline.
+    mockOpenAiCreate.mockImplementationOnce(async () => {
+      now += 100_000
+      throw Object.assign(new Error('boom'), { status: 503 })
+    })
+
+    await expect(generate('a prompt')).rejects.toMatchObject({ code: 'AI_UNAVAILABLE' })
+    expect(mockOpenAiCreate).toHaveBeenCalledTimes(1) // gemini never attempted
+  })
+
+  it('gives each attempt no more than the time left before the deadline', async () => {
+    let now = 1_000_000
+    jest.spyOn(Date, 'now').mockImplementation(() => now)
+    const { generate } = loadGenerate([P.groq, P.gemini])
+    mockOpenAiCreate
+      .mockImplementationOnce(async () => {
+        now += 70_000 // 20s left of the 90s deadline
+        throw Object.assign(new Error('boom'), { status: 503 })
+      })
+      .mockResolvedValueOnce(openAiReply('hi from gemini'))
+
+    expect(await generate('a prompt')).toBe('hi from gemini')
+    expect(mockOpenAiCreate.mock.calls[0][1]).toMatchObject({ timeout: 45_000, maxRetries: 0 })
+    expect(mockOpenAiCreate.mock.calls[1][1]).toMatchObject({ timeout: 20_000, maxRetries: 0 })
+  })
+})
+
 describe('generateJson() malformed-JSON retry', () => {
   it('parses a clean JSON response on the first try', async () => {
     const { generateJson } = loadGenerate([P.gemini])
@@ -249,14 +300,14 @@ describe('generateJson() malformed-JSON retry', () => {
 
     expect(result).toEqual({ ok: true })
     expect(mockOpenAiCreate).toHaveBeenCalledTimes(2)
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'llama-3.3-70b-versatile' }))
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'gemini-2.5-flash-lite' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(1, expect.objectContaining({ model: 'llama-3.3-70b-versatile' }), PLATFORM_OPTS)
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ model: 'gemini-2.5-flash-lite' }), PLATFORM_OPTS)
 
     // Confirm groq was excluded only for the retry, not benched for the process.
     mockOpenAiCreate.mockResolvedValueOnce(openAiReply('{"again": true}'))
     const second = await generateJson<{ again: boolean }>('another prompt')
     expect(second).toEqual({ again: true })
-    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'llama-3.3-70b-versatile' }))
+    expect(mockOpenAiCreate).toHaveBeenNthCalledWith(3, expect.objectContaining({ model: 'llama-3.3-70b-versatile' }), PLATFORM_OPTS)
   })
 
   it('throws after every provider in the chain returns malformed JSON', async () => {
