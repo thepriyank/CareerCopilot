@@ -55,6 +55,13 @@ export const config = {
     // model retired). Used to be the whole process lifetime, which let one
     // bad response take a provider out until the next deploy. Default 6 hours.
     fatalCooldownMs: parseInt(process.env.LLM_FATAL_COOLDOWN_MS ?? String(6 * 60 * 60 * 1000), 10),
+    // NM-29 time limits: one model attempt may take at most this long, and
+    // a whole call (all fallbacks together) at most `callDeadlineMs`. A free
+    // OpenRouter model once took ~2.5 min on a LinkedIn-sized request.
+    attemptTimeoutMs: parseInt(process.env.LLM_ATTEMPT_TIMEOUT_MS ?? '45000', 10),
+    callDeadlineMs: parseInt(process.env.LLM_CALL_DEADLINE_MS ?? '90000', 10),
+    // How often the web service re-reads the model catalog table.
+    catalogCacheTtlMs: parseInt(process.env.LLM_CATALOG_CACHE_TTL_MS ?? String(10 * 60 * 1000), 10),
     // Paid providers (Anthropic, OpenAI) are only ever used when this is set —
     // guards against surprise spend during local dev.
     allowPaid: /^(1|true|yes|on)$/i.test((process.env.LLM_ALLOW_PAID ?? '').trim()),

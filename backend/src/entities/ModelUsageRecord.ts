@@ -9,12 +9,14 @@ export class ModelUsageRecord {
   @PrimaryGeneratedColumn('uuid')
   id!: string
 
-  @Column()
-  userId!: string
+  /** Null for calls with no user behind them (background jobs) — since
+   * NM-29 every platform call is recorded, not only user-initiated ones. */
+  @Column({ type: 'uuid', nullable: true })
+  userId!: string | null
 
-  @ManyToOne(() => User, (u) => u.modelUsageRecords, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (u) => u.modelUsageRecords, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'userId' })
-  user!: User
+  user!: User | null
 
   @Column()
   modelName!: string

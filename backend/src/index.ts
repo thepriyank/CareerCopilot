@@ -49,6 +49,7 @@ app.use(errorHandler)
 
 import { AppDataSource } from './config/dataSource'
 import { startDiscoveryCron } from './services/jobs/discoveryCron'
+import { reloadCatalogCache } from './services/ai/catalog/modelCatalog'
 
 AppDataSource.initialize()
   .then(async () => {
@@ -65,6 +66,9 @@ AppDataSource.initialize()
       logger.info(`Jobmagnate API running on http://localhost:${config.port}`)
     })
     startDiscoveryCron()
+    // Warm the LLM model catalog (NM-29) so the first AI call already uses
+    // tested models; never blocks startup and never throws.
+    void reloadCatalogCache()
   })
   .catch((err) => {
     logger.error('Database connection or migration failed', { err: err.message })

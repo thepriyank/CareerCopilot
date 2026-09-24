@@ -22,6 +22,14 @@ than no note.
 
 **Changelog (most recent first):**
 
+- **2026-09-24** — NM-29, production only: `jobmagnate-llm-catalog-production`
+  (weekly, Mon 02:00 UTC) and `jobmagnate-llm-health-production` (daily,
+  02:30 UTC) Cloud Run Jobs + Cloud Scheduler triggers + invoker SA
+  `jm-llm-sched-production`; `SLACK_ALERTS_WEBHOOK_URL` enabled —
+  `jobmagnate-production-slack-alerts-webhook` was created + populated by the
+  owner, then adopted with `terraform import`. See "LLM model catalog jobs"
+  below and `docs/NM-29_plan.md`.
+
 - **2026-09-23** — Production, applied via `terraform-apply-production.yml`:
   (1) `GROQ_API_KEY` enabled — `jobmagnate-production-groq-api-key` was
   created + populated outside Terraform, then adopted with `terraform import`
@@ -93,6 +101,26 @@ State: **local** (`infra/terraform/bootstrap/terraform.tfstate`, gitignored — 
 | Neon branch | `staging` (`br-muddy-dream-b3x0ok39`), parent `production` — seeded 2026-09-09 with the 40 real `jsearch`-sourced job listings migrated from local dev Postgres; the daily discovery job has been adding to this since (see "Daily discovery job" below) |
 | Cloud Run scaling | backend: min 0 / max **1** (capped — Phase E migration/cron safety hasn't landed, see plan doc §6/§8); frontend: min 0 / max 3 |
 | Redis | **not configured anywhere** — deliberate, see plan doc's Redis decision |
+
+### LLM model catalog jobs (NM-29, production only — added 2026-09-24)
+
+The first background jobs on **production** (every other job is
+staging-only; see the note at the top of `production/main.tf`). They watch
+production's own LLM keys, so they only make sense there.
+
+| Resource | Value |
+|---|---|
+| Weekly refresh | Cloud Run Job `jobmagnate-llm-catalog-production` → `node dist/scripts/runModelCatalogRefresh.js`; Scheduler `0 2 * * 1` UTC (Mon 07:30 IST); ~6 min, timeout 20 min |
+| Daily health | Cloud Run Job `jobmagnate-llm-health-production` → `node dist/scripts/runLlmHealthCheck.js`; Scheduler `30 2 * * *` UTC (08:00 IST); ~10 s |
+| Invoker SA | `jm-llm-sched-production@…` — `roles/run.invoker` on the two jobs only |
+| Runtime identity | `jobmagnate-be-production` (backend SA) — same secret set as the backend |
+| Tables | `llm_model_catalog` (read by the web service, cached 10 min), `llm_provider_alerts` (Slack de-dup) |
+| Alerts | Slack incoming webhook from secret `SLACK_ALERTS_WEBHOOK_URL`; no webhook → log only |
+
+Run manually: `gcloud run jobs execute jobmagnate-llm-catalog-production
+--region asia-southeast1 --project jobmagnet-6a1ab` (or `…-llm-health-…`).
+Staging has no copy: its `llm_model_catalog` stays empty, so it uses the
+hardcoded model lists in `providerRegistry.ts`.
 
 ### Daily discovery job (Phase E fix, applied 2026-09-09)
 

@@ -87,16 +87,22 @@ async function generateViaAnthropic(
   systemPrompt: string | undefined,
   model: string,
   maxTokens: number,
-  apiKey: string
+  apiKey: string,
+  timeoutMs?: number
 ): Promise<GenerateResult> {
   const client = anthropicClientFor(apiKey)
 
-  const response = await client.messages.create({
-    model,
-    max_tokens: maxTokens,
-    ...(systemPrompt && { system: systemPrompt }),
-    messages: [{ role: 'user', content: prompt }],
-  })
+  const response = await client.messages.create(
+    {
+      model,
+      max_tokens: maxTokens,
+      ...(systemPrompt && { system: systemPrompt }),
+      messages: [{ role: 'user', content: prompt }],
+    },
+    // Platform-chain calls pass a timeout and turn the SDK's own retries off
+    // (see generateViaProvider); a user's own key keeps the SDK defaults.
+    timeoutMs !== undefined ? { timeout: timeoutMs, maxRetries: 0 } : undefined
+  )
 
   const content = response.content[0]
   if (content.type !== 'text') {
@@ -145,14 +151,16 @@ async function generateViaProvider(
   provider: ActiveProvider,
   prompt: string,
   systemPrompt: string | undefined,
-  maxTokens: number
+  maxTokens: number,
+  timeoutMs: number
 ): Promise<GenerateResult> {
   if (provider.protocol === 'anthropic') {
-    return generateViaAnthropic(prompt, systemPrompt, provider.model, maxTokens, provider.apiKey)
+    return generateViaAnthropic(prompt, systemPrompt, provider.model, maxTokens, provider.apiKey, timeoutMs)
   }
 
   const client = openaiClientFor(provider.baseUrl as string, provider.apiKey)
-  const response = await client.chat.completions.create({
+  const response = await client.chat.completions.create(
+    {
     model: provider.model,
     max_tokens: maxTokens,
     // gpt-oss models "think" out of the same max_tokens budget as the answer;
@@ -164,7 +172,12 @@ async function generateViaProvider(
       ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
       { role: 'user' as const, content: prompt },
     ],
-  })
+    },
+    // maxRetries 0: the chain itself is the retry policy (next model / next
+    // provider). The SDK's default 2 retries with backoff silently tripled
+    // how long a slow or rate-limited model held up a request (NM-29).
+    { timeout: timeoutMs, maxRetries: 0 }
+  )
 
   const text = response.choices[0]?.message?.content
   if (!text) {
@@ -182,6 +195,7 @@ export function isReasoningBudgetModel(model: string): boolean {
 }
 
 const MAX_MODELS_PER_PROVIDER_PER_CALL = 4
+const MIN_ATTEMPT_MS = 3000
 
 interface ChainResult extends GenerateResult {
   provider: ActiveProvider
@@ -219,14 +233,25 @@ async function runPlatformChain(
 
   let lastErr: unknown
   let lastProviderId = ''
-  for (const provider of chain) {
+  // One deadline for the whole call, across every fallback; each attempt
+  // gets min(attemptTimeoutMs, time left). Below MIN_ATTEMPT_MS there's no
+  // point starting another model.
+  const deadline = Date.now() + config.llm.callDeadlineMs
+  outer: for (const provider of chain) {
     // Cap models per provider per call: free-tier 429s fail fast, but a long
     // list of slow failures shouldn't hold one request hostage.
     for (const model of usableModels(provider).slice(0, MAX_MODELS_PER_PROVIDER_PER_CALL)) {
+      const remaining = deadline - Date.now()
+      if (remaining < MIN_ATTEMPT_MS) {
+        logger.warn(`LLM call hit its ${config.llm.callDeadlineMs}ms deadline; not trying further models`)
+        break outer
+      }
       lastProviderId = `${provider.id}/${model}`
       const attempt = { ...provider, model }
       try {
-        const result = await generateViaProvider(attempt, prompt, systemPrompt, maxTokens)
+        const result = await generateViaProvider(
+          attempt, prompt, systemPrompt, maxTokens, Math.min(config.llm.attemptTimeoutMs, remaining)
+        )
         logger.debug(`LLM call served by "${provider.id}" (${model})`)
         return { ...result, provider: attempt }
       } catch (err) {
@@ -292,11 +317,13 @@ async function generateCore(
     providerId = chained.provider.id
   }
 
-  // Log usage to DB (fire and forget; don't block the response)
-  if (userId) {
+  // Log usage to DB (fire and forget; don't block the response). Every call
+  // since NM-29 — background jobs too (userId null) — so usage per provider
+  // and model is complete. Skipped only when the DB isn't up (tests, scripts).
+  if (AppDataSource.isInitialized) {
     const modelUsageRepo = AppDataSource.getRepository(ModelUsageRecord)
     const usageRecord = modelUsageRepo.create({
-      userId,
+      userId: userId ?? null,
       modelName,
       apiKeySource,
       tokensUsed: result.tokensUsed,
