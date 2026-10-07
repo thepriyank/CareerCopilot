@@ -2,7 +2,7 @@
 // via a native title tooltip — no extra JS/state needed. See jobs/[id]/
 // page.tsx and jobs/page.tsx for the four locked actions (recompute
 // match, skill gap, tailor résumé, cover letter).
-export function LockedHint({ label = 'Feature not available in free-tier' }: { label?: string }) {
+export function LockedHint({ label = 'Locked on the free tier — see the upgrade options on this page' }: { label?: string }) {
   return (
     <span
       title={label}

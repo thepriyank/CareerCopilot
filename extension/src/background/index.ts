@@ -37,9 +37,11 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
 interface FillFlowResult {
   ok: boolean
   message: string
+  /** Out of free autofills — the popup offers an upgrade (NM-5). */
+  upgrade?: boolean
 }
 
-async function runFillFlow(tabId: number): Promise<FillFlowResult> {
+export async function runFillFlow(tabId: number): Promise<FillFlowResult> {
   const token = await getToken()
   if (!token) return { ok: false, message: 'Connect the extension to JobMagnate first.' }
 
@@ -89,7 +91,13 @@ async function runFillFlow(tabId: number): Promise<FillFlowResult> {
     return { ok: true, message: `Filled ${filled} of ${mappable} matched fields — review before you submit.` }
   } catch (err) {
     if (err instanceof ApiError && err.status === 402) {
-      return { ok: false, message: "You've used all your autofills for this period." }
+      // NM-5: the moment a free user runs out is the best moment to offer an
+      // upgrade — the popup turns `upgrade` into a button to Settings → Plan.
+      return {
+        ok: false,
+        upgrade: true,
+        message: "You've used all your free autofills for this month. Get a pass for unlimited autofills.",
+      }
     }
     if (err instanceof ApiError && err.status === 403 && err.code === 'PLATFORM_EXCLUDED') {
       return { ok: false, message: 'JobMagnate doesn’t autofill forms on this site yet.' }

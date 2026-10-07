@@ -7,7 +7,8 @@ import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { LockedHint } from '@/components/ui/LockedHint'
-import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError, userMessage } from '@/lib/api'
+import { UpgradePrompt } from '@/components/billing/UpgradePrompt'
+import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError, userMessage, isUpgradeRequired } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
 import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
 
@@ -129,7 +130,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.computeMatch(id)
       setMatchResult(res.matchResult)
     } catch (err) {
-      setMatchError(err instanceof ApiError ? err.message : 'Could not compute a match score')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setMatchError(err instanceof ApiError ? err.message : 'Could not compute a match score')
     } finally {
       setMatching(false)
     }
@@ -142,7 +144,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.computeSkillGap(id)
       setSkillGap({ existing: res.existing, supportedByResume: res.supportedByResume, gaps: res.skillGapReport.missingSkills })
     } catch (err) {
-      setSkillError(err instanceof ApiError ? err.message : 'Could not check skill gaps')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setSkillError(err instanceof ApiError ? err.message : 'Could not check skill gaps')
     } finally {
       setCheckingSkills(false)
     }
@@ -205,7 +208,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.generateCoverLetter(id)
       setCoverLetter(res.coverLetter)
     } catch (err) {
-      setLetterError(err instanceof ApiError ? err.message : 'Could not generate a cover letter')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setLetterError(err instanceof ApiError ? err.message : 'Could not generate a cover letter')
     } finally {
       setGeneratingLetter(false)
     }
@@ -229,7 +233,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.generateTailoredResume(id)
       setTailoredResume(res.tailoredResume)
     } catch (err) {
-      setTailorError(err instanceof ApiError ? err.message : 'Could not tailor the resume')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setTailorError(err instanceof ApiError ? err.message : 'Could not tailor the resume')
     } finally {
       setTailoring(false)
     }
@@ -327,6 +332,7 @@ export default function JobDetailPage() {
 
         {/* Right: match / skill-gap / cover letter */}
         <div style={{ overflow: 'auto', padding: 24, background: 'var(--paper-2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {aiFeaturesLocked && <UpgradePrompt />}
           <Section
             title="Match"
             action={
