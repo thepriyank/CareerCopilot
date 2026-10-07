@@ -1,4 +1,4 @@
-import type { FieldMappingEntry, FillableProfileFields, FormFieldSchema } from '../lib/fieldSchema'
+import type { AttachmentPayload, FieldMappingEntry, FillableProfileFields, FormFieldSchema } from '../lib/fieldSchema'
 
 // Overridden at build time for local dev — see scripts/build.mjs's
 // `--api=` flag and README. Defaults to production. Was pointed at the
@@ -79,6 +79,53 @@ export interface ExtensionFillsResponse extends ExtensionProfileResponse {
   resume: { type: string; id: string; downloadUrl: string } | null
   unapprovedTailoredResumeExists: boolean
   coverLetter: { id: string; downloadUrl: string } | null
+  /** Approved cover letter as plain text, for textarea fields (NM-4). */
+  coverLetterText?: string | null
+}
+
+function toBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const chunk = 0x8000 // stay well under String.fromCharCode's argument limit
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
+/**
+ * Downloads the résumé or cover letter to attach (NM-4). The server
+ * re-resolves which artifact (approved-only) from the job id — the
+ * extension never picks one. Returns null when there's nothing to attach
+ * (404); other failures throw like any API call.
+ */
+export async function fetchArtifact(
+  kind: 'resume' | 'cover-letter',
+  jobId: string | null
+): Promise<AttachmentPayload | null> {
+  const token = await getToken()
+  if (!token) throw new ApiError(401, 'NOT_CONNECTED', 'Connect the extension to JobMagnate first')
+  const query = jobId ? `?jobId=${encodeURIComponent(jobId)}` : ''
+
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE_URL}/api/extension/artifacts/${kind}${query}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', "Can't reach JobMagnate right now. Check your connection and try again.")
+  }
+  if (res.status === 404) return null
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new ApiError(res.status, body?.error?.code ?? 'UNKNOWN_ERROR', body?.error?.message ?? 'Something went wrong on our side. Please try again in a moment.')
+  }
+
+  return {
+    base64: toBase64(await res.arrayBuffer()),
+    filename: res.headers.get('X-Filename') ?? (kind === 'resume' ? 'Resume.pdf' : 'Cover_Letter.pdf'),
+    mimeType: res.headers.get('Content-Type')?.split(';')[0] ?? 'application/pdf',
+  }
 }
 
 export function requestFill(url: string): Promise<ExtensionFillsResponse> {

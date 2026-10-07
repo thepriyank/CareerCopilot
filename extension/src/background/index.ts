@@ -1,5 +1,6 @@
-import { getToken, setToken, clearToken, fetchProfile, requestFill, requestFieldMap, ApiError } from './api'
-import type { FormFieldSchema } from '../lib/fieldSchema'
+import { getToken, setToken, clearToken, fetchProfile, requestFill, requestFieldMap, fetchArtifact, ApiError } from './api'
+import type { ExtensionFillsResponse } from './api'
+import type { FieldMappingEntry, FillAttachments, FormFieldSchema } from '../lib/fieldSchema'
 
 // The only piece that holds the token and makes network calls — see
 // "Architecture" in docs/assisted_apply_extension_plan.md. Orchestrates:
@@ -33,6 +34,73 @@ chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) =>
   }
   return false
 })
+
+/**
+ * Fetches only the documents this particular form has a place for (NM-4):
+ * the résumé file if a résumé field is a file input, the cover letter as a
+ * file or as text depending on that field's type. The server decides *which*
+ * artifact (approved-only, best match for the job); a missing one just
+ * leaves the field blank — never a reason to fail the whole fill.
+ */
+export async function gatherAttachments(
+  schema: FormFieldSchema[],
+  mapping: FieldMappingEntry[],
+  fills: Pick<ExtensionFillsResponse, 'job' | 'resume' | 'coverLetter' | 'coverLetterText'>
+): Promise<FillAttachments> {
+  const typeOf = new Map(schema.map((f) => [f.fieldKey, f.type.toLowerCase()]))
+  const fieldTypes = (key: 'resume' | 'coverLetter') =>
+    mapping.filter((m) => m.profileKey === key).map((m) => typeOf.get(m.fieldKey) ?? '')
+
+  const jobId = fills.job?.id ?? null
+  const attachments: FillAttachments = {}
+  const wantsResumeFile = fieldTypes('resume').includes('file') && !!fills.resume
+  const coverTypes = fieldTypes('coverLetter')
+  const wantsCoverFile = coverTypes.includes('file') && !!fills.coverLetter
+  const wantsCoverText = coverTypes.some((t) => t !== 'file') && !!fills.coverLetterText
+
+  // Takes a thunk, not a promise, so a synchronous throw is caught too.
+  const safely = async <T,>(fn: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await fn()
+    } catch {
+      return null // a document we couldn't fetch is left blank, the rest still fills
+    }
+  }
+  const [resume, coverLetterFile] = await Promise.all([
+    wantsResumeFile ? safely(() => fetchArtifact('resume', jobId)) : Promise.resolve(null),
+    wantsCoverFile ? safely(() => fetchArtifact('cover-letter', jobId)) : Promise.resolve(null),
+  ])
+  if (resume) attachments.resume = resume
+  if (coverLetterFile) attachments.coverLetterFile = coverLetterFile
+  if (wantsCoverText && fills.coverLetterText) attachments.coverLetterText = fills.coverLetterText
+  return attachments
+}
+
+const RESUME_LABEL: Record<string, string> = {
+  TAILORED: 'your tailored résumé',
+  MASTER: 'your résumé',
+  ORIGINAL: 'your uploaded résumé',
+}
+
+/** The popup's one-line summary of a fill, including what got attached (NM-4). */
+export function fillSummary(
+  result: { filled: number; mappable: number; attached?: ('resume' | 'coverLetter')[] },
+  fills: Pick<ExtensionFillsResponse, 'resume' | 'unapprovedTailoredResumeExists'>
+): string {
+  if (result.mappable === 0) {
+    return "Nothing on this form matched your profile — it's probably all screening questions. Review and fill those yourself."
+  }
+  const parts = [`Filled ${result.filled} of ${result.mappable} matched fields`]
+  const docs: string[] = []
+  if (result.attached?.includes('resume')) docs.push(RESUME_LABEL[fills.resume?.type ?? ''] ?? 'your résumé')
+  if (result.attached?.includes('coverLetter')) docs.push('your cover letter')
+  if (docs.length) parts.push(`attached ${docs.join(' and ')}`)
+  let message = `${parts.join(', ')} — review before you submit.`
+  if (fills.unapprovedTailoredResumeExists) {
+    message += ' You have an unapproved tailored résumé for this job — review it in JobMagnate to use it next time.'
+  }
+  return message
+}
 
 interface FillFlowResult {
   ok: boolean
@@ -76,19 +144,19 @@ export async function runFillFlow(tabId: number): Promise<FillFlowResult> {
       requestFieldMap(hostname, schema),
     ])
 
+    const attachments = await gatherAttachments(schema, mapResult.mapping, fillsResult)
+
     const fillResponse = (await chrome.tabs.sendMessage(tabId, {
       type: 'JOBMAGNATE_FILL',
       profile: fillsResult.profile,
       mapping: mapResult.mapping,
-    })) as { filled: number; mappable: number } | undefined
+      attachments,
+    })) as { filled: number; mappable: number; attached?: ('resume' | 'coverLetter')[] } | undefined
 
-    const filled = fillResponse?.filled ?? 0
-    const mappable = fillResponse?.mappable ?? 0
-
-    if (mappable === 0) {
-      return { ok: true, message: "Nothing on this form matched your profile — it's probably all screening questions. Review and fill those yourself." }
+    return {
+      ok: true,
+      message: fillSummary({ filled: fillResponse?.filled ?? 0, mappable: fillResponse?.mappable ?? 0, attached: fillResponse?.attached }, fillsResult),
     }
-    return { ok: true, message: `Filled ${filled} of ${mappable} matched fields — review before you submit.` }
   } catch (err) {
     if (err instanceof ApiError && err.status === 402) {
       // NM-5: the moment a free user runs out is the best moment to offer an

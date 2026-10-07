@@ -37,7 +37,7 @@ describe('resolveArtifactsForJob', () => {
     )
 
     const result = await resolveArtifactsForJob('u1', 'job-1')
-    expect(result.resume).toEqual({ type: 'TAILORED', id: 'tailored-1', downloadUrl: '/api/jobs/job-1/tailor/pdf' })
+    expect(result.resume).toEqual({ type: 'TAILORED', id: 'tailored-1', downloadUrl: '/api/extension/artifacts/resume?jobId=job-1' })
     expect(result.unapprovedTailoredResumeExists).toBe(false)
   })
 
@@ -48,7 +48,7 @@ describe('resolveArtifactsForJob', () => {
     )
 
     const result = await resolveArtifactsForJob('u1', 'job-1')
-    expect(result.resume).toEqual({ type: 'MASTER', id: 'master-1', downloadUrl: '/api/resume/master/master-1/pdf' })
+    expect(result.resume).toEqual({ type: 'MASTER', id: 'master-1', downloadUrl: '/api/extension/artifacts/resume?jobId=job-1' })
     expect(result.unapprovedTailoredResumeExists).toBe(true)
   })
 
@@ -56,7 +56,7 @@ describe('resolveArtifactsForJob', () => {
     resumeFileRepo.rows.push({ id: 'file-1', userId: 'u1', uploadedAt: new Date('2026-01-01') } as never)
 
     const result = await resolveArtifactsForJob('u1', 'job-1')
-    expect(result.resume).toEqual({ type: 'ORIGINAL', id: 'file-1', downloadUrl: '/api/resumes/file/file-1' })
+    expect(result.resume).toEqual({ type: 'ORIGINAL', id: 'file-1', downloadUrl: '/api/extension/artifacts/resume?jobId=job-1' })
   })
 
   it('never returns a DRAFT master resume', async () => {
@@ -70,7 +70,7 @@ describe('resolveArtifactsForJob', () => {
     coverLetterRepo.rows.push({ id: 'cl-1', userId: 'u1', jobId: 'job-1', status: ArtifactStatus.APPROVED, createdAt: new Date() } as never)
 
     const result = await resolveArtifactsForJob('u1', 'job-1')
-    expect(result.coverLetter).toEqual({ id: 'cl-1', downloadUrl: '/api/jobs/job-1/cover-letter/pdf' })
+    expect(result.coverLetter).toEqual({ id: 'cl-1', downloadUrl: '/api/extension/artifacts/cover-letter?jobId=job-1' })
   })
 
   it('never substitutes an unapproved cover letter — returns null instead', async () => {
