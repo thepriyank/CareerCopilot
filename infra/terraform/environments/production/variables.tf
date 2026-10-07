@@ -35,7 +35,7 @@ variable "firebase_project_id" {
 }
 
 variable "enabled_secrets" {
-  description = "Same catalog as staging (see main.tf's locals.all_secrets) — kept identical on purpose so both environments stay symmetric. Values are entirely separate Secret Manager secrets/versions, never shared with staging (see README.md's runbook)."
+  description = "Same catalog as staging (see main.tf's locals.all_secrets) — kept identical on purpose so both environments stay symmetric. Separate Secret Manager secrets from staging's; note database-url holds the same connection string in both (shared database, deliberate — see INFRASTRUCTURE.md "Database")."
   type        = list(string)
   default = [
     "DATABASE_URL",

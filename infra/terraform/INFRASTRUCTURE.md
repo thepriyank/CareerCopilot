@@ -22,6 +22,12 @@ than no note.
 
 **Changelog (most recent first):**
 
+- **2026-10-07** — Documented the **shared database**: staging and production
+  both run on the Neon `staging` branch by deliberate owner decision (see
+  "Database" below). Earlier entries and sections describing separate
+  branches were wrong. Production section status corrected (live since
+  2026-09-21). Doc-only — no infra change.
+
 - **2026-09-24** — NM-29, production only: `jobmagnate-llm-catalog-production`
   (weekly, Mon 02:00 UTC) and `jobmagnate-llm-health-production` (daily,
   02:30 UTC) Cloud Run Jobs + Cloud Scheduler triggers + invoker SA
@@ -77,6 +83,15 @@ than no note.
 | Artifact Registry | `asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate` (one repo, `backend`/`frontend` image names) |
 | Terraform state bucket | `jobmagnet-6a1ab-tfstate` (bootstrap: local state; environments: this bucket, prefix `env/<name>`) |
 
+## Database
+
+**Shared database — deliberate (owner decision, confirmed 2026-10-07).** Staging and production both use the Neon branch named `staging` (`br-muddy-dream-b3x0ok39`, endpoint `ep-mute-snow-b3twyzgn`): both `jobmagnate-staging-database-url` and `jobmagnate-production-database-url` point there. The branch named `production` (`br-lucky-term-b3v6w6c4`) is unused — it has no app tables. Consequences to keep in mind: staging deploys run migrations against live user data; anything done on staging (or in local dev, whose `backend/.env` points at the same endpoint) reads and writes production data; and production-only jobs (NM-29) write tables staging also reads.
+
+If the environments are ever separated, that's its own planned change
+(choose the production branch, migrate data, switch
+`jobmagnate-production-database-url`, maintenance window) — not a
+side effect of other work.
+
 ## Bootstrap (`infra/terraform/bootstrap/`) — applied 2026-09-08
 
 One-time, rarely touched. Creates:
@@ -98,7 +113,7 @@ State: **local** (`infra/terraform/bootstrap/terraform.tfstate`, gitignored — 
 | Frontend Cloud Run service | `jobmagnate-frontend-staging` — https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app — same note |
 | Backend runtime SA | `jobmagnate-be-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` (`roles/storage.objectAdmin` on `jobmagnet-user-data` only — no other project roles; no Firebase-specific role needed, see `main.tf`'s comment on why) |
 | Frontend runtime SA | `jobmagnate-fe-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` (zero project roles — calls no GCP APIs itself) |
-| Neon branch | `staging` (`br-muddy-dream-b3x0ok39`), parent `production` — seeded 2026-09-09 with the 40 real `jsearch`-sourced job listings migrated from local dev Postgres; the daily discovery job has been adding to this since (see "Daily discovery job" below) |
+| Neon branch | `staging` (`br-muddy-dream-b3x0ok39`) — **shared with production**, see "Database" above. Seeded 2026-09-09 with the 40 real `jsearch`-sourced job listings migrated from local dev Postgres; the daily discovery job has been adding to this since (see "Daily discovery job" below) |
 | Cloud Run scaling | backend: min 0 / max **1** (capped — Phase E migration/cron safety hasn't landed, see plan doc §6/§8); frontend: min 0 / max 3 |
 | Redis | **not configured anywhere** — deliberate, see plan doc's Redis decision |
 
@@ -119,8 +134,11 @@ production's own LLM keys, so they only make sense there.
 
 Run manually: `gcloud run jobs execute jobmagnate-llm-catalog-production
 --region asia-southeast1 --project jobmagnet-6a1ab` (or `…-llm-health-…`).
-Staging has no copy: its `llm_model_catalog` stays empty, so it uses the
-hardcoded model lists in `providerRegistry.ts`.
+Staging has no copy of the jobs, but because the database is shared (see
+"Database"), staging's web service reads the same `llm_model_catalog` the
+production jobs maintain — so in practice both environments use catalog
+models. The hardcoded lists in `providerRegistry.ts` are the fallback only
+when the table is empty or unreachable.
 
 ### Daily discovery job (Phase E fix, applied 2026-09-09)
 
@@ -201,12 +219,11 @@ any bug in it stays off what real users hit. Both `staging/main.tf` (right
 above this job's module blocks) and the top of `production/main.tf` carry
 an explicit comment to this effect, specifically so a future "bring
 production up to parity" pass doesn't sweep this job in automatically —
-re-adding it to production needs its own decision. (Note this is
-independent of the fact that staging and production are already separate
-Neon branches — `br-muddy-dream-b3x0ok39` vs `br-lucky-term-b3v6w6c4`, not
-literally the same database — this job's queries were never going to load
-production's compute directly either way; the exclusion is about keeping
-an unproven background job's blast radius off production regardless.)
+re-adding it to production needs its own decision. (Note: staging
+and production share one database — see "Database" — so this job's writes
+to `job_listings` are visible to production too. The exclusion is about
+not running unproven background jobs on production's own schedule and
+compute.)
 
 What it does: checks a bounded batch (300, oldest/never-checked first) of
 `ACTIVE` `JobListing` rows' own posting URLs with a `HEAD` request (falling
@@ -300,9 +317,10 @@ future hardening step (see `bootstrap/main.tf`'s comment), not done here.
 ## `production` environment (`infra/terraform/environments/production/`) — created 2026-09-08
 
 Mirrors `staging/` exactly in shape (same modules) — only the values
-differ. **Not yet applied** — created and validated (`terraform validate`
-passes) but no `terraform apply` has been run against it yet, unlike
-staging. Still on the bootstrap placeholder image in `image_tags.tfvars`.
+differ. **Status: LIVE** since 2026-09-21 (`jobmagnate.com`,
+`api.jobmagnate.com`), deployed by the `*-production.yml` workflows. The
+"(not yet applied/created)" notes in the table below are stale — full
+refresh tracked in NM-17.
 
 | Resource | Value |
 |---|---|
@@ -310,8 +328,8 @@ staging. Still on the bootstrap placeholder image in `image_tags.tfvars`.
 | Frontend Cloud Run service (not yet applied) | `jobmagnate-frontend-production` |
 | Backend runtime SA (not yet created) | `jobmagnate-be-production@jobmagnet-6a1ab.iam.gserviceaccount.com` |
 | Frontend runtime SA (not yet created) | `jobmagnate-fe-production@jobmagnet-6a1ab.iam.gserviceaccount.com` |
-| Neon branch | the existing **`production`** branch (`br-lucky-term-b3v6w6c4`) — already the Neon project default, not a new branch like staging's |
-| Secrets (not yet created) | same catalog as staging, entirely separate Secret Manager secrets/versions — `jobmagnate-production-*`, never shared with staging's `jobmagnate-staging-*` |
+| Neon branch | **the `staging` branch (`br-muddy-dream-b3x0ok39`), shared with staging** — deliberate, see "Database" above. The `production` branch (`br-lucky-term-b3v6w6c4`) exists but is unused |
+| Secrets | same catalog as staging, separate Secret Manager secrets — `jobmagnate-production-*` vs `jobmagnate-staging-*`. Note `database-url` in both currently holds the **same** connection string (shared database) |
 
 **Creating the `production` branch will likely immediately queue pending
 (awaiting-approval) runs** of `terraform-apply-production.yml` and both

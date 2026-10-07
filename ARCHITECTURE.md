@@ -247,8 +247,9 @@ full Terraform/GitHub Actions design; this is the settled target, not a menu):**
   project (`jobmagnet-6a1ab` — already holds GCS + Firebase; isolated by
   resource naming/IAM rather than a separate project per environment)
 - Two environments to start: `staging` and `production` — each its own Cloud
-  Run services and its own Neon branch. Frontend served at `jobmagnate.com`
-  (custom domain mapping onto its Cloud Run service)
+  Run services, **sharing one Neon branch** (`staging`) by deliberate choice
+  for now; see `infra/terraform/INFRASTRUCTURE.md` "Database". Frontend
+  served at `jobmagnate.com` (custom domain mapping onto its Cloud Run service)
 - Database → **Neon** (serverless Postgres; project `polished-unit-87797764`,
   branch-per-environment, reached over public TLS — no VPC connector needed).
   Branch policy lives in root `neon.ts`, deployed via the `neon` CLI
