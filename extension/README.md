@@ -7,8 +7,9 @@ has no code path that does that for you (enforced by
 
 See `docs/assisted_apply_extension_plan.md` (repo root) for the full design.
 This is v1: **Tier 2 only** — generic LLM-based field mapping for any
-employer-hosted form, no per-ATS adapters. Text fields only; résumé/cover-
-letter file attachment is a follow-up (see "What's not here yet" below).
+employer-hosted form, no per-ATS adapters. Fills text fields and, since
+0.1.4 (NM-4), attaches your approved résumé / cover letter (or pastes the
+letter into a text box).
 
 **Install (users):** [Chrome Web Store listing](https://chromewebstore.google.com/detail/jobmagnate-%E2%80%94-assisted-app/gkfhjcfjdpaipbmhjgcjdpldeojimdfi)
 — extension id `gkfhjcfjdpaipbmhjgcjdpldeojimdfi`.
@@ -72,13 +73,6 @@ the popup's result message, then read the whole form before you submit.
 
 ## What's not here yet
 
-- **Résumé/cover-letter file attachment.** The mapping vocabulary already
-  includes `resume`/`coverLetter`, and the backend already resolves which
-  approved artifact to use (`GET /api/extension/jobs/:id/artifacts`) — but
-  the content script currently skips filling those two keys, and the
-  download routes (`/api/resumes/file/:id`, `/api/resume/master/:id/pdf`,
-  etc.) are still session-JWT-only, not extension-token-authed. `attachFile`
-  in `src/lib/domFill.ts` is written and ready for when that lands.
 - **Auto-detect + badge.** Right now filling is always a manual click on the
   popup's Fill button, never automatic on page load.
 - **Job identification picker.** The backend already returns a candidate

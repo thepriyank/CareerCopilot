@@ -47,6 +47,15 @@ jest.mock('../../src/services/extension/profileFields', () => ({
   buildExtensionProfileFields: (...args: unknown[]) => mockBuildExtensionProfileFields(...args),
 }))
 
+const mockResumeFileFor = jest.fn()
+const mockCoverLetterFileFor = jest.fn()
+const mockCoverLetterTextFor = jest.fn()
+jest.mock('../../src/services/extension/artifactFiles', () => ({
+  resumeFileFor: (...args: unknown[]) => mockResumeFileFor(...args),
+  coverLetterFileFor: (...args: unknown[]) => mockCoverLetterFileFor(...args),
+  coverLetterTextFor: (...args: unknown[]) => mockCoverLetterTextFor(...args),
+}))
+
 const mockMapFormSchema = jest.fn()
 jest.mock('../../src/services/extension/fieldMapping', () => ({
   mapFormSchema: (...args: unknown[]) => mockMapFormSchema(...args),
@@ -82,6 +91,9 @@ beforeEach(() => {
   mockResolveJobForUrl.mockReset().mockResolvedValue({ job: null, candidates: [] })
   mockResolveArtifactsForJob.mockReset().mockResolvedValue({ resume: null, unapprovedTailoredResumeExists: false, coverLetter: null })
   mockMapFormSchema.mockReset().mockResolvedValue([])
+  mockResumeFileFor.mockReset()
+  mockCoverLetterFileFor.mockReset()
+  mockCoverLetterTextFor.mockReset().mockResolvedValue(null)
   mockBuildExtensionProfileFields.mockReset().mockResolvedValue({
     name: 'Test', email: 't@example.com', phone: null, location: null, linkedin: null, website: null, visaStatus: null, noticePeriod: null,
   })
@@ -376,3 +388,91 @@ describe('POST /api/extension/applications', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('NM-4: artifact files for the extension', () => {
+  const pdf = (filename: string) => ({ buffer: Buffer.from('%PDF-1.4 test'), filename, mimeType: 'application/pdf' })
+  const JOB = '5f0f8a3e-3b1a-4c55-9d3e-7f6a2b1c0d9e'
+
+  it('requires an extension token (a session JWT is not enough)', async () => {
+    const res = await request(buildApp()).get('/api/extension/artifacts/resume').set('Authorization', `Bearer ${sessionToken}`)
+    expect(res.status).toBe(401)
+  })
+
+  it("re-resolves the résumé on the server for the given job and streams it with the candidate's file name", async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    mockResolveArtifactsForJob.mockResolvedValue({ resume: { type: 'TAILORED', id: 'r1', downloadUrl: 'x' }, unapprovedTailoredResumeExists: false, coverLetter: null })
+    mockResumeFileFor.mockResolvedValue(pdf('Test_Resume.pdf'))
+
+    const res = await request(app).get(`/api/extension/artifacts/resume?jobId=${JOB}`).set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toMatch(/application\/pdf/)
+    expect(res.headers['x-filename']).toBe('Test_Resume.pdf')
+    expect(mockResolveArtifactsForJob).toHaveBeenCalledWith(USER_ID, JOB)
+    expect(mockResumeFileFor).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ id: 'r1' }), 'Test')
+  })
+
+  it('works without a job (master / original résumé tiers)', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    mockResolveArtifactsForJob.mockResolvedValue({ resume: { type: 'MASTER', id: 'm1', downloadUrl: 'x' }, unapprovedTailoredResumeExists: false, coverLetter: null })
+    mockResumeFileFor.mockResolvedValue(pdf('Test_Resume.pdf'))
+
+    const res = await request(app).get('/api/extension/artifacts/resume').set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(mockResolveArtifactsForJob).toHaveBeenCalledWith(USER_ID, null)
+  })
+
+  it('404s when the user has no résumé at all', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    const res = await request(app).get('/api/extension/artifacts/resume').set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(404)
+    expect(res.body.error.code).toBe('NO_RESUME')
+  })
+
+  it('rejects a jobId that is not a UUID', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    const res = await request(app).get('/api/extension/artifacts/resume?jobId=../../etc').set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(400)
+  })
+
+  it('serves only an approved cover letter — none resolved means 404, never a generic letter', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    const res = await request(app).get(`/api/extension/artifacts/cover-letter?jobId=${JOB}`).set('Authorization', `Bearer ${token}`)
+    expect(res.status).toBe(404)
+    expect(res.body.error.code).toBe('NO_COVER_LETTER')
+    expect(mockCoverLetterFileFor).not.toHaveBeenCalled()
+  })
+
+  it('streams the approved cover letter PDF', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    mockResolveArtifactsForJob.mockResolvedValue({ resume: null, unapprovedTailoredResumeExists: false, coverLetter: { id: 'cl1', downloadUrl: 'x' } })
+    mockCoverLetterFileFor.mockResolvedValue(pdf('Test_Cover_Letter.pdf'))
+
+    const res = await request(app).get(`/api/extension/artifacts/cover-letter?jobId=${JOB}`).set('Authorization', `Bearer ${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.headers['x-filename']).toBe('Test_Cover_Letter.pdf')
+    expect(mockCoverLetterFileFor).toHaveBeenCalledWith(USER_ID, 'cl1', 'Test')
+  })
+
+  it('includes the approved cover letter text in the fill payload for textarea fields', async () => {
+    const app = buildApp()
+    const token = await mintToken(app)
+    userRepo.rows.push({ id: USER_ID, plan: Plan.PREMIUM, planExpiresAt: null, createdAt: new Date() } as never)
+    mockResolveArtifactsForJob.mockResolvedValue({ resume: null, unapprovedTailoredResumeExists: false, coverLetter: { id: 'cl1', downloadUrl: 'x' } })
+    mockCoverLetterTextFor.mockResolvedValue('Dear team,\n\nHello.')
+
+    const res = await request(app).post('/api/extension/fills').set('Authorization', `Bearer ${token}`).send({ url: 'https://boards.example.com/jobs/1' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.coverLetterText).toBe('Dear team,\n\nHello.')
+  })
+})
+

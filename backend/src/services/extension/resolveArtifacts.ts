@@ -7,11 +7,13 @@ import { ArtifactStatus, ResumeVersionType } from '../../entities/enums'
 export interface ResolvedResume {
   type: 'TAILORED' | 'MASTER' | 'ORIGINAL'
   id: string
-  // Points at the existing (session-JWT-authed) download route. Phase 2
-  // needs to teach these routes to also accept an extension token — or add
-  // a dedicated proxy — before the extension can actually fetch bytes;
-  // resolving *which* artifact to use is this phase's job, not delivery.
+  // The extension-token route that serves this file (NM-4). It re-resolves
+  // on the server, so the URL carries only the job, never an artifact id.
   downloadUrl: string
+}
+
+function artifactUrl(kind: 'resume' | 'cover-letter', jobId: string | null): string {
+  return `/api/extension/artifacts/${kind}${jobId ? `?jobId=${encodeURIComponent(jobId)}` : ''}`
 }
 
 export interface ResolvedArtifacts {
@@ -49,7 +51,7 @@ export async function resolveArtifactsForJob(userId: string, jobId: string | nul
     })
     if (tailored) {
       if (tailored.status === ArtifactStatus.APPROVED) {
-        resume = { type: 'TAILORED', id: tailored.id, downloadUrl: `/api/jobs/${jobId}/tailor/pdf` }
+        resume = { type: 'TAILORED', id: tailored.id, downloadUrl: artifactUrl('resume', jobId) }
       } else {
         unapprovedTailoredResumeExists = true
       }
@@ -62,14 +64,14 @@ export async function resolveArtifactsForJob(userId: string, jobId: string | nul
       order: { createdAt: 'DESC' },
     })
     if (master) {
-      resume = { type: 'MASTER', id: master.id, downloadUrl: `/api/resume/master/${master.id}/pdf` }
+      resume = { type: 'MASTER', id: master.id, downloadUrl: artifactUrl('resume', jobId) }
     }
   }
 
   if (!resume) {
     const original = await resumeFileRepo.findOne({ where: { userId }, order: { uploadedAt: 'DESC' } })
     if (original) {
-      resume = { type: 'ORIGINAL', id: original.id, downloadUrl: `/api/resumes/file/${original.id}` }
+      resume = { type: 'ORIGINAL', id: original.id, downloadUrl: artifactUrl('resume', jobId) }
     }
   }
 
@@ -79,7 +81,7 @@ export async function resolveArtifactsForJob(userId: string, jobId: string | nul
       where: { userId, jobId, status: ArtifactStatus.APPROVED },
       order: { createdAt: 'DESC' },
     })
-    if (letter) coverLetter = { id: letter.id, downloadUrl: `/api/jobs/${jobId}/cover-letter/pdf` }
+    if (letter) coverLetter = { id: letter.id, downloadUrl: artifactUrl('cover-letter', jobId) }
   }
 
   return { resume, unapprovedTailoredResumeExists, coverLetter }

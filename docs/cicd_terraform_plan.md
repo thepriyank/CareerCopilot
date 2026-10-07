@@ -119,7 +119,7 @@ networking path.
 |---|---|---|---|
 | **local** | n/a (docker-compose Postgres/Redis) | n/a | unchanged |
 | **staging** | persistent `staging` branch, child of production | `jobmagnate-backend-staging`, `jobmagnate-frontend-staging`, min-instances=0 | pre-prod verification |
-| **production** | the existing Neon **production** branch | `jobmagnate-backend-prod`, `jobmagnate-frontend-prod` | live traffic, `jobmagnate.com` |
+| **production** | **as built: the same `staging` branch as staging** (deliberate, 2026-10-07 — see `INFRASTRUCTURE.md` "Database"); the plan's separate `production` branch exists but is unused | `jobmagnate-backend-production`, `jobmagnate-frontend-production` | live traffic, `jobmagnate.com` |
 | **PR preview (later, optional)** | ephemeral branch per PR, relying on `neon.ts`'s 7-day TTL as a safety net | none initially — CI-only integration tests against the branch | fast isolated test data, no deploy cost |
 
 ## 3. Terraform structure

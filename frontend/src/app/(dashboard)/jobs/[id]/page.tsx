@@ -7,7 +7,10 @@ import { ScoreRing } from '@/components/ui/ScoreRing'
 import { Chip } from '@/components/ui/Chip'
 import { Icon } from '@/components/ui/Icon'
 import { LockedHint } from '@/components/ui/LockedHint'
-import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError, userMessage } from '@/lib/api'
+import { UpgradePrompt } from '@/components/billing/UpgradePrompt'
+import { ApplyDialog } from '@/components/jobs/ApplyDialog'
+import { jobDocumentFilename } from '@/lib/filenames'
+import { jobs as jobsApi, masterResume as masterResumeApi, downloadFile, ApiError, userMessage, isUpgradeRequired } from '@/lib/api'
 import type { JobPosting, MatchResult, SkillGapReport, GeneratedCoverLetter, GeneratedResumeVersion } from '@/types'
 import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
 
@@ -83,6 +86,8 @@ export default function JobDetailPage() {
   const [downloadingLetterPdf, setDownloadingLetterPdf] = useState(false)
 
   const [tailoredResume, setTailoredResume] = useState<GeneratedResumeVersion | null>(null)
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false)
+  const [applyDownloading, setApplyDownloading] = useState(false)
   const [tailoring, setTailoring] = useState(false)
   const [tailorError, setTailorError] = useState('')
   const [downloadingTailoredPdf, setDownloadingTailoredPdf] = useState(false)
@@ -129,7 +134,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.computeMatch(id)
       setMatchResult(res.matchResult)
     } catch (err) {
-      setMatchError(err instanceof ApiError ? err.message : 'Could not compute a match score')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setMatchError(err instanceof ApiError ? err.message : 'Could not compute a match score')
     } finally {
       setMatching(false)
     }
@@ -142,7 +148,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.computeSkillGap(id)
       setSkillGap({ existing: res.existing, supportedByResume: res.supportedByResume, gaps: res.skillGapReport.missingSkills })
     } catch (err) {
-      setSkillError(err instanceof ApiError ? err.message : 'Could not check skill gaps')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setSkillError(err instanceof ApiError ? err.message : 'Could not check skill gaps')
     } finally {
       setCheckingSkills(false)
     }
@@ -198,6 +205,40 @@ export default function JobDetailPage() {
     }
   }
 
+  // ── Apply with tailored documents (NM-4) ──────────────────────────────────
+  // Only APPROVED documents ever go onto an application (F6 human approval).
+  const resumeApproved = tailoredResume?.status === 'APPROVED'
+  const letterApproved = coverLetter?.status === 'APPROVED'
+  const unapprovedDocs = [
+    tailoredResume && !resumeApproved ? ('résumé' as const) : null,
+    coverLetter && !letterApproved ? ('cover letter' as const) : null,
+  ].filter((d): d is 'résumé' | 'cover letter' => d !== null)
+
+  function openApplication() {
+    if (job?.url) window.open(job.url, '_blank', 'noopener,noreferrer')
+  }
+
+  function handleApplyWithout() {
+    setApplyDialogOpen(false)
+    openApplication()
+  }
+
+  async function handleApplyWith() {
+    // Open the employer's page first, synchronously inside the click, so
+    // pop-up blockers allow it; the PDFs download in this tab meanwhile.
+    openApplication()
+    setApplyDownloading(true)
+    try {
+      if (resumeApproved) await downloadFile(`/api/jobs/${id}/tailor/pdf`, jobDocumentFilename('resume', job?.title))
+      if (letterApproved) await downloadFile(`/api/jobs/${id}/cover-letter/pdf`, jobDocumentFilename('cover', job?.title))
+    } catch (err) {
+      setTailorError(userMessage(err, 'Could not download your documents — use the PDF buttons below.'))
+    } finally {
+      setApplyDownloading(false)
+      setApplyDialogOpen(false)
+    }
+  }
+
   async function handleGenerateCoverLetter() {
     setGeneratingLetter(true)
     setLetterError('')
@@ -205,7 +246,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.generateCoverLetter(id)
       setCoverLetter(res.coverLetter)
     } catch (err) {
-      setLetterError(err instanceof ApiError ? err.message : 'Could not generate a cover letter')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setLetterError(err instanceof ApiError ? err.message : 'Could not generate a cover letter')
     } finally {
       setGeneratingLetter(false)
     }
@@ -214,7 +256,7 @@ export default function JobDetailPage() {
   async function handleDownloadLetterPdf() {
     setDownloadingLetterPdf(true)
     try {
-      await downloadFile(`/api/jobs/${id}/cover-letter/pdf`, 'cover-letter.pdf')
+      await downloadFile(`/api/jobs/${id}/cover-letter/pdf`, jobDocumentFilename('cover', job?.title))
     } catch (err) {
       setLetterError(err instanceof ApiError ? err.message : 'Could not download the PDF')
     } finally {
@@ -229,7 +271,8 @@ export default function JobDetailPage() {
       const res = await jobsApi.generateTailoredResume(id)
       setTailoredResume(res.tailoredResume)
     } catch (err) {
-      setTailorError(err instanceof ApiError ? err.message : 'Could not tailor the resume')
+      if (isUpgradeRequired(err)) setAiFeaturesLocked(true)
+      else setTailorError(err instanceof ApiError ? err.message : 'Could not tailor the resume')
     } finally {
       setTailoring(false)
     }
@@ -238,7 +281,7 @@ export default function JobDetailPage() {
   async function handleDownloadTailoredPdf() {
     setDownloadingTailoredPdf(true)
     try {
-      await downloadFile(`/api/jobs/${id}/tailor/pdf`, 'tailored-resume.pdf')
+      await downloadFile(`/api/jobs/${id}/tailor/pdf`, jobDocumentFilename('resume', job?.title))
     } catch (err) {
       setTailorError(err instanceof ApiError ? err.message : 'Could not download the PDF')
     } finally {
@@ -284,11 +327,17 @@ export default function JobDetailPage() {
               {job.appliedAt ? <Icon.CheckCircle size={13} /> : <Icon.Check size={13} />}
               {togglingApplied ? 'Updating…' : job.appliedAt ? 'Applied' : 'Mark as applied'}
             </button>
-            {job.url && (
+            {job.url && (tailoredResume || coverLetter ? (
+              // A tailored document exists for this job → ask whether to
+              // bring it along (NM-4). Otherwise Apply opens the posting as before.
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setApplyDialogOpen(true)}>
+                <Icon.Send size={12} /> Apply
+              </button>
+            ) : (
               <a href={job.url} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm">
                 <Icon.Send size={12} /> Apply
               </a>
-            )}
+            ))}
             {!job.notInterestedAt && (
               <NotInterestedControl
                 jobId={job.id}
@@ -327,6 +376,7 @@ export default function JobDetailPage() {
 
         {/* Right: match / skill-gap / cover letter */}
         <div style={{ overflow: 'auto', padding: 24, background: 'var(--paper-2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {aiFeaturesLocked && <UpgradePrompt />}
           <Section
             title="Match"
             action={
@@ -513,6 +563,18 @@ export default function JobDetailPage() {
           </Section>
         </div>
       </div>
+
+      {applyDialogOpen && (
+        <ApplyDialog
+          hasApprovedResume={resumeApproved}
+          hasApprovedLetter={letterApproved}
+          unapproved={unapprovedDocs}
+          busy={applyDownloading}
+          onWith={handleApplyWith}
+          onWithout={handleApplyWithout}
+          onCancel={() => setApplyDialogOpen(false)}
+        />
+      )}
 
       {skillToAdd && (
         <div

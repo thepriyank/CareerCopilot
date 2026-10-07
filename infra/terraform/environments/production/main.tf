@@ -1,8 +1,10 @@
 # Production environment. Mirrors environments/staging/main.tf exactly in
 # shape — same modules, same pattern — deliberately, so the two stay easy
-# to compare. Only the values differ: production's own runtime SAs, own
-# secrets (never shared with staging), and the existing Neon `production`
-# branch (already the project default) rather than a child branch.
+# to compare. Only the values differ: production's own runtime SAs and own
+# Secret Manager secrets. DATABASE: production and staging deliberately
+# share one Neon branch (`staging`, br-muddy-dream-b3x0ok39) — both
+# database-url secrets hold the same connection string; the Neon
+# `production` branch is unused. See INFRASTRUCTURE.md "Database".
 #
 # EXCEPTION (2026-09-22 product decision): the background Cloud Run Jobs +
 # Cloud Scheduler triggers staging defines — discovery_job, job_cleanup_job,

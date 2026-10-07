@@ -10,6 +10,7 @@ import { settings as settingsApi, profile as profileApi, account as accountApi, 
 import { clearToken } from '@/lib/auth'
 import { loadRazorpayCheckout } from '@/lib/razorpay'
 import { CHROME_WEBSTORE_URL } from '@/lib/extension'
+import { SETTINGS_TAB_SLUGS, tabFromSlug } from '@/lib/settingsTabs'
 import type { ModelConnectionStatus, CandidateProfile, RemotePreference, SearchUrgency, User, ExtensionTokenSummary } from '@/types'
 
 function ModelConnectionCard() {
@@ -829,6 +830,7 @@ function ComingSoonTab({ label }: { label: string }) {
 
 const SUB_NAV = ['Profile', 'API keys', 'Privacy & data', 'Plan', 'Extensions', 'Notifications', 'Export']
 
+
 const TAB_TITLES: Record<string, string> = {
   'Profile': 'Your career profile',
   'API keys': 'API keys & model strategy',
@@ -840,8 +842,23 @@ const TAB_TITLES: Record<string, string> = {
 }
 
 export default function SettingsPage() {
-  const [activeNav, setActiveNav] = useState('API keys')
+  const [activeNav, setActiveNavState] = useState('API keys')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Read ?tab= once on mount (window, not useSearchParams, so this page
+  // needs no Suspense boundary), and keep the URL in sync on change so a
+  // refresh or shared link lands on the same tab.
+  useEffect(() => {
+    const tab = tabFromSlug(new URLSearchParams(window.location.search).get('tab'))
+    if (tab) setActiveNavState(tab)
+  }, [])
+
+  function setActiveNav(nav: string) {
+    setActiveNavState(nav)
+    const url = new URL(window.location.href)
+    url.searchParams.set('tab', SETTINGS_TAB_SLUGS[nav] ?? nav)
+    window.history.replaceState(null, '', url.toString())
+  }
   const [confirmingSignOut, setConfirmingSignOut] = useState(false)
   const router = useRouter()
 

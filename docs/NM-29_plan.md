@@ -29,7 +29,7 @@ the durable fix.
 | Alert channel | Slack incoming webhook — secret `jobmagnate-production-slack-alerts-webhook` (owner-created, imported into Terraform) |
 | Cadence | Weekly catalog refresh (Mon 07:30 IST) + daily light health check (08:00 IST) |
 | Alert triggers | Billing/key (402/401/403) · provider fully down · too few working free models · daily quota ≥ 80% where exposed |
-| Environments | Production only. Staging keeps the hardcoded model lists as fallback |
+| Environments | Jobs and alerts run on production only. Because staging and production share one database (see `infra/terraform/INFRASTRUCTURE.md` "Database"), staging also reads the catalog the production jobs maintain; the hardcoded lists are the fallback only when the table is empty |
 | Defaults (accepted) | 45s per model attempt, 90s per whole call; "too few" = OpenRouter < 3, others < 1; JSON-extraction quality bar; alerts de-duped to once/day per issue + a "resolved" message; no status page |
 
 ## Design

@@ -11,6 +11,7 @@ const useTokenBtn = document.getElementById('useTokenBtn') as HTMLButtonElement
 const fillBtn = document.getElementById('fillBtn') as HTMLButtonElement
 const disconnectBtn = document.getElementById('disconnectBtn') as HTMLButtonElement
 const resultEl = document.getElementById('result') as HTMLDivElement
+const upgradeBtn = document.getElementById('upgradeBtn') as HTMLButtonElement
 
 interface StatusResponse {
   connected: boolean
@@ -66,14 +67,25 @@ useTokenBtn.addEventListener('click', async () => {
 
 fillBtn.addEventListener('click', async () => {
   fillBtn.disabled = true
+  upgradeBtn.hidden = true
   resultEl.hidden = false
   resultEl.textContent = 'Filling…'
 
-  const result = (await chrome.runtime.sendMessage({ type: 'JOBMAGNATE_POPUP_FILL' })) as { ok: boolean; message: string }
+  const result = (await chrome.runtime.sendMessage({ type: 'JOBMAGNATE_POPUP_FILL' })) as {
+    ok: boolean
+    message: string
+    upgrade?: boolean
+  }
   resultEl.textContent = result.message
+  upgradeBtn.hidden = !result.upgrade
 
   fillBtn.disabled = false
   void refresh()
+})
+
+// NM-5: out of free autofills → straight to Settings → Plan (deep link).
+upgradeBtn.addEventListener('click', () => {
+  chrome.tabs.create({ url: `${WEB_APP_URL}/settings?tab=plan` })
 })
 
 disconnectBtn.addEventListener('click', async () => {

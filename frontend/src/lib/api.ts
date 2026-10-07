@@ -62,6 +62,15 @@ export function userMessage(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
 }
 
+/**
+ * True when the backend refused an action because the user's plan doesn't
+ * cover it (402): AI features locked after a free pass ends, or out of
+ * credits. Callers show an upgrade prompt (NM-5) instead of an error.
+ */
+export function isUpgradeRequired(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 402 && (err.code === 'AI_FEATURE_LOCKED' || err.code === 'OUT_OF_CREDITS')
+}
+
 class ApiError extends Error {
   constructor(
     public status: number,

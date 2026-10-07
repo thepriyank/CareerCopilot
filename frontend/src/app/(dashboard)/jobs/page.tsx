@@ -8,6 +8,7 @@ import { jobs as jobsApi } from '@/lib/api'
 import { ApiError } from '@/lib/api'
 import { ExperienceLevel, JobPosting } from '@/types'
 import Link from 'next/link'
+import { UpgradePrompt } from '@/components/billing/UpgradePrompt'
 import { NotInterestedControl } from '@/components/jobs/NotInterestedControl'
 
 const TIER_LABEL: Record<ExperienceLevel, string> = {
@@ -206,17 +207,8 @@ export default function JobBoardPage() {
         {/* Job grid */}
         <div style={{ overflow: 'auto', padding: 24, background: 'var(--paper-2)' }}>
           {aiFeaturesLocked && (
-            <div
-              className="card"
-              style={{ padding: '12px 16px', marginBottom: 16, background: 'var(--warning-bg)', border: '1px solid var(--warning)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
-            >
-              <Icon.Bell size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 200, fontSize: 12.5 }}>
-                Your free pass has ended — jobs still show up here by skill match, but match scores, skill gaps, tailored résumés and cover letters are locked. Add your own API key or upgrade to unlock them.
-              </div>
-              <Link href="/settings" className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>
-                Go to Settings
-              </Link>
+            <div style={{ marginBottom: 16 }}>
+              <UpgradePrompt compact />
             </div>
           )}
 

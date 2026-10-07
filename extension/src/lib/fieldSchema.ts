@@ -34,5 +34,24 @@ export interface FieldMappingEntry {
   profileKey: ProfileFieldKey | null
 }
 
-/** The subset of profile fields v1 actually fills — file fields (resume/coverLetter) are Phase 2, see README. */
+/** The text profile fields. Résumé / cover letter travel separately as `FillAttachments` (NM-4). */
 export type FillableProfileFields = Partial<Record<Exclude<ProfileFieldKey, 'resume' | 'coverLetter'>, string | null>>
+
+/**
+ * A file to attach, carried as base64 because chrome.runtime messages are
+ * JSON-only (no ArrayBuffer). Built by the background worker, turned back
+ * into a `File` by the content script.
+ */
+export interface AttachmentPayload {
+  base64: string
+  filename: string
+  mimeType: string
+}
+
+/** What the content script may put into résumé / cover-letter fields (NM-4). */
+export interface FillAttachments {
+  resume?: AttachmentPayload
+  coverLetterFile?: AttachmentPayload
+  /** For forms whose cover-letter field is a textarea / text input. */
+  coverLetterText?: string
+}

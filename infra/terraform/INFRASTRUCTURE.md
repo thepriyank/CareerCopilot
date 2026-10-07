@@ -10,58 +10,50 @@ distinct from the other two infra docs, which serve different purposes:
 | `infra/terraform/README.md` | *How* to run it — step-by-step apply/populate-secrets/verify runbook |
 | **This file** | *What exists right now* — real resource names, URLs, IDs, status |
 
-This file can drift from reality (someone applies changes without updating
-it). Don't trust it blindly for anything consequential — the "How to verify"
-section at the bottom gives the commands that ask GCP/Neon directly.
+**Last full re-sync against live GCP / Neon / GitHub: 2026-10-07 (NM-17).**
+Every resource below was confirmed with the commands in "How to verify"
+on that date. This file can still drift — anything consequential, check
+live first.
 
 **Keep it current.** Whenever you change infra (`terraform apply` a real
 diff, add/remove a resource, rotate a secret catalog) or confirm something
-that this file previously flagged as unverified, update the relevant
-section here in the same change. A stale "not yet verified" note is worse
-than no note.
+this file flagged as unverified, update the relevant section here in the
+same change, and add a changelog line. A stale "not yet applied" note is
+worse than no note — the 2026-10-07 re-sync found several, and they caused
+real mistakes (see that changelog entry).
 
 **Changelog (most recent first):**
 
-- **2026-09-24** — NM-29, production only: `jobmagnate-llm-catalog-production`
-  (weekly, Mon 02:00 UTC) and `jobmagnate-llm-health-production` (daily,
-  02:30 UTC) Cloud Run Jobs + Cloud Scheduler triggers + invoker SA
-  `jm-llm-sched-production`; `SLACK_ALERTS_WEBHOOK_URL` enabled —
-  `jobmagnate-production-slack-alerts-webhook` was created + populated by the
-  owner, then adopted with `terraform import`. See "LLM model catalog jobs"
-  below and `docs/NM-29_plan.md`.
-
-- **2026-09-23** — Production, applied via `terraform-apply-production.yml`:
-  (1) `GROQ_API_KEY` enabled — `jobmagnate-production-groq-api-key` was
-  created + populated outside Terraform, then adopted with `terraform import`
-  (see the comment in `production/variables.tf`); Groq is now first in the
-  LLM chain. (2) `google_cloud_run_domain_mapping.frontend_www` created for
-  `www.jobmagnate.com` (redirect-only, see "Custom domains"); needs the
-  Cloudflare CNAME `www → ghs.googlehosted.com` (DNS only) before its
-  certificate can issue. (3) `LLM_PROVIDER_ORDER` now
-  `groq,cerebras,gemini,openrouter,ollama,…` in both environments (Cerebras later removed the same day — see below).
-  (4) **Cerebras removed** from both environments (owner decision — no usable
-  free-tier models, every call 402'd): `CEREBRAS_API_KEY` dropped from
-  `enabled_secrets` + the `all_secrets` catalog, so the apply destroys the
-  `jobmagnate-{staging,production}-cerebras-api-key` secrets and their IAM
-  bindings; order is now `groq,gemini,openrouter,ollama,…`. Production's
-  `gemini-api-key` also got a new value (version 2, owner-rotated).
-
-- **2026-09-22** — Wrote Terraform for a new daily link-health-check Cloud
-  Run Job + Cloud Scheduler (staging) — see "Daily link-health check"
-  below. `terraform validate`/`plan` pass; **not yet applied**, so nothing
-  below actually exists in GCP yet. Update this entry (and move the
-  section out of "planned") once a real `terraform apply` runs.
-- **2026-09-10** — Verified the daily discovery job runs end-to-end on its
-  own schedule (was "not yet verified"). Marked the "committed source
-  predates the real app" limitation RESOLVED — the real app has been on
-  `main` since `31c2d73`/`08b1e3a` and all `ci-*`/`deploy-*` workflows run
-  green per push. Added the "Ongoing deploys" note. No infra diff — doc
-  status only.
-- **2026-09-09** — Daily discovery moved to a dedicated Cloud Run Job +
-  Cloud Scheduler; software-engineering-only scope gate added. Staging
-  Neon branch seeded from local dev Postgres.
-- **2026-09-08** — Bootstrap + staging environment first applied; real app
-  images deployed. See "Deploy history" below.
+- **2026-10-07** — **Full re-sync (NM-17).** Rewritten against live state:
+  production marked live with its real resources; the link-check job is
+  applied and running (was "not yet applied"); job-cleanup and pass-expiry
+  jobs documented (were missing); secrets listed per environment as they
+  actually exist (Razorpay test keys on staging, live on production);
+  `master` branch gone (default is `main`); Groq live on production. Also
+  documented the **shared database** (owner decision): staging and
+  production both run on the Neon `staging` branch. Stale docs here had led
+  to two real mistakes on 2026-09-24 — a `terraform plan` run from `main`'s
+  copy of production config (which lacks production-only Razorpay entries)
+  and test writes to what was believed to be a dev database. Doc-only.
+- **2026-09-24** — NM-29 (production only): `jobmagnate-llm-catalog-production`
+  (weekly) + `jobmagnate-llm-health-production` (daily) Cloud Run Jobs,
+  schedulers, invoker SA `jm-llm-sched-production`; Slack webhook secret
+  created by the owner and adopted via `terraform import`.
+- **2026-09-23** — Production: Groq key enabled (owner-created secret,
+  `terraform import`); `www.jobmagnate.com` domain mapping (redirect-only);
+  **Cerebras removed** from both environments (secrets destroyed); production
+  Gemini key rotated (version 2). `LLM_PROVIDER_ORDER` now
+  `groq,gemini,openrouter,ollama,deepseek,anthropic,openai`.
+- **2026-09-22** — Link-health-check job (staging, NM-26) written; since
+  applied — running daily.
+- **2026-09-21** — Production: `api.jobmagnate.com` domain mapping; live
+  Razorpay secrets (`rzp_live_*`).
+- **2026-09-13** — Production first live: `jobmagnate.com` mapped to the
+  production frontend.
+- **2026-09-10** — Daily discovery job verified on its own schedule.
+- **2026-09-09** — Discovery moved to a Cloud Run Job + Scheduler.
+- **2026-09-08** — Bootstrap + staging first applied. See "Staging deploy
+  history" below.
 
 ---
 
@@ -69,289 +61,254 @@ than no note.
 
 | | |
 |---|---|
-| GCP project (all environments — single-project design, see plan doc) | `jobmagnet-6a1ab` |
-| Region (chosen to sit next to Neon's Singapore branch) | `asia-southeast1` |
+| GCP project (single project for all environments) | `jobmagnet-6a1ab` (project number `764795049074`) |
+| Region (next to Neon's Singapore region) | `asia-southeast1` |
 | Neon project | `polished-unit-87797764` (org `org-wild-field-89493590`) |
-| GitHub repo (WIF trust is bound to exactly this) | `thepriyank/CareerCopilot` |
-| Branches | `main` = staging, `production` = production, `master` = old default, being phased out — see "Branch strategy" below |
-| Artifact Registry | `asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate` (one repo, `backend`/`frontend` image names) |
-| Terraform state bucket | `jobmagnet-6a1ab-tfstate` (bootstrap: local state; environments: this bucket, prefix `env/<name>`) |
+| Database | **One shared Neon branch for staging + production** — see "Database" |
+| GitHub repo (WIF trust bound to this name) | `thepriyank/CareerCopilot` (repo id `1245891762`, **public**). Moving to a company org: NM-30 |
+| Branches | `main` = staging (GitHub default), `production` = production. (`master` no longer exists.) |
+| Artifact Registry | `asia-southeast1-docker.pkg.dev/jobmagnet-6a1ab/jobmagnate` (`backend` / `frontend` images, tagged by commit SHA) |
+| Terraform state | bootstrap: **local** file on the owner's machine; environments: `gs://jobmagnet-6a1ab-tfstate/env/<staging\|production>` |
+| DNS | Cloudflare (GoDaddy is only the registrar) — see "Custom domains" |
+
+## Database
+
+**Shared database — deliberate (owner decision, confirmed 2026-10-07).**
+Staging and production both use the Neon branch named `staging`
+(`br-muddy-dream-b3x0ok39`, endpoint `ep-mute-snow-b3twyzgn`): both
+`jobmagnate-staging-database-url` and `jobmagnate-production-database-url`
+hold the same connection string. The branch named `production`
+(`br-lucky-term-b3v6w6c4`) is the Neon project default but **unused** — it
+has no app tables.
+
+Consequences to keep in mind:
+- Staging deploys run migrations (on backend boot) against live user data.
+- Anything done on staging — or in local dev, whose `backend/.env` points at
+  the same endpoint — reads and writes production data.
+- Production-only jobs (NM-29) write tables staging also reads, and
+  staging-only jobs (discovery, link-check, cleanup, pass-expiry) write
+  tables production reads.
+- To query production data via the Neon MCP tools, use branch
+  `br-muddy-dream-b3x0ok39`, not `br-lucky-term-b3v6w6c4`.
+
+If the environments are ever separated, that's its own planned change
+(choose the production branch, migrate data, switch
+`jobmagnate-production-database-url`, maintenance window) — not a side
+effect of other work.
 
 ## Bootstrap (`infra/terraform/bootstrap/`) — applied 2026-09-08
 
 One-time, rarely touched. Creates:
 - State bucket `jobmagnet-6a1ab-tfstate` (versioned, public access blocked)
 - Artifact Registry repo `jobmagnate`
-- Deployer SA: `jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com` — impersonated by GitHub Actions via WIF (not yet actually used — no workflows exist yet)
-- WIF pool/provider: `github-actions-pool` / `github-actions-provider`, trust-scoped to `thepriyank/CareerCopilot`
-- 8 GCP APIs enabled (Cloud Run, Artifact Registry, Secret Manager, IAM, IAM Credentials, STS, Resource Manager, Cloud Scheduler, Compute)
+- Deployer SA `jobmagnate-deployer@jobmagnet-6a1ab.iam.gserviceaccount.com`
+  — impersonated by every deploy/Terraform GitHub Actions workflow via WIF
+- WIF pool/provider `github-actions-pool` / `github-actions-provider` —
+  `attribute_condition` trusts `assertion.repository ==
+  "thepriyank/CareerCopilot"` **by name** (moving the repo breaks this; see
+  NM-30 for the plan to pin it to the repo id first)
+- Required GCP APIs (Cloud Run, Artifact Registry, Secret Manager, IAM, IAM
+  Credentials, STS, Resource Manager, Cloud Scheduler, Compute)
 
-State: **local** (`infra/terraform/bootstrap/terraform.tfstate`, gitignored — deliberate, see `versions.tf`'s comment: this config creates the bucket everything else's remote state lives in, so it can't depend on that bucket itself).
+State: **local** (`infra/terraform/bootstrap/terraform.tfstate`, gitignored
+— this config creates the bucket everything else's state lives in, so it
+can't use that bucket itself). It can only be applied from the machine
+holding that file.
 
-## `staging` environment (`infra/terraform/environments/staging/`) — applied 2026-09-08
+## Environments
 
-**Status: LIVE**, running real app images (not the bootstrap placeholder — see "Deploy history" below).
+Both environments are **live** and continuously deployed by GitHub Actions
+(see "CI/CD"). Same Terraform modules; values differ.
 
-| Resource | Value |
-|---|---|
-| Backend Cloud Run service | `jobmagnate-backend-staging` — https://jobmagnate-backend-staging-w4642vyi6a-as.a.run.app — image tag tracks whatever `deploy-backend.yml` last pushed; check `environments/staging/image_tags.tfvars` for the current one, not this table |
-| Frontend Cloud Run service | `jobmagnate-frontend-staging` — https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app — same note |
-| Backend runtime SA | `jobmagnate-be-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` (`roles/storage.objectAdmin` on `jobmagnet-user-data` only — no other project roles; no Firebase-specific role needed, see `main.tf`'s comment on why) |
-| Frontend runtime SA | `jobmagnate-fe-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` (zero project roles — calls no GCP APIs itself) |
-| Neon branch | `staging` (`br-muddy-dream-b3x0ok39`), parent `production` — seeded 2026-09-09 with the 40 real `jsearch`-sourced job listings migrated from local dev Postgres; the daily discovery job has been adding to this since (see "Daily discovery job" below) |
-| Cloud Run scaling | backend: min 0 / max **1** (capped — Phase E migration/cron safety hasn't landed, see plan doc §6/§8); frontend: min 0 / max 3 |
-| Redis | **not configured anywhere** — deliberate, see plan doc's Redis decision |
+| | Staging (`environments/staging/`) | Production (`environments/production/`) |
+|---|---|---|
+| Deployed from | push to `main` | push to `production`, **required-reviewer approval** (`production` GitHub Environment) |
+| Backend service | `jobmagnate-backend-staging` — https://jobmagnate-backend-staging-w4642vyi6a-as.a.run.app | `jobmagnate-backend-production` — **https://api.jobmagnate.com** (raw: https://jobmagnate-backend-production-w4642vyi6a-as.a.run.app) |
+| Frontend service | `jobmagnate-frontend-staging` — https://jobmagnate-frontend-staging-w4642vyi6a-as.a.run.app | `jobmagnate-frontend-production` — **https://jobmagnate.com** (+ `www` redirect) |
+| Scaling | backend min 0 / max **1**; frontend min 0 / max 3 | same |
+| Backend runtime SA | `jobmagnate-be-staging@…` | `jobmagnate-be-production@…` |
+| Frontend runtime SA | `jobmagnate-fe-staging@…` (no project roles) | `jobmagnate-fe-production@…` (no project roles) |
+| Database | shared Neon `staging` branch — see "Database" | same |
+| Razorpay | **test** keys (`rzp_test_*`) | **live** keys (`rzp_live_*`) |
+| Background jobs | discovery, job-cleanup, link-check, pass-expiry | LLM catalog refresh + LLM health check |
+| Image in use | see `environments/staging/image_tags.tfvars` | see `environments/production/image_tags.tfvars` |
+| State | `gs://jobmagnet-6a1ab-tfstate/env/staging` | `gs://jobmagnet-6a1ab-tfstate/env/production` |
 
-### LLM model catalog jobs (NM-29, production only — added 2026-09-24)
+Backend runtime SAs hold `roles/storage.objectAdmin` on `jobmagnet-user-data`
+(résumé files) plus `secretAccessor` on their own environment's secrets — no
+other project roles. Redis is **not configured anywhere** (deliberate; the
+app no-ops its LLM cache without it).
 
-The first background jobs on **production** (every other job is
-staging-only; see the note at the top of `production/main.tf`). They watch
-production's own LLM keys, so they only make sense there.
+**Production's Terraform differs from `main`'s copy.** The `production`
+branch carries production-only config that is never on `main` (live
+Razorpay secrets in `enabled_secrets` / `all_secrets`). **Always run
+production `terraform plan`/`apply` from the `production` branch (or a
+worktree of it after merging `main`), never from `main`** — planning
+production from `main` shows the Razorpay secrets being destroyed.
 
-| Resource | Value |
-|---|---|
-| Weekly refresh | Cloud Run Job `jobmagnate-llm-catalog-production` → `node dist/scripts/runModelCatalogRefresh.js`; Scheduler `0 2 * * 1` UTC (Mon 07:30 IST); ~6 min, timeout 20 min |
-| Daily health | Cloud Run Job `jobmagnate-llm-health-production` → `node dist/scripts/runLlmHealthCheck.js`; Scheduler `30 2 * * *` UTC (08:00 IST); ~10 s |
-| Invoker SA | `jm-llm-sched-production@…` — `roles/run.invoker` on the two jobs only |
-| Runtime identity | `jobmagnate-be-production` (backend SA) — same secret set as the backend |
-| Tables | `llm_model_catalog` (read by the web service, cached 10 min), `llm_provider_alerts` (Slack de-dup) |
-| Alerts | Slack incoming webhook from secret `SLACK_ALERTS_WEBHOOK_URL`; no webhook → log only |
+### Secrets (Secret Manager, as of 2026-10-07)
 
-Run manually: `gcloud run jobs execute jobmagnate-llm-catalog-production
---region asia-southeast1 --project jobmagnet-6a1ab` (or `…-llm-health-…`).
-Staging has no copy: its `llm_model_catalog` stays empty, so it uses the
-hardcoded model lists in `providerRegistry.ts`.
+All named `jobmagnate-<env>-<name>`. Values never pass through Terraform —
+a secret is created empty by Terraform (or by the owner and then adopted
+with `terraform import`) and populated with `gcloud secrets versions add`
+or the console. A Cloud Run service referencing a secret with **no
+version** fails to deploy, so populate before enabling.
 
-### Daily discovery job (Phase E fix, applied 2026-09-09)
+| Secret | Staging | Production |
+|---|---|---|
+| `database-url` | ✅ (shared DB) | ✅ (same value) |
+| `jwt-secret`, `settings-encryption-key` | ✅ | ✅ |
+| `gemini-api-key`, `ollama-api-key`, `openrouter-api-key` | ✅ | ✅ (Gemini rotated 2026-09-23) |
+| `groq-api-key` | — | ✅ (imported 2026-09-23) |
+| `razorpay-key-id`, `razorpay-key-secret`, `razorpay-webhook-secret` | ✅ test | ✅ live (production-branch-only config) |
+| `slack-alerts-webhook` | — | ✅ (NM-29, imported 2026-09-24) |
+| `adzuna-app-id`, `adzuna-app-key` | ✅ | — |
+| `internal-ingest-token` | ✅ (JobSpy scraper → job pool) | — |
 
-The in-process `node-cron` in `discoveryCron.ts` never fires reliably on
-Cloud Run (a tick landing while `min_instances=0` is idle just doesn't
-run) — `JOB_DISCOVERY_CRON_ENABLED` stays `"false"` on the web service
-permanently now. Replaced with a real Cloud Run Job + Cloud Scheduler:
+Removed: `cerebras-api-key` (both, 2026-09-23). Not provisioned anywhere:
+DeepSeek / Anthropic / OpenAI keys (`LLM_ALLOW_PAID=false`), Jooble /
+JSearch / TheirStack keys.
 
-| Resource | Value |
-|---|---|
-| Cloud Run Job | `jobmagnate-discovery-staging` — same image as the backend service, entrypoint overridden to `node dist/scripts/runDiscovery.js` |
-| Cloud Scheduler job | `jobmagnate-discovery-staging` — `30 1 * * *` UTC (7:00am IST), once daily |
-| Scheduler invoker SA | `jobmagnate-disc-sched-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` — `roles/run.invoker` on just this one Job, nothing else |
-| Job's runtime identity | reuses `jobmagnate-be-staging` (the backend runtime SA) — already has the Secret Manager grants it needs |
+## Background jobs (Cloud Run Jobs + Cloud Scheduler)
 
-**Software-engineering scope** (2026-09-09 product decision — "we'll not
-just be pulling all the jobs"): discovery now only keeps postings matching
-`isSoftwareEngineeringRole()` — frontend/backend/full-stack/AI/ML, staff
-or lead engineer, engineering manager, data engineer, platform/DevOps/SRE,
-QA/SDET, mobile. This gate applies to **every** provider's output, not
-just the keyword-search aggregators (JSearch/Adzuna/Jooble/TheirStack,
-which only ever query `target-job-titles.json`'s list) — the remote-board
-providers (RemoteOK/WeWorkRemotely/Himalayas) and ATS providers
-(Greenhouse et al.) return their whole feed with no filtering at the
-source, and a real pull surfaced plenty of noise this way before the fix
-(e.g. "Executive Personal Assistant to the Founder").
+All run the **backend image** with a different entrypoint, as the
+environment's backend runtime SA, and are re-pointed at each new backend
+image by the deploy workflow. Each has its own invoker SA holding only
+`roles/run.invoker` on that one job. All schedules are UTC.
 
-**Verified working (2026-09-10).** The `30 1 * * *` UTC trigger fired on
-its own at `2026-09-10T01:30Z` and the Cloud Run Job execution
-(`jobmagnate-discovery-staging-kd7bv`) succeeded: 17 new listings
-inserted, 40 already known, 217 non-software-engineering listings filtered
-out, ~25s, exit 0. Two manual test runs on 2026-09-09 also succeeded.
-Scheduler state is `ENABLED`. Each `deploy-backend.yml` run also updates
-this Job's image — it shares `var.backend_image` with the backend
-service — so it stays on current code automatically.
+| Job | Env | Entrypoint | Schedule (UTC → IST) | Invoker SA |
+|---|---|---|---|---|
+| `jobmagnate-discovery-staging` | staging | `dist/scripts/runDiscovery.js` | `30 1 * * *` → 07:00 daily | `jobmagnate-disc-sched-staging` |
+| `jobmagnate-job-cleanup-staging` | staging | `dist/scripts/runJobCleanup.js` | `0 2 * * 2` → Tue 07:30 | `jobmagnate-clean-sched-staging` |
+| `jobmagnate-link-check-staging` | staging | `dist/scripts/runLinkCheck.js` | `0 3 * * *` → 08:30 daily | `jobmagnate-link-sched-staging` |
+| `jobmagnate-pass-expiry-staging` | staging | `dist/scripts/runPassExpiryCheck.js` | `0 4 * * *` → 09:30 daily | `jobmagnate-exp-sched-staging` |
+| `jobmagnate-llm-catalog-production` | production | `dist/scripts/runModelCatalogRefresh.js` | `0 2 * * 1` → Mon 07:30 | `jm-llm-sched-production` |
+| `jobmagnate-llm-health-production` | production | `dist/scripts/runLlmHealthCheck.js` | `30 2 * * *` → 08:00 daily | `jm-llm-sched-production` |
 
-**Known caveat (as of the 2026-09-10 run, before Adzuna was provisioned):**
-that run logged `discoveryCron: 4 provider error(s)`. Discovery still
-completes and inserts jobs, but not every provider returns — expected,
-because the keyword aggregators (JSearch / Adzuna / Jooble / TheirStack)
-had no API keys on staging at the time and the free remote-board
-providers get rate-limited or blocked intermittently. It is not a
-failure of the job. Adzuna now has a real key (see "Secrets
-provisioned" below) so it should stop erroring from the next run
-onward; JSearch/Jooble/TheirStack remain unconfigured. If job volume
-looks thin, read the latest execution's logs to see which providers
-errored.
+All six ran successfully on their latest scheduled run (checked 2026-10-07).
 
-Manual trigger: `gcloud scheduler jobs run jobmagnate-discovery-staging
---location asia-southeast1 --project jobmagnet-6a1ab`, then
-`gcloud run jobs executions list --job jobmagnate-discovery-staging
---region asia-southeast1 --project jobmagnet-6a1ab` and
-`gcloud logging read 'resource.type="cloud_run_job"
-resource.labels.job_name="jobmagnate-discovery-staging"'` for the result.
+**Why staging jobs aren't on production, and vice versa.** The four
+job-pool jobs are staging-only by product decision (2026-09-22): unproven
+background jobs stay off production's schedule and compute. The two LLM
+jobs are production-only by decision (NM-29): they watch production's own
+LLM keys. Both `staging/main.tf` and the top of `production/main.tf` carry
+comments saying so — don't "mirror" either set across in a parity pass.
+Because the database is shared, each set's *writes* are still visible to
+both environments.
 
-### Daily link-health check (2026-09-22, Jira NM-26) — **written, not yet applied**
+**What they do:**
+- **Discovery** — pulls listings from job providers, keeps only
+  software-engineering roles (`isSoftwareEngineeringRole()`, applied to
+  every provider's output), inserts new ones. Some providers erroring per
+  run is normal (free remote boards rate-limit; Jooble/JSearch/TheirStack
+  have no keys) — check the run's logs if volume looks thin. Replaced the
+  in-process `node-cron` (`JOB_DISCOVERY_CRON_ENABLED` stays `"false"` on the
+  web service), which never fired reliably at `min_instances=0`.
+- **Job cleanup** — weekly **hard-delete** of listings that have been
+  `EXPIRED` for `PURGE_AFTER_EXPIRED_DAYS` or more
+  (`services/jobs/jobCleanup.ts`). A no-op until `CLEANUP_STARTS_AT`
+  (**2026-12-01**), gated in code. ⚠️ With the shared database, this
+  staging job's deletes also remove those listings from production.
+- **Link check** (NM-26) — `HEAD`s a batch of 300 `ACTIVE` listings'
+  posting URLs (oldest/never-checked first; `GET` only on 405); marks a
+  listing `EXPIRED` on a clean 404/410, or after 2 consecutive ambiguous
+  failures across daily runs. Logic: `backend/src/services/jobs/linkHealthCheck.ts`.
+- **Pass expiry** — warns PREMIUM users once before their pass lapses
+  (in-app notification). Logic: `services/notifications/passExpiryNotifier.ts`.
+- **LLM catalog refresh / health** (NM-29) — list and probe every free LLM
+  provider's models, rank them in `llm_model_catalog` (read by the web
+  service, cached 10 min), and post provider problems to the owner's Slack.
+  Design: `docs/NM-29_plan.md`.
 
-Same Cloud Run Job + Cloud Scheduler pattern as discovery/job-cleanup above
-— `terraform validate` and `terraform plan` both pass against this file,
-but **no `terraform apply` has been run for it yet**, so none of this
-exists in GCP as of this writing. Treat this section as a spec for the
-next apply, not a "verified working" record like the discovery job's
-above.
+Run any job by hand: `gcloud run jobs execute <job> --region asia-southeast1
+--project jobmagnet-6a1ab` (or `gcloud scheduler jobs run <job> --location
+asia-southeast1 …` to go through the scheduler).
 
-| Resource | Value |
-|---|---|
-| Cloud Run Job | `jobmagnate-link-check-staging` — same image as the backend service, entrypoint overridden to `node dist/scripts/runLinkCheck.js` |
-| Cloud Scheduler job | `jobmagnate-link-check-staging` — `0 3 * * *` UTC (8:30am IST), once daily |
-| Scheduler invoker SA | `jobmagnate-link-sched-staging@jobmagnet-6a1ab.iam.gserviceaccount.com` — `roles/run.invoker` on just this one Job, nothing else |
-| Job's runtime identity | reuses `jobmagnate-be-staging` (the backend runtime SA) — already has the Secret Manager grants it needs (just `DATABASE_URL`) |
+## Custom domains (production only)
 
-**Staging-only by deliberate product decision (2026-09-22)** — this job is
-*not* mirrored into `environments/production/main.tf`, unlike the general
-"production mirrors staging exactly in shape" convention that file states
-for everything else. Staging is the lower-stakes environment to run a
-still-settling background job that repeatedly scans/writes the job pool;
-any bug in it stays off what real users hit. Both `staging/main.tf` (right
-above this job's module blocks) and the top of `production/main.tf` carry
-an explicit comment to this effect, specifically so a future "bring
-production up to parity" pass doesn't sweep this job in automatically —
-re-adding it to production needs its own decision. (Note this is
-independent of the fact that staging and production are already separate
-Neon branches — `br-muddy-dream-b3x0ok39` vs `br-lucky-term-b3v6w6c4`, not
-literally the same database — this job's queries were never going to load
-production's compute directly either way; the exclusion is about keeping
-an unproven background job's blast radius off production regardless.)
+All `google_cloud_run_domain_mapping` in `environments/production/main.tf`;
+staging stays on `*.run.app`. **DNS is in Cloudflare** (nameservers
+`lina` / `marty.ns.cloudflare.com`; GoDaddy is only the registrar, its DNS
+panel is ignored). Every record pointing at Cloud Run must be **DNS only
+(grey cloud)** — proxying blocks Google's managed-certificate issuance.
+Cloudflare also hosts the MX records for email forwarding.
 
-What it does: checks a bounded batch (300, oldest/never-checked first) of
-`ACTIVE` `JobListing` rows' own posting URLs with a `HEAD` request (falling
-back to `GET` only on a 405), and marks a listing `EXPIRED` — the same
-status the age-based staleness path already uses — either immediately on a
-clean 404/410, or after 2 consecutive ambiguous failures (403/429/timeout/
-5xx) across separate daily runs. See
-`backend/src/services/jobs/linkHealthCheck.ts` for the actual logic and
-`backend/tests/unit/linkHealthCheck.test.ts` for the test coverage.
+| Host | Maps to | DNS |
+|---|---|---|
+| `jobmagnate.com` | `jobmagnate-frontend-production` | apex A/AAAA from `terraform output custom_domain_dns_records` |
+| `api.jobmagnate.com` | `jobmagnate-backend-production` | CNAME `ghs.googlehosted.com` (2026-09-21) |
+| `www.jobmagnate.com` | `jobmagnate-frontend-production`, **redirect only** | CNAME `ghs.googlehosted.com` (2026-09-23) — `frontend/src/middleware.ts` 308s to the apex, path + query kept |
 
-**A real `terraform plan` run against this file (2026-09-22) also surfaced
-2 unrelated pre-existing drift changes** on `backend_service`/
-`frontend_service` (a `scaling` block's `manual_instance_count`/
-`min_instance_count` the current `.tf` config doesn't set explicitly,
-which GCP/a prior out-of-band change populated) — not caused by this
-addition, would show up on any plan against current state. Apply this
-job with `-target=module.link_check_scheduler_sa -target=module.link_check_job
--target=module.link_check_schedule` to create only the 4 new resources
-without also touching that drift, or accept the drift fix in the same
-apply if it looks harmless (it does — Cloud Run treats an absent block the
-same as its printed defaults).
+All three mappings report Ready with certificates provisioned.
 
-Manual trigger (once applied): `gcloud scheduler jobs run
-jobmagnate-link-check-staging --location asia-southeast1 --project
-jobmagnet-6a1ab`, then `gcloud run jobs executions list --job
-jobmagnate-link-check-staging --region asia-southeast1 --project
-jobmagnet-6a1ab`.
+## CI/CD
 
-### Secrets provisioned (Secret Manager, real values populated 2026-09-08)
+| Workflow | Trigger | Does |
+|---|---|---|
+| `ci-backend.yml` / `ci-frontend.yml` | PRs + push to `main` (by path) | typecheck + tests |
+| `deploy-backend.yml` / `deploy-frontend.yml` | push to `main` (by path) | build `linux/amd64` image tagged by commit SHA, write `staging/image_tags.tfvars`, `terraform apply`, health check (roll back on failure), commit `chore(staging): deploy …` back to `main` |
+| `terraform-apply-staging.yml` | push to `main` touching `environments/staging/**` or `modules/**` | `terraform apply` staging |
+| `deploy-*-production.yml`, `terraform-apply-production.yml` | push to `production` (by path) | same as staging, against production; **paused for required-reviewer approval** (reviewer: `thepriyank`) |
+| `terraform-plan.yml` | PRs touching `infra/terraform/**` | plan both environments |
 
-All under `jobmagnate-staging-*`: `database-url`, `jwt-secret` (freshly generated, not reused from local dev), `settings-encryption-key` (same), `gemini-api-key`, `cerebras-api-key` (removed 2026-09-23), `ollama-api-key`, `openrouter-api-key` (these 4 copied from local `backend/.env`'s real free-tier keys).
+Notes:
+- **Release = merge `main` into `production` and push.** No PRs into
+  `production`; the merge is done locally and pushed.
+- All workflows authenticate to GCP keylessly via WIF as
+  `jobmagnate-deployer` — **no GitHub secrets**. GitHub holds only 4
+  repository **variables** (`NEXT_PUBLIC_FIREBASE_*`) used at frontend build.
+- The staging workflows share one concurrency group (`terraform-staging`),
+  and the production ones share `terraform-production`. GitHub keeps only
+  **one pending run per group**, so when several are queued, one is often
+  **cancelled** — re-run it (`gh run rerun <id>`). Deploy workflows apply
+  the full Terraform config, so a cancelled `terraform-apply-*` run is
+  usually redundant.
+- Deploy workflows push commits straight to `main` / `production`; any
+  future branch protection needs a GitHub Actions bypass.
+- None of the workflows has `workflow_dispatch`.
 
-**Added 2026-09-12**: `adzuna-app-id`, `adzuna-app-key` — real free-tier Adzuna credentials (India-scoped, `/v1/api/jobs/in/...`), the first job-aggregator key this project has. `providers/adzuna.ts` and `discoveryService.ts` already queried this endpoint whenever the two env vars were present; the only gap was provisioning them, via adding both names to `variables.tf`'s `enabled_secrets` and populating real values with `gcloud secrets versions add`.
+## Staging deploy history (2026-09-08 — lessons that still apply)
 
-**Added 2026-09-17**: `internal-ingest-token` — lets the local JobSpy scraper (`scripts/jobspy-ingest/`) target staging's shared job pool instead of only local dev. Never provisioned in any environment before this (not in `terraform.tfvars`, not in Secret Manager) — the script's `.env` defaulted `BACKEND_INGEST_URL` to `localhost:3001` and had no reason to point anywhere else until now. Added `INTERNAL_INGEST_TOKEN` to `main.tf`'s `all_secrets` catalog and `variables.tf`'s `enabled_secrets`, applied in two steps (`terraform apply -target='module.secrets["INTERNAL_INGEST_TOKEN"]'` to create the empty secret container first, then `gcloud secrets versions add`, then a normal `terraform apply` to wire it into the backend service) — the `secret-manager-secret` module's own comment warns that referencing a secret with zero versions in the same apply that creates it can break the Cloud Run deploy, and staging already had a healthy revision serving traffic worth not risking. Verified via a real `POST /api/internal/jobs/ingest` call with the new token (got the expected `VALIDATION_ERROR` for an empty `jobs` array, not a `401`/`403` — confirms auth passed).
+First bring-up hit three problems worth remembering:
+1. **A secret with no version breaks service creation** — Cloud Run fails to
+   create a service whose `secretKeyRef` can't resolve. Populate secrets
+   before (or in a separate apply from) the service that references them.
+2. **Build for `linux/amd64`** — the build host is arm64 and Cloud Run
+   rejects arm64 images. Always `docker buildx build --platform linux/amd64`.
+3. **Never reuse an image tag** — Terraform/Cloud Run compare the `image`
+   field as a string, so a re-pushed image under an already-applied tag is
+   invisible to the next plan. The workflows now tag by commit SHA.
 
-**Not provisioned**: `GROQ_API_KEY` — empty in local dev too, deliberately excluded from `enabled_secrets` rather than created with a blank value (see `variables.tf`'s comment — an empty-but-present secret would make the app think Groq is configured when it isn't). Also not provisioned: any paid-tier key (DeepSeek/Anthropic/OpenAI — `LLM_ALLOW_PAID=false`) or any other job-aggregator key (Jooble/JSearch/TheirStack — none configured locally either).
-
-State: **remote**, `gs://jobmagnet-6a1ab-tfstate/env/staging`.
-
-### Deploy history (chronological, so a future apply's diff makes sense)
-
-1. First apply: both services created with Google's placeholder image (`us-docker.pkg.dev/cloudrun/container/hello`) per `variables.tf`'s bootstrap-order default — **backend service failed to create**, expected per the runbook (secrets existed but had zero versions yet; Cloud Run fails service *creation* outright on an unresolvable `secretKeyRef`, not a crash-loop after the fact).
-2. Populated all 7 real secret values (Neon staging branch created via Neon MCP tools; JWT/settings keys freshly generated; LLM keys copied from local `.env`); removed `GROQ_API_KEY` from `enabled_secrets`.
-3. Re-applied — hit a second issue: the failed backend service was `tainted` in state, and Cloud Run v2's `deletion_protection` (defaults `true` in google provider v6) blocked the destroy-then-recreate a tainted replace normally does. Fixed via `terraform untaint` (turns it into a normal in-place update instead) + added `deletion_protection = false` explicitly to `modules/cloud-run-service` going forward.
-4. Backend service came up healthy (still placeholder image). Frontend already healthy from step 1.
-5. Built + pushed real `backend`/`frontend` Docker images to Artifact Registry — **first attempt built arm64 images** (the build host is arm64; Cloud Run requires amd64/linux) and Cloud Run rejected them on deploy (`must support amd64/linux`). Rebuilt both with `docker buildx build --platform linux/amd64 --push` instead of plain `docker build` + `docker push`.
-6. Re-applied with `-var="backend_image=...:<timestamp-tag>"` / `-var="frontend_image=...:<timestamp-tag>"` — backend updated correctly (its old state value was still the placeholder, so the tag change was a genuine diff), but **frontend showed 0 planned changes and silently kept serving the broken arm64 image**: the earlier failed frontend apply had already written the bad tag string into Terraform state before Cloud Run rejected the revision, so re-submitting the *same* tag string (now pointing at a corrected digest in the registry) looked like no change at all to Terraform — Cloud Run/Terraform compares by tag string, not digest.
-7. Fixed by aliasing a **new** tag (`20260908-182216-amd64`) to the already-pushed correct digest via `docker buildx imagetools create` (registry-side only, no rebuild) and re-applying with that. This forced a genuine string diff, and Terraform/Cloud Run picked it up correctly.
-8. Verified via `gcloud logging read`: backend logs show `Database connected via TypeORM`, `Ran 3 pending migration(s): InitialSchema1788721791998, TextArrayColumns1788722004864, AddGoogleAuthToUsers1788775819815`, and `discoveryCron: disabled` — the real app, not the placeholder, genuinely running against the Neon staging branch.
-
-**Takeaways for next time**:
-- Always build for staging/production with `docker buildx build --platform linux/amd64 ... --push` (see updated `README.md` Step 2), never plain `docker build` on an arm64 host.
-- **Always use a fresh, unique tag per deploy** (a timestamp is enough) — never redeploy under a tag string Terraform has already seen, even after fixing/re-pushing the image behind it. Terraform/Cloud Run's `image` field is compared as a string, not resolved-and-compared by digest, so a "fixed" image under an already-applied tag is silently invisible to the next plan.
-
-### Ongoing deploys (2026-09-09 onward)
-
-Since the real app source landed on `main`, staging redeploys itself on
-every push. `deploy-backend.yml` / `deploy-frontend.yml` each: run
-`tsc --noEmit` + tests, `docker buildx build --platform linux/amd64`
-a fresh timestamped image, write it to
-`environments/staging/image_tags.tfvars`, `terraform apply`, hit the
-health check, roll back on failure, and commit the tfvars change back —
-these are the `chore(staging): deploy ...` commits in git history. The
-discovery Cloud Run Job picks up the same new `backend_image` in that
-apply.
-
-A normal application change no longer needs any manual `terraform apply`
-or `docker buildx` — the `README.md` runbook is now only for infra
-changes (anything other than `image_tags.tfvars`) and first-time
-production bring-up.
-
-## Branch strategy (revised 2026-09-08 — supersedes the original plan doc's assumption)
-
-The plan doc's Phase A–F narrative was written assuming a single default
-branch (`master`). The user changed this mid-implementation:
-
-| Branch | Role |
-|---|---|
-| `main` | **Staging.** `ci-*.yml`, `terraform-apply-staging.yml`, `deploy-*.yml` all trigger on push here. |
-| `production` | **Production.** `terraform-apply-production.yml`, `deploy-*-production.yml` trigger on push here — each gated by the `production` GitHub Environment's required-reviewer rule (configured via `gh api`, reviewer: `thepriyank`), so the job pauses for manual approval before running at all, on top of its own branch-restricted deployment policy. |
-| `master` | The actual GitHub default branch (confirmed via `gh repo view`), being phased out by the user. `terraform-plan.yml` still triggers on any PR regardless of target branch, so it isn't branch-name-dependent. |
-
-**Same deployer SA / WIF trust for both `main` and `production`** — the
-WIF provider's `attribute_condition` is repo-scoped
-(`thepriyank/CareerCopilot`), not branch-scoped. Production's real
-protection is the required-reviewer gate, not a separate credential.
-Tightening WIF trust to be branch-scoped per environment is a reasonable
-future hardening step (see `bootstrap/main.tf`'s comment), not done here.
-
-## `production` environment (`infra/terraform/environments/production/`) — created 2026-09-08
-
-Mirrors `staging/` exactly in shape (same modules) — only the values
-differ. **Not yet applied** — created and validated (`terraform validate`
-passes) but no `terraform apply` has been run against it yet, unlike
-staging. Still on the bootstrap placeholder image in `image_tags.tfvars`.
-
-| Resource | Value |
-|---|---|
-| Backend Cloud Run service (not yet applied) | `jobmagnate-backend-production` |
-| Frontend Cloud Run service (not yet applied) | `jobmagnate-frontend-production` |
-| Backend runtime SA (not yet created) | `jobmagnate-be-production@jobmagnet-6a1ab.iam.gserviceaccount.com` |
-| Frontend runtime SA (not yet created) | `jobmagnate-fe-production@jobmagnet-6a1ab.iam.gserviceaccount.com` |
-| Neon branch | the existing **`production`** branch (`br-lucky-term-b3v6w6c4`) — already the Neon project default, not a new branch like staging's |
-| Secrets (not yet created) | same catalog as staging, entirely separate Secret Manager secrets/versions — `jobmagnate-production-*`, never shared with staging's `jobmagnate-staging-*` |
-
-**Creating the `production` branch will likely immediately queue pending
-(awaiting-approval) runs** of `terraform-apply-production.yml` and both
-`deploy-*-production.yml` — a new branch's initial push is treated as a
-diff against nothing, so every path this branch already contains (from
-being cut off `main`) looks "changed." This is expected and safe: the
-required-reviewer gate means nothing actually runs until approved. Since
-the real app source is now on `main` and CI is green there (see "Known
-limitations"), an approved `deploy-*-production.yml` run would get past
-`tsc --noEmit` / `npm test` — the remaining gate is that
-`jobmagnate-production-*` secrets don't exist yet, so the backend service
-would fail to create exactly as staging's first apply did (populate
-secrets first, per the runbook).
+Also: Cloud Run v2's `deletion_protection` (default true) blocked replacing
+a tainted service; `modules/cloud-run-service` sets it to `false`.
 
 ## Known limitations / deferred work
 
-(Full detail in `docs/cicd_terraform_plan.md` — this is just the pointer list)
-
-- **~~The committed source on `main` predated the real app~~ — RESOLVED (2026-09-09).** The real application (TypeORM migration, F1–F8, auth, GCS, tests) has been committed to `main` since `31c2d73` / `08b1e3a`. `ci-backend.yml`, `ci-frontend.yml`, `deploy-backend.yml`, and `deploy-frontend.yml` now run green on every push to `main`, and staging is continuously deployed from those workflows. The failing state originally described here applied only to the pre-`31c2d73` snapshot that still imported `@prisma/client`.
-- **Migrations still run in-process on every backend boot** (`backend/src/index.ts`) — no advisory lock; only mitigated by `max_instances=1`. Discovery is no longer in this bucket — it moved to the dedicated Cloud Run Job + Cloud Scheduler (see "Daily discovery job" above), verified running 2026-09-10. The rest of Phase E (an advisory lock around the in-process migration run, so `max_instances` could be raised) still hasn't landed.
-- **Custom domains (production only; staging stays on `*.run.app`)** — all `google_cloud_run_domain_mapping` in `environments/production/main.tf`. **DNS is in Cloudflare** (nameservers `lina`/`marty.ns.cloudflare.com`; GoDaddy is only the registrar, its DNS panel is ignored). Every record pointing at Cloud Run must be **DNS only (grey cloud)** — proxying blocks Google's managed-certificate issuance. Cloudflare also hosts the MX records for email forwarding:
-  - `jobmagnate.com` → frontend (apex A/AAAA records from `terraform output custom_domain_dns_records`)
-  - `api.jobmagnate.com` → backend (CNAME `ghs.googlehosted.com`, added 2026-09-21)
-  - `www.jobmagnate.com` → frontend, **redirect only** (CNAME `ghs.googlehosted.com`, added 2026-09-23). `frontend/src/middleware.ts` 308s every www request to the apex, path + query kept, so sessions/PWA installs/SEO stay on one origin. Before this, www had a default CNAME → apex and failed TLS (no mapping/cert for the host).
-- **`GROQ_API_KEY` has no real value** — add it back to `enabled_secrets` in both environments' `variables.tf` once one exists.
-- **`production` environment exists in Terraform but has never been applied** — see the section above.
+- **Migrations run in-process on every backend boot** (`backend/src/index.ts`)
+  with no advisory lock — only safe because backend `max_instances = 1`.
+  Raising that needs the lock first. With the shared database, a staging
+  deploy's migration also changes production's schema.
+- **Known Terraform drift** on `backend_service` / `frontend_service`: a
+  `scaling` block's `manual_instance_count` / `min_instance_count` shows as
+  "update in-place" on every plan. Harmless (absent block = same defaults).
+- **WIF trust is bound to the repo *name*** — see NM-30 before moving the
+  repo.
+- **The GitHub repo is public.**
 
 ## How to verify current real state (don't trust this file blindly)
 
 ```bash
-cd infra/terraform/environments/staging && terraform output
-gcloud run services list --project jobmagnet-6a1ab --region asia-southeast1
-gcloud secrets list --project jobmagnet-6a1ab --filter="name:jobmagnate-staging"
-
-# Daily discovery job — scheduler state + recent execution results
-gcloud scheduler jobs describe jobmagnate-discovery-staging \
-  --location asia-southeast1 --project jobmagnet-6a1ab \
-  --format="yaml(schedule,state,lastAttemptTime,status)"
-gcloud run jobs executions list --job jobmagnate-discovery-staging \
-  --region asia-southeast1 --project jobmagnet-6a1ab --limit 5
+P=jobmagnet-6a1ab; R=asia-southeast1
+gcloud run services list --project $P --region $R
+gcloud run jobs list --project $P --region $R
+gcloud scheduler jobs list --project $P --location $R
+gcloud beta run domain-mappings list --project $P --region $R
+gcloud secrets list --project $P --format="value(name)"
+gcloud run jobs executions list --job <job> --project $P --region $R --limit 5
+gh run list --branch production --limit 10      # release status
 ```
 
-(Neon branch state: use the Neon MCP tools' `list_branches`, or `neon branches list --project-id polished-unit-87797764` if using the CLI directly.)
+Neon: the MCP tools' `list_branches` / `list_postgres_endpoints`, or
+`neon branches list --project-id polished-unit-87797764`. Which endpoint an
+environment really uses: decode the host from its `database-url` secret
+(don't print the credentials).

@@ -16,6 +16,7 @@ import { isExcludedHost } from '../services/extension/excludedDomains'
 import { resolveJobForUrl } from '../services/extension/resolveJob'
 import { resolveArtifactsForJob } from '../services/extension/resolveArtifacts'
 import { buildExtensionProfileFields } from '../services/extension/profileFields'
+import { coverLetterFileFor, coverLetterTextFor, resumeFileFor, ArtifactFile } from '../services/extension/artifactFiles'
 import { FREE_MONTHLY_FILL_LIMIT, currentFillWindowStart, countFillsInWindow, findRecentFill } from '../services/extension/quota'
 import { mapFormSchema } from '../services/extension/fieldMapping'
 import { AuthRequest } from '../types'
@@ -177,12 +178,16 @@ router.post('/fills', requireExtensionAuth, async (req: AuthRequest, res: Respon
     const artifacts = await resolveArtifactsForJob(userId, jobId)
     const profile = await buildExtensionProfileFields(userId)
     const remaining = await remainingFills(user)
+    // For forms whose cover-letter field is a textarea (NM-4). Approved
+    // letters only — resolveArtifactsForJob already enforces that.
+    const coverLetterText = artifacts.coverLetter ? await coverLetterTextFor(userId, artifacts.coverLetter.id) : null
 
     res.json({
       profile,
       job,
       candidates: job ? [] : candidates,
       ...artifacts,
+      coverLetterText,
       remainingFills: remaining,
     })
   } catch (err) {
@@ -255,6 +260,59 @@ router.get('/jobs/:id/artifacts', requireExtensionAuth, async (req: AuthRequest,
 
     const artifacts = await resolveArtifactsForJob(userId, jobId)
     res.json(artifacts)
+  } catch (err) {
+    next(err)
+  }
+})
+
+const artifactQuerySchema = z.object({ jobId: z.string().uuid().optional() })
+
+function sendArtifact(res: Response, file: ArtifactFile): void {
+  res.setHeader('Content-Type', file.mimeType)
+  res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`)
+  // Exposed so the extension can name the File it attaches without parsing
+  // Content-Disposition.
+  res.setHeader('X-Filename', file.filename)
+  res.setHeader('Access-Control-Expose-Headers', 'X-Filename')
+  res.send(file.buffer)
+}
+
+// GET /api/extension/artifacts/resume?jobId= — the résumé file the
+// extension attaches (NM-4). Re-resolves on the server every time — the
+// extension never names an artifact id, so it can't fetch anything that
+// isn't the user's own, approved, best-match résumé for this job (tailored
+// → master → original upload; see resolveArtifacts.ts). Free: no credit is
+// consumed here — the fill itself (POST /fills) is what's metered.
+router.get('/artifacts/resume', requireExtensionAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { jobId } = artifactQuerySchema.parse(req.query)
+    const userId = req.userId!
+    const { resume } = await resolveArtifactsForJob(userId, jobId ?? null)
+    if (!resume) throw createError(404, 'NO_RESUME', 'No résumé to attach yet — upload one in JobMagnate first.')
+
+    const { name } = await buildExtensionProfileFields(userId)
+    const file = await resumeFileFor(userId, resume, name)
+    if (!file) throw createError(404, 'NO_RESUME', 'No résumé to attach yet — upload one in JobMagnate first.')
+    sendArtifact(res, file)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// GET /api/extension/artifacts/cover-letter?jobId= — the approved tailored
+// cover letter for this job as a PDF (NM-4). Never a generic letter: no
+// approved letter for this job → 404, and the field stays blank.
+router.get('/artifacts/cover-letter', requireExtensionAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { jobId } = artifactQuerySchema.parse(req.query)
+    const userId = req.userId!
+    const { coverLetter } = await resolveArtifactsForJob(userId, jobId ?? null)
+    if (!coverLetter) throw createError(404, 'NO_COVER_LETTER', 'No approved cover letter for this job.')
+
+    const { name } = await buildExtensionProfileFields(userId)
+    const file = await coverLetterFileFor(userId, coverLetter.id, name)
+    if (!file) throw createError(404, 'NO_COVER_LETTER', 'No approved cover letter for this job.')
+    sendArtifact(res, file)
   } catch (err) {
     next(err)
   }
