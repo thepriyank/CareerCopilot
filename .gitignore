@@ -41,3 +41,9 @@ override.tf.json
 # committed *.tfvars in each environment dir are the real, reviewed config.
 *.auto.tfvars
 *.auto.tfvars.json
+
+# Personal Claude Code permissions (machine-specific; repo is public)
+.claude/settings.local.json
+
+# Extension Web Store packages - build output, recreate with `npm run build` in extension/
+extension/*.zip

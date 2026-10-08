@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:oklch(0.985 0.002 255); --surface:#fff;
+      --surface-2:oklch(0.972 0.003 255); --surface-3:oklch(0.955 0.004 255);
+      --border:oklch(0.918 0.004 255); --border-strong:oklch(0.86 0.006 255);
+      --text:oklch(0.24 0.012 262); --text-2:oklch(0.44 0.012 262);
+      --text-muted:oklch(0.58 0.01 262); --text-faint:oklch(0.72 0.008 262);
+      --accent:oklch(0.63 0.108 185); --accent-hover:oklch(0.57 0.11 185);
+      --accent-subtle:oklch(0.965 0.028 185); --accent-subtle-bd:oklch(0.90 0.045 185);
+      --accent-text:oklch(0.44 0.09 185);
+      --success:oklch(0.60 0.12 155); --success-bg:oklch(0.962 0.03 155);
+      --warning:oklch(0.66 0.13 70); --warning-bg:oklch(0.96 0.05 78);
+      --danger:oklch(0.57 0.17 25); --danger-bg:oklch(0.962 0.03 25);
+      --info:oklch(0.60 0.10 240); --info-bg:oklch(0.962 0.03 240);
+      --ai:oklch(0.55 0.15 300); --ai-bg:oklch(0.965 0.035 300); --ai-bd:oklch(0.90 0.05 300);
+      --font:'Geist',-apple-system,'Segoe UI',system-ui,sans-serif;
+      --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;}
+    body{margin:0;font-family:var(--font);color:var(--text);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-0.006em;}
+    h1,h2,h3,h4,p{margin:0;}
+    a{color:var(--accent-text);text-decoration:none;} a:hover{color:var(--accent-hover);}
+    .eyebrow{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--text-muted);}
+    .mono{font-family:var(--mono);}
+    .swatch{height:64px;border-radius:10px;border:1px solid oklch(0.2 0.02 262 / .08);}
+    .row{display:flex;flex-direction:column;gap:6px;}
+    .row .name{font-size:12px;font-weight:550;}
+    .row .val{font-family:var(--mono);font-size:10.5px;color:var(--text-muted);}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 3px oklch(0.2 0.02 262 / .09),0 1px 2px oklch(0.2 0.02 262 / .04);}
+    .sec-title{font-size:15px;font-weight:600;letter-spacing:-0.01em;}
+  </style>
+</helmet>
+
+<div style="width:1440px;padding:56px 64px;background:var(--bg);display:flex;flex-direction:column;gap:44px;">
+
+  <header style="display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--border);padding-bottom:28px;">
+    <div class="eyebrow">AI Career Copilot · Design system</div>
+    <div style="font-size:32px;font-weight:600;letter-spacing:-0.022em;">Foundations</div>
+    <div style="font-size:14px;color:var(--text-2);max-width:640px;">Cool-grey neutrals, a single teal accent, and semantic colours reserved for state. Geist for everything; Geist Mono for labels, metrics and code.</div>
+  </header>
+
+  <!-- NEUTRALS -->
+  <section style="display:flex;flex-direction:column;gap:16px;">
+    <div class="sec-title">Neutrals — cool grey (hue 255–262)</div>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;">
+      <div class="row"><div class="swatch" style="background:var(--bg);"></div><div class="name">Canvas</div><div class="val">--bg · 0.985</div></div>
+      <div class="row"><div class="swatch" style="background:var(--surface);"></div><div class="name">Surface</div><div class="val">--surface · #fff</div></div>
+      <div class="row"><div class="swatch" style="background:var(--surface-2);"></div><div class="name">Surface 2</div><div class="val">--surface-2 · 0.972</div></div>
+      <div class="row"><div class="swatch" style="background:var(--surface-3);"></div><div class="name">Surface 3</div><div class="val">--surface-3 · 0.955</div></div>
+      <div class="row"><div class="swatch" style="background:var(--border);"></div><div class="name">Border</div><div class="val">--border · 0.918</div></div>
+      <div class="row"><div class="swatch" style="background:var(--border-strong);"></div><div class="name">Border strong</div><div class="val">--border-strong · 0.86</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;">
+      <div class="row"><div class="swatch" style="background:var(--text);"></div><div class="name" style="color:var(--text);">Text</div><div class="val">--text · 0.24</div></div>
+      <div class="row"><div class="swatch" style="background:var(--text-2);"></div><div class="name">Text 2</div><div class="val">--text-2 · 0.44</div></div>
+      <div class="row"><div class="swatch" style="background:var(--text-muted);"></div><div class="name">Text muted</div><div class="val">--text-muted · 0.58</div></div>
+      <div class="row"><div class="swatch" style="background:var(--text-faint);"></div><div class="name">Text faint</div><div class="val">--text-faint · 0.72</div></div>
+    </div>
+  </section>
+
+  <!-- ACCENT + SEMANTIC -->
+  <section style="display:flex;flex-direction:column;gap:16px;">
+    <div class="sec-title">Accent &amp; semantic — one chroma family, hue varies</div>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;">
+      <div class="row"><div class="swatch" style="background:var(--accent);"></div><div class="name">Accent</div><div class="val">0.63 · 0.108 · 185</div></div>
+      <div class="row"><div class="swatch" style="background:var(--accent-subtle);border-color:var(--accent-subtle-bd);"></div><div class="name">Accent subtle</div><div class="val">tint · fills</div></div>
+      <div class="row"><div class="swatch" style="background:var(--success);"></div><div class="name">Success</div><div class="val">hue 155</div></div>
+      <div class="row"><div class="swatch" style="background:var(--warning);"></div><div class="name">Warning</div><div class="val">hue 70</div></div>
+      <div class="row"><div class="swatch" style="background:var(--danger);"></div><div class="name">Danger</div><div class="val">hue 25</div></div>
+      <div class="row"><div class="swatch" style="background:var(--info);"></div><div class="name">Info</div><div class="val">hue 240</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;">
+      <div class="row"><div class="swatch" style="background:var(--ai);"></div><div class="name">AI provenance</div><div class="val">violet · hue 300</div></div>
+      <div class="row"><div class="swatch" style="background:var(--ai-bg);border-color:var(--ai-bd);"></div><div class="name">AI subtle</div><div class="val">badge bg</div></div>
+      <div class="row"><div class="swatch" style="background:var(--success-bg);"></div><div class="name">Success bg</div><div class="val">pills</div></div>
+      <div class="row"><div class="swatch" style="background:var(--warning-bg);"></div><div class="name">Warning bg</div><div class="val">gap tags</div></div>
+      <div class="row"><div class="swatch" style="background:var(--danger-bg);"></div><div class="name">Danger bg</div><div class="val">rejected</div></div>
+      <div class="row"><div class="swatch" style="background:var(--info-bg);"></div><div class="name">Info bg</div><div class="val">in review</div></div>
+    </div>
+  </section>
+
+  <!-- TYPE -->
+  <section style="display:flex;flex-direction:column;gap:18px;">
+    <div class="sec-title">Type scale — Geist</div>
+    <div class="card" style="padding:32px;display:flex;flex-direction:column;gap:20px;">
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">Display / 32 / 600</span><span style="font-size:32px;font-weight:600;letter-spacing:-0.022em;">Everything waiting on you</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">H1 / 24 / 600</span><span style="font-size:24px;font-weight:600;letter-spacing:-0.02em;">Your jobs</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">H2 / 19 / 600</span><span style="font-size:19px;font-weight:600;letter-spacing:-0.018em;">Staff Backend Engineer</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">H3 / 16 / 550</span><span style="font-size:16px;font-weight:550;">Match rationale</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">Body / 14 / 400</span><span style="font-size:14px;">The candidate has led migrations to event-driven architectures across nine services.</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">Small / 13 / 400</span><span style="font-size:13px;color:var(--text-2);">Razorpay · Bengaluru · Remote-friendly</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">Micro / 11 / 500</span><span class="eyebrow">Review &amp; approval</span></div>
+      <div style="display:flex;align-items:baseline;gap:24px;"><span class="mono" style="width:120px;font-size:11px;color:var(--text-muted);">Mono / 12 / 500</span><span class="mono" style="font-size:12px;color:var(--text-2);">match_score = 0.88</span></div>
+    </div>
+  </section>
+
+  <!-- RADII / SHADOW / SPACING -->
+  <section style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="sec-title">Radius</div>
+      <div style="display:flex;gap:14px;align-items:flex-end;">
+        <div style="text-align:center;"><div style="width:56px;height:56px;background:var(--surface);border:1px solid var(--border-strong);border-radius:6px;"></div><div class="val mono" style="font-size:10px;margin-top:6px;color:var(--text-muted);">6</div></div>
+        <div style="text-align:center;"><div style="width:56px;height:56px;background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;"></div><div class="val mono" style="font-size:10px;margin-top:6px;color:var(--text-muted);">8</div></div>
+        <div style="text-align:center;"><div style="width:56px;height:56px;background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;"></div><div class="val mono" style="font-size:10px;margin-top:6px;color:var(--text-muted);">10</div></div>
+        <div style="text-align:center;"><div style="width:56px;height:56px;background:var(--surface);border:1px solid var(--border-strong);border-radius:14px;"></div><div class="val mono" style="font-size:10px;margin-top:6px;color:var(--text-muted);">14</div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="sec-title">Elevation</div>
+      <div style="display:flex;gap:18px;">
+        <div style="width:72px;height:56px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 2px oklch(0.2 0.02 262 / .06);"></div>
+        <div style="width:72px;height:56px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px oklch(0.2 0.02 262 / .09),0 1px 2px oklch(0.2 0.02 262 / .04);"></div>
+        <div style="width:72px;height:56px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 14px -3px oklch(0.2 0.02 262 / .12),0 2px 6px -2px oklch(0.2 0.02 262 / .06);"></div>
+      </div>
+      <div class="val mono" style="font-size:10px;color:var(--text-muted);">xs · sm (cards) · md (popovers)</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="sec-title">Spacing · 4px base</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;">
+        <div style="width:4px;height:4px;background:var(--accent);"></div>
+        <div style="width:8px;height:8px;background:var(--accent);"></div>
+        <div style="width:12px;height:12px;background:var(--accent);"></div>
+        <div style="width:16px;height:16px;background:var(--accent);"></div>
+        <div style="width:20px;height:20px;background:var(--accent);"></div>
+        <div style="width:24px;height:24px;background:var(--accent);"></div>
+        <div style="width:32px;height:32px;background:var(--accent);"></div>
+        <div style="width:48px;height:48px;background:var(--accent);"></div>
+      </div>
+      <div class="val mono" style="font-size:10px;color:var(--text-muted);">4 · 8 · 12 · 16 · 20 · 24 · 32 · 48</div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+</body>
+</html>

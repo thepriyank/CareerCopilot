@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:oklch(0.985 0.002 255); --surface:#fff;
+      --surface-2:oklch(0.972 0.003 255); --surface-3:oklch(0.955 0.004 255);
+      --border:oklch(0.918 0.004 255); --border-strong:oklch(0.86 0.006 255);
+      --text:oklch(0.24 0.012 262); --text-2:oklch(0.44 0.012 262);
+      --text-muted:oklch(0.58 0.01 262); --text-faint:oklch(0.72 0.008 262);
+      --accent:oklch(0.63 0.108 185); --accent-hover:oklch(0.57 0.11 185);
+      --accent-subtle:oklch(0.965 0.028 185); --accent-subtle-bd:oklch(0.90 0.045 185);
+      --accent-text:oklch(0.44 0.09 185);
+      --success:oklch(0.60 0.12 155); --success-bg:oklch(0.962 0.03 155);
+      --warning:oklch(0.66 0.13 70); --warning-bg:oklch(0.96 0.05 78);
+      --danger:oklch(0.57 0.17 25); --danger-bg:oklch(0.962 0.03 25);
+      --info:oklch(0.60 0.10 240); --info-bg:oklch(0.962 0.03 240);
+      --ai:oklch(0.55 0.15 300); --ai-bg:oklch(0.965 0.035 300); --ai-bd:oklch(0.90 0.05 300);
+      --r-sm:6px; --r-md:8px; --r-lg:10px; --r-pill:999px;
+      --font:'Geist',-apple-system,'Segoe UI',system-ui,sans-serif;
+      --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;}
+    body{margin:0;font-family:var(--font);color:var(--text);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-0.006em;}
+    h1,h2,h3,h4,p{margin:0;}
+    a{color:var(--accent-text);text-decoration:none;} a:hover{color:var(--accent-hover);}
+    .eyebrow{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--text-muted);}
+    .mono{font-family:var(--mono);}
+    .sec-title{font-size:15px;font-weight:600;letter-spacing:-0.01em;}
+    .caption{font-size:11px;color:var(--text-muted);font-family:var(--mono);}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 3px oklch(0.2 0.02 262 / .09),0 1px 2px oklch(0.2 0.02 262 / .04);}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:18px;}
+
+    .btn{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:var(--r-md);border:1px solid transparent;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;letter-spacing:-0.006em;}
+    .btn svg{width:14px;height:14px;}
+    .btn-primary{background:var(--accent);color:#fff;}
+    .btn-secondary{background:var(--surface);color:var(--text);border-color:var(--border-strong);box-shadow:0 1px 2px oklch(0.2 0.02 262 / .06);}
+    .btn-ghost{background:transparent;color:var(--text-2);}
+    .btn-ai{background:var(--ai);color:#fff;}
+    .btn-sm{height:28px;padding:0 10px;font-size:12px;border-radius:var(--r-sm);}
+    .btn:disabled{opacity:.45;}
+
+    .field{height:34px;padding:0 11px;border-radius:var(--r-md);border:1px solid var(--border-strong);background:var(--surface);font-size:13px;font-family:inherit;color:var(--text);display:flex;align-items:center;}
+    .field.focus{border-color:var(--accent);box-shadow:0 0 0 3px oklch(0.63 0.108 185 / .18);}
+    .field.ph{color:var(--text-faint);}
+
+    .tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:var(--r-pill);font-size:12px;font-weight:500;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);}
+    .tag svg{width:11px;height:11px;}
+    .tag-match{background:var(--success-bg);color:var(--success);border-color:transparent;}
+    .tag-gap{background:var(--warning-bg);color:oklch(0.45 0.11 60);border-color:transparent;}
+    .tag-accent{background:var(--accent-subtle);color:var(--accent-text);border-color:var(--accent-subtle-bd);}
+
+    .pill{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px;border-radius:var(--r-pill);font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;}
+    .pill::before{content:"";width:6px;height:6px;border-radius:999px;background:currentColor;}
+    .pill-draft{background:var(--surface-3);color:var(--text-muted);}
+    .pill-review{background:var(--info-bg);color:var(--info);}
+    .pill-approved{background:var(--success-bg);color:var(--success);}
+    .pill-rejected{background:var(--danger-bg);color:var(--danger);}
+    .pill-ai{background:var(--ai-bg);color:var(--ai);}
+
+    .ai-badge{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px 0 7px;border-radius:var(--r-pill);font-size:11px;font-weight:600;background:var(--ai-bg);color:var(--ai);border:1px solid var(--ai-bd);}
+    .ai-badge::before{content:"";width:7px;height:7px;border-radius:999px;background:var(--ai);box-shadow:0 0 0 3px var(--ai-bd);}
+
+    .nav-item{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:var(--r-md);color:var(--text-2);font-size:13px;cursor:pointer;}
+    .nav-item svg{width:16px;height:16px;opacity:.8;}
+    .nav-item.active{background:var(--accent-subtle);color:var(--accent-text);font-weight:550;}
+
+    .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:3px;gap:2px;}
+    .seg > div{height:26px;padding:0 12px;display:flex;align-items:center;font-size:12.5px;font-weight:500;color:var(--text-muted);border-radius:6px;cursor:pointer;}
+    .seg > div.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px oklch(0.2 0.02 262 / .08);}
+
+    .avatar{width:28px;height:28px;border-radius:999px;background:var(--accent-subtle);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:1px solid var(--accent-subtle-bd);}
+  </style>
+</helmet>
+
+<div style="width:1440px;padding:56px 64px;background:var(--bg);display:flex;flex-direction:column;gap:40px;">
+
+  <header style="display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border);padding-bottom:24px;">
+    <div class="eyebrow">AI Career Copilot · Design system</div>
+    <div style="font-size:32px;font-weight:600;letter-spacing:-0.022em;">Components</div>
+  </header>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+    <div class="panel">
+      <div class="sec-title">Buttons</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add a job</button>
+        <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>Discover</button>
+        <button class="btn btn-ghost">All matches</button>
+        <button class="btn btn-ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Tailor resume</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary btn-sm">Approve</button>
+        <button class="btn btn-secondary btn-sm">Recompute</button>
+        <button class="btn btn-ghost btn-sm">Reject</button>
+        <button class="btn btn-primary" disabled>Scoring…</button>
+      </div>
+      <div class="caption">32px default · 28px sm · primary = accent, secondary = bordered, AI actions = violet</div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-title">Inputs</div>
+      <div class="field ph">Paste a job title…</div>
+      <div class="field focus">Staff Backend Engineer</div>
+      <div style="display:flex;gap:10px;">
+        <div class="field" style="flex:1;gap:8px;color:var(--text-faint);"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search artifacts</div>
+        <div class="seg"><div class="on">All</div><div>Draft</div><div>In review</div></div>
+      </div>
+      <div class="caption">34px height · 1px border-strong · 3px accent focus ring</div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-title">Tags &amp; chips</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="tag tag-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Go</span>
+        <span class="tag tag-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Kafka</span>
+        <span class="tag tag-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>PostgreSQL</span>
+        <span class="tag tag-gap">+ Terraform</span>
+        <span class="tag tag-gap">+ gRPC</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span class="tag">greenhouse</span>
+        <span class="tag">Senior</span>
+        <span class="tag tag-accent">Remote</span>
+      </div>
+      <div class="caption">match = success · gap = warning · source = neutral · accent = teal tint</div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-title">Status &amp; provenance</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span class="pill pill-draft">Draft</span>
+        <span class="pill pill-review">In review</span>
+        <span class="pill pill-approved">Approved</span>
+        <span class="pill pill-rejected">Rejected</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span class="ai-badge">AI-generated</span>
+        <span class="pill pill-ai">Needs review</span>
+      </div>
+      <div class="caption">Dot + 11px uppercase · AI provenance always carries the violet dot</div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-title">Score ring</div>
+      <div style="display:flex;gap:28px;align-items:center;">
+        <div style="width:56px;height:56px;position:relative;">
+          <svg width="56" height="56" viewBox="0 0 56 56" style="transform:rotate(-90deg);"><circle cx="28" cy="28" r="24" fill="none" stroke="var(--surface-3)" stroke-width="5"/><circle cx="28" cy="28" r="24" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="18"/></svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:16px;">88</div>
+        </div>
+        <div style="width:44px;height:44px;position:relative;">
+          <svg width="44" height="44" viewBox="0 0 44 44" style="transform:rotate(-90deg);"><circle cx="22" cy="22" r="18" fill="none" stroke="var(--surface-3)" stroke-width="4"/><circle cx="22" cy="22" r="18" fill="none" stroke="var(--warning)" stroke-width="4" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="45"/></svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:13px;">61</div>
+        </div>
+        <div style="flex:1;">
+          <div style="height:6px;border-radius:999px;background:var(--surface-3);overflow:hidden;"><div style="height:100%;width:76%;background:var(--accent);border-radius:999px;"></div></div>
+          <div class="caption" style="margin-top:8px;">≥ 75 accent · 45–74 warning · &lt; 45 muted</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-title">Nav item &amp; identity</div>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Jobs</div>
+        <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Approvals</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding-top:8px;border-top:1px solid var(--border);">
+        <div class="avatar">AM</div>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:550;">Aarav Mehta</div><div style="font-size:11px;color:var(--text-muted);">Free plan</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
