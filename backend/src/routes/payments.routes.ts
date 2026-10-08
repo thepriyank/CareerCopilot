@@ -8,6 +8,7 @@ import { logger } from '../utils/logger'
 import { getRazorpayClient } from '../services/payments/razorpayClient'
 import { PASS_PRICING, isPassType } from '../services/payments/passPricing'
 import { applyPassPayment } from '../services/payments/applyPassPayment'
+import { buildPassReceipt } from '../services/payments/orderOwnership'
 import { AuthRequest } from '../types'
 
 /**
@@ -68,7 +69,7 @@ router.post('/create-order', async (req: AuthRequest, res: Response, next: NextF
       order = await getRazorpayClient().orders.create({
         amount: option.amountPaise,
         currency: 'INR',
-        receipt: `pass_${req.userId}_${Date.now()}`,
+        receipt: buildPassReceipt(req.userId!),
         // Server-authoritative record of what this order is for and who it's
         // for — read back in /verify rather than trusting the client at that
         // point either.

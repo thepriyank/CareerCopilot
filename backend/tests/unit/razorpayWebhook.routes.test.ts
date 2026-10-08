@@ -30,6 +30,11 @@ jest.mock('../../src/config', () => {
   }
 })
 
+const mockOrdersFetch = jest.fn()
+jest.mock('../../src/services/payments/razorpayClient', () => ({
+  getRazorpayClient: () => ({ orders: { fetch: mockOrdersFetch } }),
+}))
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import razorpayWebhookRoutes from '../../src/routes/razorpayWebhook.routes'
 
@@ -56,17 +61,42 @@ function sign(body: string): string {
   return crypto.createHmac('sha256', WEBHOOK_SECRET).update(body).digest('hex')
 }
 
-function paymentCapturedPayload(overrides: Partial<{ paymentId: string; orderId: string; userId: string; passType: string }> = {}) {
-  const { paymentId = 'pay_xyz789', orderId = 'order_abc123', userId = USER_ID, passType = 'ONE_MONTH' } = overrides
+const ONE_MONTH_PAISE = 39900
+
+function paymentCapturedPayload(
+  overrides: Partial<{ paymentId: string; orderId: string | null; amount: number; currency: string }> = {}
+) {
+  const { paymentId = 'pay_xyz789', orderId = 'order_abc123', amount = ONE_MONTH_PAISE, currency = 'INR' } = overrides
   return {
     event: 'payment.captured',
-    payload: { payment: { entity: { id: paymentId, order_id: orderId, notes: { userId, passType } } } },
+    payload: { payment: { entity: { id: paymentId, order_id: orderId, amount, currency } } },
   }
+}
+
+// What Razorpay returns for an order created by POST /api/payments/create-order.
+function jobmagnateOrder(overrides: Partial<{ receipt: string; amount: number; notes: Record<string, string> }> = {}) {
+  return {
+    id: 'order_abc123',
+    amount: ONE_MONTH_PAISE,
+    receipt: `pass_${USER_ID}_1760000000000`,
+    notes: { userId: USER_ID, passType: 'ONE_MONTH' },
+    ...overrides,
+  }
+}
+
+function getUser() {
+  return userRepo.rows.find((r) => (r as { id: string }).id === USER_ID) as unknown as { plan: Plan; planExpiresAt: Date | null }
+}
+
+async function postSigned(body: object) {
+  return request(buildApp()).post('/api/webhooks/razorpay').set('X-Razorpay-Signature', sign(JSON.stringify(body))).send(body)
 }
 
 beforeEach(() => {
   userRepo.rows.length = 0
   userRepo.rows.push({ id: USER_ID, plan: Plan.FREE, planExpiresAt: null, settings: {} })
+  mockOrdersFetch.mockReset()
+  mockOrdersFetch.mockResolvedValue(jobmagnateOrder())
 })
 
 describe('POST /api/webhooks/razorpay', () => {
@@ -126,14 +156,78 @@ describe('POST /api/webhooks/razorpay', () => {
     expect(secondExpiry.getTime()).toBe(firstExpiry.getTime())
   })
 
-  it('acknowledges with 200 rather than retrying forever on a malformed payment.captured payload', async () => {
-    const body = { event: 'payment.captured', payload: { payment: { entity: { id: 'pay_1' } } } } // no order_id/notes
-    const raw = JSON.stringify(body)
+  describe('payments that are not JobMagnate passes (shared Razorpay account)', () => {
+    it('ignores a payment with no order (e.g. a payment link / QR) without calling Razorpay', async () => {
+      const res = await postSigned(paymentCapturedPayload({ orderId: null }))
 
-    const res = await request(buildApp()).post('/api/webhooks/razorpay').set('X-Razorpay-Signature', sign(raw)).send(body)
+      expect(res.status).toBe(200)
+      expect(res.body.ignored).toBe('not_jobmagnate')
+      expect(mockOrdersFetch).not.toHaveBeenCalled()
+      expect(getUser().plan).toBe(Plan.FREE)
+    })
+
+    it('ignores another product\'s order (no JobMagnate notes or receipt)', async () => {
+      mockOrdersFetch.mockResolvedValue({ id: 'order_other', amount: 150000, receipt: 'nm_invoice_42', notes: {} })
+
+      const res = await postSigned(paymentCapturedPayload({ amount: 150000 }))
+
+      expect(res.status).toBe(200)
+      expect(res.body.ignored).toBe('not_jobmagnate')
+      expect(getUser().plan).toBe(Plan.FREE)
+    })
+
+    it('ignores an order whose notes imitate ours but whose receipt was not minted by create-order', async () => {
+      mockOrdersFetch.mockResolvedValue(jobmagnateOrder({ receipt: 'nm_invoice_42' }))
+
+      const res = await postSigned(paymentCapturedPayload())
+
+      expect(res.body.ignored).toBe('not_jobmagnate')
+      expect(getUser().plan).toBe(Plan.FREE)
+    })
+
+    it('ignores an order whose receipt belongs to a different user than its notes claim', async () => {
+      mockOrdersFetch.mockResolvedValue(jobmagnateOrder({ receipt: 'pass_someone-else_1760000000000' }))
+
+      const res = await postSigned(paymentCapturedPayload())
+
+      expect(res.body.ignored).toBe('not_jobmagnate')
+      expect(getUser().plan).toBe(Plan.FREE)
+    })
+
+    it('does not trust notes on the webhook payload itself — only the fetched order', async () => {
+      mockOrdersFetch.mockResolvedValue({ id: 'order_other', amount: 150000, receipt: 'nm_invoice_42', notes: {} })
+      const body = paymentCapturedPayload({ amount: 150000 })
+      ;(body.payload.payment.entity as Record<string, unknown>).notes = { userId: USER_ID, passType: 'ONE_MONTH' }
+
+      const res = await postSigned(body)
+
+      expect(res.body.ignored).toBe('not_jobmagnate')
+      expect(getUser().plan).toBe(Plan.FREE)
+    })
+  })
+
+  it('does not apply a JobMagnate order whose paid amount differs from the catalog price', async () => {
+    const res = await postSigned(paymentCapturedPayload({ amount: 100 }))
 
     expect(res.status).toBe(200)
-    expect(res.body.error).toBe('missing_fields')
+    expect(res.body.ignored).toBe('amount_mismatch')
+    expect(getUser().plan).toBe(Plan.FREE)
+  })
+
+  it('does not apply a payment in a non-INR currency', async () => {
+    const res = await postSigned(paymentCapturedPayload({ currency: 'USD' }))
+
+    expect(res.body.ignored).toBe('amount_mismatch')
+    expect(getUser().plan).toBe(Plan.FREE)
+  })
+
+  it('returns 5xx (so Razorpay retries) when the order cannot be fetched, instead of dropping a real purchase', async () => {
+    mockOrdersFetch.mockRejectedValue(new Error('network down'))
+
+    const res = await postSigned(paymentCapturedPayload())
+
+    expect(res.status).toBe(502)
+    expect(getUser().plan).toBe(Plan.FREE)
   })
 
   it('this user\'s webhook and a separate verify-path payment both being idempotent share the same processedPaymentIds list', async () => {
