@@ -3,8 +3,10 @@ import crypto from 'crypto'
 import { config } from '../config'
 import { createError } from '../middleware/errorHandler'
 import { logger } from '../utils/logger'
-import { isPassType } from '../services/payments/passPricing'
+import { PASS_PRICING, isPassType } from '../services/payments/passPricing'
 import { applyPassPayment } from '../services/payments/applyPassPayment'
+import { getRazorpayClient } from '../services/payments/razorpayClient'
+import { receiptMatchesUser } from '../services/payments/orderOwnership'
 
 /**
  * Razorpay webhook — the authoritative, server-to-server counterpart to
@@ -24,6 +26,12 @@ import { applyPassPayment } from '../services/payments/applyPassPayment'
  * same services/payments/applyPassPayment.ts, keyed by payment id, so
  * whichever arrives first wins and the other is a no-op.
  *
+ * Shared-account safety: Razorpay delivers every payment on the merchant
+ * account to every active webhook, including other products' (e.g. NowMagnate
+ * Innovations). A payment is applied only if its order carries a JobMagnate
+ * receipt (services/payments/orderOwnership.ts) and the amount matches the
+ * catalog price; anything else is acknowledged with 200 and ignored.
+ *
  * Setup (manual, in Razorpay Dashboard -> Settings -> Webhooks):
  *   URL: https://<backend host>/api/webhooks/razorpay
  *   Active events: payment.captured (only one needed — see below)
@@ -41,8 +49,9 @@ interface RazorpayWebhookPayload {
     payment?: {
       entity?: {
         id?: string
-        order_id?: string
-        notes?: Record<string, string | number>
+        order_id?: string | null
+        amount?: number
+        currency?: string
       }
     }
   }
@@ -84,15 +93,55 @@ router.post('/razorpay', async (req: RawBodyRequest, res: Response, next: NextFu
     const payment = body.payload?.payment?.entity
     const paymentId = payment?.id
     const orderId = payment?.order_id
-    const passType = payment?.notes?.passType
-    const userId = payment?.notes?.userId
 
-    if (!paymentId || !orderId || typeof userId !== 'string' || !isPassType(passType)) {
-      // Malformed payload for an event we otherwise care about — log for
-      // investigation, but still 200 so Razorpay doesn't retry forever on
-      // something retrying will never fix.
-      logger.error('razorpayWebhook: payment.captured missing expected fields', { paymentId, orderId, passType, userId })
-      res.status(200).json({ received: true, error: 'missing_fields' })
+    // Webhooks are account-level: payments for other products on the same
+    // Razorpay account (e.g. NowMagnate Innovations) arrive here too, and
+    // must be acknowledged and dropped, never applied. Every JobMagnate pass
+    // goes through an order we created, so a payment with no order can't be
+    // ours (payment links, QR codes, etc.).
+    if (!paymentId || !orderId) {
+      logger.info('razorpayWebhook: payment.captured has no order — not a JobMagnate pass, ignoring')
+      res.status(200).json({ received: true, ignored: 'not_jobmagnate' })
+      return
+    }
+
+    // The payload's own `notes` are not trusted for identity: they are
+    // free-form and can be set by whoever initiates the payment. The order
+    // is fetched from Razorpay instead (same approach as /verify), since its
+    // receipt + notes were written server-side by create-order. A fetch
+    // failure throws -> 5xx -> Razorpay retries, rather than silently
+    // dropping a real purchase.
+    let order
+    try {
+      order = await getRazorpayClient().orders.fetch(orderId)
+    } catch (err) {
+      logger.error('razorpayWebhook: could not fetch order from Razorpay', { orderId, err: (err as Error).message })
+      throw createError(502, 'RAZORPAY_ERROR', 'Could not confirm the order with Razorpay')
+    }
+
+    const passType = order.notes?.passType
+    const userId = order.notes?.userId
+    if (typeof userId !== 'string' || !isPassType(passType) || !receiptMatchesUser(order.receipt, userId)) {
+      logger.info('razorpayWebhook: order was not created by JobMagnate create-order — ignoring', { orderId, paymentId })
+      res.status(200).json({ received: true, ignored: 'not_jobmagnate' })
+      return
+    }
+
+    // It's our order; now make sure what was actually paid matches the
+    // catalog price for that pass. A mismatch is never auto-applied and
+    // never retried (retrying can't fix it) — logged loudly for a human.
+    const expectedAmount = PASS_PRICING[passType].amountPaise
+    if (payment.amount !== expectedAmount || order.amount !== expectedAmount || payment.currency !== 'INR') {
+      logger.error('razorpayWebhook: JobMagnate order payment does not match catalog price — not applying', {
+        orderId,
+        paymentId,
+        passType,
+        expectedAmount,
+        paymentAmount: payment.amount,
+        orderAmount: order.amount,
+        currency: payment.currency,
+      })
+      res.status(200).json({ received: true, ignored: 'amount_mismatch' })
       return
     }
 
