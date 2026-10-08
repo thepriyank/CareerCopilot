@@ -44,6 +44,12 @@ variable "enabled_secrets" {
     "GEMINI_API_KEY",
     "OLLAMA_API_KEY",
     "OPENROUTER_API_KEY",
+    # Live Razorpay credentials — account activated 2026-09-21. Real
+    # rzp_live_* values populated directly via `gcloud secrets versions
+    # add`, never committed to source — NOT staging's rzp_test_* keys.
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET",
     # Free-tier Groq key, enabled 2026-09-23. The secret was created and
     # populated outside Terraform (value never touches state), then adopted
     # with `terraform import 'module.secrets["GROQ_API_KEY"].google_secret_manager_secret.this'
