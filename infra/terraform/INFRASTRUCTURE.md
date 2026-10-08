@@ -274,11 +274,12 @@ Notes:
   `production` (`6a2a9a3` api domain mapping, `6183bf5`/`94f39ed` Razorpay
   secrets, `6dd6b5c` a webhook fix that was also on `main`). The 2026-10-08
   back-merge reconciled them; the trees are identical since `361539f`.
-- **Branch protection on `production`: not yet enforced** — a ruleset that
-  lets only GitHub Actions push can't be created on a *personal* repo
-  (GitHub rejects an Integration bypass outside an organization). Options:
-  deploy-key bypass for the deploy workflows, admin bypass (doesn't stop
-  direct pushes by admins), or wait for the org move (NM-30).
+- **Branch protection on `production`: deferred to NM-30** (owner decision,
+  2026-10-08). A ruleset that lets only GitHub Actions push can't be created
+  on a *personal* repo (GitHub rejects an Integration bypass outside an
+  organization), so it's added right after the repo moves to the company
+  org — rules and bypass are spelled out in NM-30. Until then the release
+  cycle above is a rule, not something GitHub enforces.
 - All workflows authenticate to GCP keylessly via WIF as
   `jobmagnate-deployer` — **no GitHub secrets**. GitHub holds only 4
   repository **variables** (`NEXT_PUBLIC_FIREBASE_*`) used at frontend build.
