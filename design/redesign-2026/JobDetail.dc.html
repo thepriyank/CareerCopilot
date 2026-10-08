@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:oklch(0.985 0.002 255); --surface:#fff;
+      --surface-2:oklch(0.972 0.003 255); --surface-3:oklch(0.955 0.004 255);
+      --border:oklch(0.918 0.004 255); --border-strong:oklch(0.86 0.006 255);
+      --text:oklch(0.24 0.012 262); --text-2:oklch(0.44 0.012 262);
+      --text-muted:oklch(0.58 0.01 262); --text-faint:oklch(0.72 0.008 262);
+      --accent:oklch(0.63 0.108 185); --accent-subtle:oklch(0.965 0.028 185);
+      --accent-subtle-bd:oklch(0.90 0.045 185); --accent-text:oklch(0.44 0.09 185);
+      --success:oklch(0.60 0.12 155); --success-bg:oklch(0.962 0.03 155);
+      --warning:oklch(0.66 0.13 70); --warning-bg:oklch(0.96 0.05 78);
+      --ai:oklch(0.55 0.15 300); --ai-bg:oklch(0.965 0.035 300); --ai-bd:oklch(0.90 0.05 300);
+      --font:'Geist',-apple-system,'Segoe UI',system-ui,sans-serif;
+      --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;}
+    body{margin:0;font-family:var(--font);color:var(--text);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-0.006em;}
+    p{margin:0;}
+    .mono{font-family:var(--mono);}
+    .eyebrow{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--text-muted);}
+    .app{width:1440px;height:900px;display:flex;overflow:hidden;background:var(--bg);}
+    .sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 12px;}
+    .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 18px;font-size:15px;font-weight:600;letter-spacing:-0.02em;}
+    .brand i{width:24px;height:24px;border-radius:7px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:13px;}
+    .nav-item{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;color:var(--text-2);font-size:13px;font-weight:450;}
+    .nav-item svg{width:16px;height:16px;opacity:.75;}
+    .nav-item.active{background:var(--accent-subtle);color:var(--accent-text);font-weight:550;}
+    .nav-item.active svg{opacity:1;}
+    .nav-sec{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);padding:16px 10px 6px;}
+    .avatar{width:28px;height:28px;border-radius:999px;background:var(--accent-subtle);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:1px solid var(--accent-subtle-bd);}
+    .main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+    .topbar{height:56px;flex-shrink:0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 22px;background:var(--surface);}
+    .h-page{font-size:19px;font-weight:600;letter-spacing:-0.018em;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 3px oklch(0.2 0.02 262 / .09),0 1px 2px oklch(0.2 0.02 262 / .04);}
+    .btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;font-size:12px;font-weight:500;white-space:nowrap;cursor:pointer;}
+    .btn svg{width:13px;height:13px;}
+    .btn-secondary{background:var(--surface);color:var(--text);border-color:var(--border-strong);box-shadow:0 1px 2px oklch(0.2 0.02 262 / .06);}
+    .btn-ghost{background:transparent;color:var(--text-2);}
+    .tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);}
+    .tag svg{width:11px;height:11px;}
+    .tag-match{background:var(--success-bg);color:var(--success);border-color:transparent;}
+    .tag-gap{background:var(--warning-bg);color:oklch(0.45 0.11 60);border-color:transparent;}
+    .tag-accent{background:var(--accent-subtle);color:var(--accent-text);border-color:var(--accent-subtle-bd);}
+    .ai-badge{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px 0 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--ai-bg);color:var(--ai);border:1px solid var(--ai-bd);}
+    .ai-badge::before{content:"";width:7px;height:7px;border-radius:999px;background:var(--ai);box-shadow:0 0 0 3px var(--ai-bd);}
+    .sec-head{display:flex;align-items:center;justify-content:space-between;}
+    .doc{font-size:13px;line-height:1.62;color:var(--text-2);}
+    .doc p{margin-bottom:8px;}
+    .doc strong{color:var(--text);font-weight:600;}
+  </style>
+</helmet>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><i>C</i>Copilot</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Resume</div>
+    <div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Jobs</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Tailoring</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Approvals</div>
+    <div class="nav-sec">Growth</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Skill roadmap</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 17v-7"/></svg>LinkedIn</div>
+    <div style="flex:1;"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid var(--border);">
+      <div class="avatar">AM</div>
+      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:550;">Aarav Mehta</div><div style="font-size:11px;color:var(--text-muted);">Free plan</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="flex:1;min-width:0;">
+        <div class="eyebrow" style="margin-bottom:2px;">Razorpay · Bengaluru</div>
+        <div class="h-page">Staff Backend Engineer</div>
+      </div>
+      <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Original posting</button>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1.1fr;overflow:hidden;">
+
+      <!-- LEFT: JD -->
+      <div style="border-right:1px solid var(--border);overflow:auto;padding:24px 28px;background:var(--surface);">
+        <div style="display:flex;gap:6px;margin-bottom:14px;">
+          <span class="tag">greenhouse</span><span class="tag">Senior</span>
+          <span class="tag tag-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Remote</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">₹80L – ₹1.1Cr · Full-time</div>
+        <div class="eyebrow" style="margin-bottom:10px;">Job description</div>
+        <div class="doc">
+          <p>Razorpay is looking for a Staff Backend Engineer to own the design and reliability of our core payments ledger — the system of record for every transaction on the platform.</p>
+          <p><strong>What you&rsquo;ll do</strong></p>
+          <p>Lead the architecture of a high-throughput ledger service handling millions of transactions per day at four-nines availability. Drive the migration from a monolith to event-driven services on Kafka. Set the standard for observability, on-call and incident response across the payments domain. Mentor senior and mid-level engineers and review designs across teams.</p>
+          <p><strong>What we&rsquo;re looking for</strong></p>
+          <p>8+ years building backend systems, with deep experience in Go or Java and PostgreSQL at scale. Hands-on with distributed systems, message queues and idempotency. Experience running infrastructure as code (Terraform) and gRPC service meshes is a strong plus.</p>
+          <p>Familiarity with the Indian payments stack (UPI, NPCI rails) is valued but not required.</p>
+        </div>
+      </div>
+
+      <!-- RIGHT: analysis -->
+      <div style="overflow:auto;padding:24px;background:var(--bg);display:flex;flex-direction:column;gap:14px;">
+
+        <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+          <div class="sec-head">
+            <div class="eyebrow">Match</div>
+            <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Recompute</button>
+          </div>
+          <div style="display:flex;gap:18px;align-items:flex-start;">
+            <div style="width:56px;height:56px;position:relative;flex-shrink:0;">
+              <svg width="56" height="56" viewBox="0 0 56 56" style="transform:rotate(-90deg);"><circle cx="28" cy="28" r="24" fill="none" stroke="var(--surface-3)" stroke-width="5"/><circle cx="28" cy="28" r="24" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="18"/></svg>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:500;font-size:16px;">88</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                <span class="tag tag-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Go</span>
+                <span class="tag tag-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>PostgreSQL</span>
+                <span class="tag tag-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Kafka</span>
+                <span class="tag tag-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>Distributed systems</span>
+                <span class="tag tag-gap">+ Terraform</span>
+                <span class="tag tag-gap">+ gRPC</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-muted);">Location matches · Within your range</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+          <div class="sec-head">
+            <div class="eyebrow">Skill gap</div>
+            <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Recheck</button>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;">On your résumé</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+              <span class="tag tag-match">Go</span><span class="tag tag-match">PostgreSQL</span><span class="tag tag-match">Kafka</span><span class="tag tag-match">Kubernetes</span><span class="tag tag-match">AWS</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;">Real gaps</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+              <span class="tag tag-gap">+ Terraform</span><span class="tag tag-gap">+ gRPC</span><span class="tag tag-gap">+ GraphQL</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+          <div class="sec-head">
+            <div class="eyebrow">Cover letter</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>PDF</button>
+              <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Regenerate</button>
+            </div>
+          </div>
+          <span class="ai-badge">AI-generated · needs your approval</span>
+          <div class="doc">
+            <p>Dear Razorpay Hiring Team,</p>
+            <p>The chance to own the reliability of the payments ledger is exactly the problem I want to work on next. For the last four years I&rsquo;ve built and run high-throughput financial systems, and I&rsquo;ve done the migration you&rsquo;re describing.</p>
+            <p><strong>Led a ledger rebuild</strong> — moved settlement reconciliation from a nightly batch to an event-driven pipeline on Kafka, cutting close time from six hours to twenty minutes.</p>
+            <p><strong>Set the on-call standard</strong> — authored the runbooks and SLOs for a nine-service payments domain now running at 99.98%.</p>
+          </div>
+        </div>
+
+        <div class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+          <div class="sec-head">
+            <div class="eyebrow">Tailored résumé</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>PDF</button>
+              <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Re-tailor</button>
+            </div>
+          </div>
+          <span class="ai-badge">AI-generated · needs your approval</span>
+          <div class="doc">
+            <p>Backend engineer with 7 years building payments and marketplace systems at scale, focused on event-driven architecture, ledger correctness and on-call rigour.</p>
+            <p><strong>Senior Backend Engineer · Razorpay-adjacent fintech</strong></p>
+            <p>· Rebuilt settlement reconciliation as a Kafka pipeline, cutting close time 6h → 20m.<br>· Introduced contract testing across 9 services, dropping integration incidents 40%.<br>· Owned SLOs and on-call for the payments domain at 99.98% availability.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

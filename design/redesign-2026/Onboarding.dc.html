@@ -1,0 +1,167 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:oklch(0.985 0.002 255); --surface:#fff;
+      --surface-2:oklch(0.972 0.003 255); --surface-3:oklch(0.955 0.004 255);
+      --border:oklch(0.918 0.004 255); --border-strong:oklch(0.86 0.006 255);
+      --text:oklch(0.24 0.012 262); --text-2:oklch(0.44 0.012 262);
+      --text-muted:oklch(0.58 0.01 262); --text-faint:oklch(0.72 0.008 262);
+      --accent:oklch(0.63 0.108 185); --accent-hover:oklch(0.57 0.11 185);
+      --accent-subtle:oklch(0.965 0.028 185); --accent-subtle-bd:oklch(0.90 0.045 185);
+      --accent-text:oklch(0.44 0.09 185);
+      --font:'Geist',-apple-system,'Segoe UI',system-ui,sans-serif;
+      --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;}
+    body{margin:0;font-family:var(--font);color:var(--text);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-0.006em;}
+    p{margin:0;}
+    .mono{font-family:var(--mono);}
+    .eyebrow{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--text-muted);}
+    .app{width:1440px;height:900px;display:flex;overflow:hidden;background:var(--bg);}
+    .sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 12px;}
+    .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 18px;font-size:15px;font-weight:600;letter-spacing:-0.02em;}
+    .brand i{width:24px;height:24px;border-radius:7px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:13px;}
+    .nav-item{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;color:var(--text-2);font-size:13px;font-weight:450;}
+    .nav-item svg{width:16px;height:16px;opacity:.75;}
+    .nav-item.active{background:var(--accent-subtle);color:var(--accent-text);font-weight:550;}
+    .nav-item.active svg{opacity:1;}
+    .nav-sec{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);padding:16px 10px 6px;}
+    .avatar{width:28px;height:28px;border-radius:999px;background:var(--accent-subtle);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:1px solid var(--accent-subtle-bd);}
+    .main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+    .topbar{height:56px;flex-shrink:0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 22px;background:var(--surface);}
+    .h-page{font-size:19px;font-weight:600;letter-spacing:-0.018em;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 3px oklch(0.2 0.02 262 / .09),0 1px 2px oklch(0.2 0.02 262 / .04);}
+    .ai-av{width:30px;height:30px;border-radius:999px;background:var(--accent-subtle);color:var(--accent-text);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--accent-subtle-bd);}
+    .ai-av svg{width:15px;height:15px;}
+    .bubble-ai{background:var(--surface);border:1px solid var(--border);padding:10px 14px;border-radius:4px 14px 14px 14px;font-size:13.5px;line-height:1.5;color:var(--text);max-width:520px;}
+    .bubble-user{align-self:flex-end;background:var(--accent);color:#fff;padding:10px 14px;border-radius:14px 14px 4px 14px;font-size:13.5px;line-height:1.5;max-width:460px;}
+    .note{background:var(--accent-subtle);border:1px solid var(--accent-subtle-bd);color:var(--accent-text);padding:10px 14px;border-radius:4px 14px 14px 14px;font-size:13px;line-height:1.5;max-width:520px;}
+    .qr{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;font-size:12.5px;font-weight:500;background:var(--surface);border:1px solid var(--border-strong);color:var(--text-2);cursor:pointer;}
+    .send{width:32px;height:32px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .send svg{width:15px;height:15px;}
+    .frow{padding:10px 0;border-bottom:1px solid var(--border);}
+    .flabel{font-family:var(--mono);font-size:10px;letter-spacing:.10em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;}
+    .skel{height:10px;border-radius:999px;background:var(--surface-3);}
+  </style>
+</helmet>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><i>C</i>Copilot</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Resume</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Jobs</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Tailoring</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Approvals</div>
+    <div class="nav-sec">Growth</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Skill roadmap</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 17v-7"/></svg>LinkedIn</div>
+    <div style="flex:1;"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid var(--border);">
+      <div class="avatar">AM</div>
+      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:550;">Aarav Mehta</div><div style="font-size:11px;color:var(--text-muted);">Free plan</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="flex:1;min-width:0;">
+        <div class="eyebrow" style="margin-bottom:2px;">Onboarding · Step 2 of 3</div>
+        <div class="h-page">Tell me about your search</div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);">45% complete</div>
+      <div style="width:80px;height:4px;background:var(--surface-3);border-radius:999px;overflow:hidden;"><div style="width:45%;height:100%;background:var(--accent);border-radius:999px;"></div></div>
+    </div>
+
+    <div style="flex:1;display:grid;grid-template-columns:1fr 340px;overflow:hidden;">
+
+      <!-- chat -->
+      <div style="display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--surface);">
+        <div style="flex:1;overflow:auto;padding:22px 26px 16px;display:flex;flex-direction:column;gap:16px;">
+
+          <div style="display:flex;gap:10px;">
+            <div class="ai-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg></div>
+            <div class="bubble-ai">Hi! I&rsquo;ve parsed your résumé. Let&rsquo;s talk about what you&rsquo;re looking for — what kind of role are you targeting next?</div>
+          </div>
+
+          <div class="bubble-user">Staff Backend Engineer or Principal Engineer — I want to stay hands-on but lead architecture.</div>
+
+          <div style="display:flex;gap:10px;">
+            <div class="ai-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg></div>
+            <div class="bubble-ai">Great — which industries are you most interested in? You can list a few.</div>
+          </div>
+
+          <div class="bubble-user">Fintech and payments, mostly. Open to infra-heavy SaaS too.</div>
+
+          <div style="display:flex;gap:10px;">
+            <div class="ai-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg></div>
+            <div class="note"><div class="eyebrow" style="color:var(--accent-text);margin-bottom:4px;">Why I&rsquo;m asking</div>Each answer makes job matching more precise and the tailoring prompts more specific to your situation.</div>
+          </div>
+
+          <div style="display:flex;gap:10px;">
+            <div class="ai-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg></div>
+            <div class="bubble-ai">Which cities or regions are you open to? You can say &ldquo;Remote only&rdquo; if that applies.</div>
+          </div>
+
+          <div class="bubble-user">Bengaluru, or fully remote within India.</div>
+
+          <div style="display:flex;gap:10px;">
+            <div class="ai-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg></div>
+            <div style="background:var(--surface);border:1px solid var(--border);padding:12px 14px;border-radius:4px 14px 14px 14px;display:flex;gap:4px;">
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--text-faint);display:inline-block;"></span>
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--text-faint);display:inline-block;"></span>
+              <span style="width:6px;height:6px;border-radius:999px;background:var(--text-faint);display:inline-block;"></span>
+            </div>
+          </div>
+
+        </div>
+
+        <div style="padding:0 26px 8px;display:flex;gap:6px;flex-wrap:wrap;">
+          <div class="qr">Remote only</div>
+          <div class="qr">Hybrid preferred</div>
+          <div class="qr">On-site OK</div>
+          <div class="qr">Flexible</div>
+        </div>
+
+        <div style="padding:8px 20px 18px;">
+          <div class="card" style="display:flex;align-items:center;gap:10px;padding:7px 8px 7px 14px;box-shadow:none;">
+            <div style="flex:1;font-size:14px;color:var(--text-faint);">Type your answer…</div>
+            <div class="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- live profile -->
+      <div style="overflow:auto;padding:24px;background:var(--bg);">
+        <div class="eyebrow" style="margin-bottom:12px;">Your profile — filling in</div>
+        <div class="card" style="padding:18px;">
+          <div class="frow"><div class="flabel">Target roles</div><div style="font-size:14px;">Staff Backend Engineer, Principal Engineer</div></div>
+          <div class="frow"><div class="flabel">Industries</div><div style="font-size:14px;">Fintech, Payments</div></div>
+          <div class="frow"><div class="flabel">Location</div><div style="font-size:14px;">Bengaluru, Remote (India)</div></div>
+          <div class="frow"><div class="flabel">Remote preference</div><div class="skel" style="width:55%;"></div></div>
+          <div class="frow" style="border-bottom:none;"><div class="flabel">Salary</div><div class="skel" style="width:40%;"></div></div>
+        </div>
+        <div style="margin-top:16px;padding:14px;background:var(--accent-subtle);border:1px solid var(--accent-subtle-bd);border-radius:10px;font-size:12.5px;color:var(--accent-text);line-height:1.5;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>
+            <span class="eyebrow" style="color:var(--accent-text);">Why I&rsquo;m asking</span>
+          </div>
+          Each answer sharpens job matching and makes the tailoring prompts specific to your actual situation.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

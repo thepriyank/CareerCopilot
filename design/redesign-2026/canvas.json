@@ -1,0 +1,22 @@
+{
+  "artboards": [
+    { "file": "Foundations.dc.html", "x": 0,    "y": 0,    "w": 1440, "h": 1560, "title": "Foundations" },
+    { "file": "Components.dc.html",  "x": 1560, "y": 0,    "w": 1440, "h": 1760, "title": "Components" },
+    { "file": "Shell.dc.html",       "x": 0,    "y": 1960, "w": 1440, "h": 900,  "title": "App shell" },
+    { "file": "Main.dc.html",        "x": 1560, "y": 1960, "w": 1440, "h": 900,  "title": "Dashboard" },
+    { "file": "Jobs.dc.html",        "x": 0,    "y": 3000, "w": 1440, "h": 900,  "title": "Jobs" },
+    { "file": "JobDetail.dc.html",   "x": 1560, "y": 3000, "w": 1440, "h": 900,  "title": "Job detail" },
+    { "file": "Approvals.dc.html",   "x": 0,    "y": 4040, "w": 1440, "h": 900,  "title": "Approvals" },
+    { "file": "Onboarding.dc.html",  "x": 1560, "y": 4040, "w": 1440, "h": 900,  "title": "Onboarding" }
+  ],
+  "annotations": [
+    {
+      "id": "direction-note",
+      "x": 0,
+      "y": -150,
+      "w": 1000,
+      "text": "Tech-SaaS redesign — core flow.\nCool-grey neutrals, one teal accent, Geist throughout; the warm-editorial skin (paper + Instrument Serif + ochre/sage) is replaced. Layout structure and content are lifted from the live app. Foundations + Components define the system; Shell + the five core screens apply it. Remaining screens (Resume, Master résumé, Tailoring, Roadmap, LinkedIn, Settings, auth) follow the same system in a later pass."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

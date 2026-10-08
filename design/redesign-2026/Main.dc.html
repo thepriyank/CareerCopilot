@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:oklch(0.985 0.002 255); --surface:#fff;
+      --surface-2:oklch(0.972 0.003 255); --surface-3:oklch(0.955 0.004 255);
+      --border:oklch(0.918 0.004 255); --border-strong:oklch(0.86 0.006 255);
+      --text:oklch(0.24 0.012 262); --text-2:oklch(0.44 0.012 262);
+      --text-muted:oklch(0.58 0.01 262); --text-faint:oklch(0.72 0.008 262);
+      --accent:oklch(0.63 0.108 185); --accent-hover:oklch(0.57 0.11 185);
+      --accent-subtle:oklch(0.965 0.028 185); --accent-subtle-bd:oklch(0.90 0.045 185);
+      --accent-text:oklch(0.44 0.09 185);
+      --success:oklch(0.60 0.12 155); --success-bg:oklch(0.962 0.03 155);
+      --warning:oklch(0.66 0.13 70); --warning-bg:oklch(0.96 0.05 78);
+      --info:oklch(0.60 0.10 240); --info-bg:oklch(0.962 0.03 240);
+      --ai:oklch(0.55 0.15 300); --ai-bg:oklch(0.965 0.035 300); --ai-bd:oklch(0.90 0.05 300);
+      --font:'Geist',-apple-system,'Segoe UI',system-ui,sans-serif;
+      --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;}
+    body{margin:0;font-family:var(--font);color:var(--text);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;letter-spacing:-0.006em;}
+    p{margin:0;}
+    .mono{font-family:var(--mono);}
+    .eyebrow{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.10em;text-transform:uppercase;color:var(--text-muted);}
+    .app{width:1440px;height:900px;display:flex;overflow:hidden;background:var(--bg);}
+    .sidebar{width:240px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 12px;}
+    .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 18px;font-size:15px;font-weight:600;letter-spacing:-0.02em;}
+    .brand i{width:24px;height:24px;border-radius:7px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:13px;}
+    .nav-item{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;color:var(--text-2);font-size:13px;font-weight:450;}
+    .nav-item svg{width:16px;height:16px;opacity:.75;}
+    .nav-item.active{background:var(--accent-subtle);color:var(--accent-text);font-weight:550;}
+    .nav-item.active svg{opacity:1;}
+    .nav-sec{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);padding:16px 10px 6px;}
+    .avatar{width:28px;height:28px;border-radius:999px;background:var(--accent-subtle);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:1px solid var(--accent-subtle-bd);}
+    .main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+    .topbar{height:56px;flex-shrink:0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 22px;background:var(--surface);}
+    .h-page{font-size:19px;font-weight:600;letter-spacing:-0.018em;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 3px oklch(0.2 0.02 262 / .09),0 1px 2px oklch(0.2 0.02 262 / .04);}
+    .btn{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:8px;border:1px solid transparent;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;}
+    .btn svg{width:14px;height:14px;}
+    .btn-primary{background:var(--accent);color:#fff;}
+    .btn-secondary{background:var(--surface);color:var(--text);border-color:var(--border-strong);box-shadow:0 1px 2px oklch(0.2 0.02 262 / .06);}
+    .btn-ghost{background:transparent;color:var(--text-2);}
+    .btn-sm{height:28px;padding:0 10px;font-size:12px;border-radius:6px;}
+    .tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:500;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);}
+    .tag svg{width:11px;height:11px;}
+    .tag-match{background:var(--success-bg);color:var(--success);border-color:transparent;}
+    .tag-gap{background:var(--warning-bg);color:oklch(0.45 0.11 60);border-color:transparent;}
+    .pill{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;}
+    .pill::before{content:"";width:6px;height:6px;border-radius:999px;background:currentColor;}
+    .pill-review{background:var(--info-bg);color:var(--info);}
+    .ai-badge{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px 0 7px;border-radius:999px;font-size:11px;font-weight:600;background:var(--ai-bg);color:var(--ai);border:1px solid var(--ai-bd);}
+    .ai-badge::before{content:"";width:7px;height:7px;border-radius:999px;background:var(--ai);box-shadow:0 0 0 3px var(--ai-bd);}
+    .logo-sq{width:30px;height:30px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;color:var(--text-2);flex-shrink:0;}
+    .stat-num{font-family:var(--mono);font-weight:500;font-size:34px;letter-spacing:-0.02em;line-height:1;}
+  </style>
+</helmet>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><i>C</i>Copilot</div>
+    <div class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Dashboard</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Resume</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Jobs</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Tailoring</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Approvals</div>
+    <div class="nav-sec">Growth</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 4-6 2v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Skill roadmap</div>
+    <div class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 17v-7"/></svg>LinkedIn</div>
+    <div style="flex:1;"></div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid var(--border);">
+      <div class="avatar">AM</div>
+      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:550;">Aarav Mehta</div><div style="font-size:11px;color:var(--text-muted);">Free plan</div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="flex:1;min-width:0;">
+        <div class="eyebrow" style="margin-bottom:2px;">Welcome back</div>
+        <div class="h-page">Wednesday, 26 February</div>
+      </div>
+      <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add a job</button>
+    </div>
+
+    <div style="flex:1;overflow:auto;padding:28px;display:flex;flex-direction:column;gap:16px;">
+
+      <!-- TOP STRIP -->
+      <div style="display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:14px;">
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div class="eyebrow">Master résumé</div>
+            <span class="pill pill-review">In review</span>
+          </div>
+          <div>
+            <div style="font-size:16px;font-weight:600;letter-spacing:-0.01em;">3 AI edits waiting</div>
+            <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">Review the enhancements and approve your master.</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:auto;">
+            <button class="btn btn-primary btn-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.9L18.7 9l-4.9 1.8L12 15.7 10.2 10.8 5.3 9l4.9-1.8z"/></svg>Open master résumé</button>
+            <button class="btn btn-ghost btn-sm">My uploads</button>
+          </div>
+        </div>
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
+          <div class="eyebrow">Matches this week</div>
+          <div class="stat-num" style="margin-top:8px;">12</div>
+        </div>
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
+          <div class="eyebrow">Pending approval</div>
+          <div><div class="stat-num" style="margin-top:8px;">4</div><div style="font-size:12px;color:var(--text-muted);margin-top:4px;">3 reviewed this week</div></div>
+        </div>
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;justify-content:space-between;">
+          <div class="eyebrow">Approval rate</div>
+          <div class="stat-num" style="margin-top:8px;">78%</div>
+        </div>
+      </div>
+
+      <!-- MIDDLE -->
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:14px;">
+        <div class="card" style="padding:18px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div><div class="eyebrow">Top matches</div><div style="font-size:15px;font-weight:600;letter-spacing:-0.01em;margin-top:3px;">Three I&rsquo;d start with</div></div>
+            <button class="btn btn-ghost btn-sm">All matches
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div style="display:flex;flex-direction:column;">
+            <div style="display:grid;grid-template-columns:30px 1fr auto 92px;gap:14px;align-items:center;padding:11px 4px;border-bottom:1px solid var(--border);">
+              <div class="logo-sq">R</div>
+              <div style="min-width:0;"><div style="font-size:13.5px;font-weight:550;">Staff Backend Engineer</div><div style="font-size:11.5px;color:var(--text-muted);">Razorpay · Bengaluru</div></div>
+              <div style="display:flex;gap:5px;"><span class="tag tag-match">Go</span><span class="tag tag-match">Kafka</span><span class="tag tag-gap">+ Terraform</span></div>
+              <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+                <div style="width:36px;height:36px;position:relative;"><svg width="36" height="36" viewBox="0 0 36 36" style="transform:rotate(-90deg);"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--surface-3)" stroke-width="4"/><circle cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="11.3"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:500;">88</div></div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:30px 1fr auto 92px;gap:14px;align-items:center;padding:11px 4px;border-bottom:1px solid var(--border);">
+              <div class="logo-sq">Z</div>
+              <div style="min-width:0;"><div style="font-size:13.5px;font-weight:550;">Senior Platform Engineer</div><div style="font-size:11.5px;color:var(--text-muted);">Zerodha · Remote (India)</div></div>
+              <div style="display:flex;gap:5px;"><span class="tag tag-match">Go</span><span class="tag tag-match">AWS</span><span class="tag tag-gap">+ gRPC</span></div>
+              <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+                <div style="width:36px;height:36px;position:relative;"><svg width="36" height="36" viewBox="0 0 36 36" style="transform:rotate(-90deg);"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--surface-3)" stroke-width="4"/><circle cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="17.9"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:500;">81</div></div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:30px 1fr auto 92px;gap:14px;align-items:center;padding:11px 4px;">
+              <div class="logo-sq">C</div>
+              <div style="min-width:0;"><div style="font-size:13.5px;font-weight:550;">Backend Engineer II</div><div style="font-size:11.5px;color:var(--text-muted);">CRED · Bengaluru</div></div>
+              <div style="display:flex;gap:5px;"><span class="tag tag-match">PostgreSQL</span><span class="tag tag-match">Redis</span><span class="tag tag-gap">+ GraphQL</span></div>
+              <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+                <div style="width:36px;height:36px;position:relative;"><svg width="36" height="36" viewBox="0 0 36 36" style="transform:rotate(-90deg);"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--surface-3)" stroke-width="4"/><circle cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="22.6"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:500;">76</div></div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;">
+          <div class="eyebrow" style="margin-bottom:12px;">Recent activity</div>
+          <div style="display:flex;flex-direction:column;">
+            <div style="display:flex;gap:12px;padding:9px 0;"><div style="width:6px;height:6px;border-radius:999px;margin-top:7px;flex-shrink:0;background:var(--ai);"></div><div style="flex:1;"><div style="font-size:13px;">Tailored résumé generated for Razorpay</div><div style="font-size:11.5px;color:var(--text-muted);">2h ago</div></div></div>
+            <div style="display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border);"><div style="width:6px;height:6px;border-radius:999px;margin-top:7px;flex-shrink:0;background:var(--accent);"></div><div style="flex:1;"><div style="font-size:13px;">Match scored for Zerodha — 81</div><div style="font-size:11.5px;color:var(--text-muted);">5h ago</div></div></div>
+            <div style="display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border);"><div style="width:6px;height:6px;border-radius:999px;margin-top:7px;flex-shrink:0;background:var(--success);"></div><div style="flex:1;"><div style="font-size:13px;">Cover letter approved for Postman</div><div style="font-size:11.5px;color:var(--text-muted);">Yesterday</div></div></div>
+            <div style="display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border);"><div style="width:6px;height:6px;border-radius:999px;margin-top:7px;flex-shrink:0;background:var(--info);"></div><div style="flex:1;"><div style="font-size:13px;">LinkedIn review completed</div><div style="font-size:11.5px;color:var(--text-muted);">2d ago</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="card" style="padding:18px;display:flex;gap:18px;align-items:center;">
+          <div style="width:76px;height:76px;position:relative;flex-shrink:0;">
+            <svg width="76" height="76" viewBox="0 0 76 76" style="transform:rotate(-90deg);"><circle cx="38" cy="38" r="32" fill="none" stroke="var(--surface-3)" stroke-width="6"/><circle cx="38" cy="38" r="32" fill="none" stroke="var(--warning)" stroke-width="6" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="76"/></svg>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:24px;font-weight:500;">62</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="eyebrow">Top skill gap</div>
+            <div style="font-size:19px;font-weight:600;letter-spacing:-0.015em;margin-top:3px;">Terraform</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Missing in 5 of your scored jobs.</div>
+          </div>
+          <button class="btn btn-secondary btn-sm">Open roadmap</button>
+        </div>
+
+        <div class="card" style="padding:18px;display:flex;gap:16px;align-items:center;">
+          <div style="width:52px;height:52px;border-radius:11px;background:var(--info-bg);color:var(--info);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 17v-7"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div class="eyebrow">LinkedIn review</div>
+            <div style="font-size:15px;font-weight:600;letter-spacing:-0.01em;margin-top:3px;">Your profile scores 74</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">A headline rewrite is ready — pick one to copy.</div>
+          </div>
+          <button class="btn btn-secondary btn-sm">View feedback</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
