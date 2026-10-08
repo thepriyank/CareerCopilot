@@ -24,6 +24,12 @@ real mistakes (see that changelog entry).
 
 **Changelog (most recent first):**
 
+- **2026-10-08** — Release-process cleanup: merged `production` back into
+  `main` (`361539f`) so `main` now carries the production-only Razorpay
+  Terraform entries and the deploy-bookkeeping commits — the two branches
+  are file-identical. New rule: back-merge `production` into `main` after
+  every release (see CI/CD). Doc + git only — no infra change.
+
 - **2026-10-07** — **Full re-sync (NM-17).** Rewritten against live state:
   production marked live with its real resources; the link-check job is
   applied and running (was "not yet applied"); job-cleanup and pass-expiry
@@ -139,12 +145,14 @@ Backend runtime SAs hold `roles/storage.objectAdmin` on `jobmagnet-user-data`
 other project roles. Redis is **not configured anywhere** (deliberate; the
 app no-ops its LLM cache without it).
 
-**Production's Terraform differs from `main`'s copy.** The `production`
-branch carries production-only config that is never on `main` (live
-Razorpay secrets in `enabled_secrets` / `all_secrets`). **Always run
-production `terraform plan`/`apply` from the `production` branch (or a
-worktree of it after merging `main`), never from `main`** — planning
-production from `main` shows the Razorpay secrets being destroyed.
+**Production Terraform runs from the `production` branch.** Since the
+2026-10-08 back-merge (`361539f`), `main` carries everything `production`
+has — including the live Razorpay secret entries that used to exist only on
+`production` (committed there directly on 2026-09-21), which is why
+planning production from `main` used to show them being destroyed. Even so,
+**run production `terraform plan`/`apply` from the `production` branch (or
+a worktree of it, with a branch check)** — that's what the apply workflow
+uses, and `main` can be ahead between releases.
 
 ### Secrets (Secret Manager, as of 2026-10-07)
 
@@ -252,8 +260,25 @@ All three mappings report Ready with certificates provisioned.
 | `terraform-plan.yml` | PRs touching `infra/terraform/**` | plan both environments |
 
 Notes:
-- **Release = merge `main` into `production` and push.** No PRs into
-  `production`; the merge is done locally and pushed.
+- **Release cycle (rule since 2026-10-08, also in `CLAUDE.md`):**
+  1. Changes land on `main` only — never commit or push straight to
+     `production`.
+  2. `main` deploys to staging; check it there.
+  3. Release: PR from `main` into `production`, merged with **"Create a
+     merge commit"** (never squash/rebase), then approve the production
+     deploy runs.
+  4. **Back-merge:** merge `production` into `main` and push, so `main`
+     also has the `chore(production): deploy …` image-tag commits.
+     Afterwards `git diff origin/main origin/production` must be empty.
+- **History note:** before 2026-10-08, four commits went straight to
+  `production` (`6a2a9a3` api domain mapping, `6183bf5`/`94f39ed` Razorpay
+  secrets, `6dd6b5c` a webhook fix that was also on `main`). The 2026-10-08
+  back-merge reconciled them; the trees are identical since `361539f`.
+- **Branch protection on `production`: not yet enforced** — a ruleset that
+  lets only GitHub Actions push can't be created on a *personal* repo
+  (GitHub rejects an Integration bypass outside an organization). Options:
+  deploy-key bypass for the deploy workflows, admin bypass (doesn't stop
+  direct pushes by admins), or wait for the org move (NM-30).
 - All workflows authenticate to GCP keylessly via WIF as
   `jobmagnate-deployer` — **no GitHub secrets**. GitHub holds only 4
   repository **variables** (`NEXT_PUBLIC_FIREBASE_*`) used at frontend build.
